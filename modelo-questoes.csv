@@ -1,0 +1,3 @@
+id;categoria;tipo;pergunta;imagem_pergunta;alt_a;img_a;alt_b;img_b;alt_c;img_c;alt_d;img_d;alt_e;img_e;correta;feedback
+1;Routing;single;Qual protocolo utiliza a porta TCP 179?;;BGP;;OSPF;;RIP;;EIGRP;;;A;O BGP utiliza a porta TCP 179.
+2;Routing;multiple;Quais protocolos são IGP?;;OSPF;;BGP;;EIGRP;;MPLS;;;A,C;OSPF e EIGRP são protocolos IGP.

@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Simulador de questões com CSV e imagens.">
+  <title>Simulador de Certificação</title>
+  <link rel="stylesheet" href="style.css">
+  <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script defer src="app.js"></script>
+</head>
+<body>
+  <div id="loadingOverlay" class="loading-overlay hidden"><div class="loading-card"><div class="spinner"></div><p id="loadingText">Carregando...</p></div></div>
+  <div id="imageModal" class="image-modal hidden" role="dialog" aria-modal="true">
+    <button id="closeImageModal" class="modal-close" type="button">×</button>
+    <div class="modal-image-stage"><img id="modalImage" alt="Imagem ampliada"></div>
+  </div>
+
+  <main class="app-container">
+    <header class="main-header">
+      <p class="eyebrow">BANCO DE QUESTÕES</p>
+      <h1>Simulador Online</h1>
+      <p>Importe o CSV e a pasta de imagens para estudar diretamente no navegador.</p>
+    </header>
+
+    <section id="setupScreen">
+      <div class="card">
+        <div class="section-heading">
+          <div><p class="section-kicker">Configuração</p><h2>Prepare seu simulado</h2></div>
+          <span class="privacy-badge">Processamento local</span>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="csvFile">Arquivo CSV</label>
+            <input type="file" id="csvFile" accept=".csv,text/csv">
+            <small>Salve no Excel como CSV UTF-8.</small>
+          </div>
+          <div class="form-group">
+            <label for="imageFolder">Pasta de imagens</label>
+            <input type="file" id="imageFolder" webkitdirectory directory multiple>
+            <small>Selecione a pasta com as imagens citadas no CSV.</small>
+          </div>
+          <div class="form-group">
+            <label for="questionLimit">Quantidade de questões</label>
+            <input type="number" id="questionLimit" value="50" min="1">
+          </div>
+          <div class="form-group">
+            <label for="timeLimit">Tempo limite em minutos</label>
+            <input type="number" id="timeLimit" value="0" min="0">
+            <small>Use 0 para não limitar.</small>
+          </div>
+        </div>
+
+        <div class="switch-row">
+          <label><input type="checkbox" id="shuffleQuestions" checked> Embaralhar questões</label>
+          <label><input type="checkbox" id="showUnansweredWarning" checked> Avisar sobre não respondidas</label>
+        </div>
+
+        <div id="resumeNotice" class="resume-notice hidden">
+          <div><strong>Progresso encontrado</strong><p id="resumeDescription"></p></div>
+          <button id="resumeBtn" class="btn btn-success" type="button">Continuar simulado</button>
+        </div>
+
+        <div class="setup-actions">
+          <button id="startBtn" class="btn btn-primary" type="button">Iniciar novo simulado</button>
+          <button id="clearSavedBtn" class="btn btn-ghost hidden" type="button">Apagar progresso salvo</button>
+        </div>
+        <div id="importStatus" class="import-status"></div>
+      </div>
+
+      <details class="card csv-help">
+        <summary>Ver formato esperado do CSV</summary>
+        <pre>id;categoria;tipo;pergunta;imagem_pergunta;alt_a;img_a;alt_b;img_b;alt_c;img_c;alt_d;img_d;alt_e;img_e;correta;feedback</pre>
+      </details>
+    </section>
+
+    <section id="quizScreen" class="hidden">
+      <div class="quiz-toolbar">
+        <div class="dashboard">
+          <div class="dashboard-item"><span>Questão</span><strong><span id="currentQuestion">1</span>/<span id="totalQuestions">0</span></strong></div>
+          <div class="dashboard-item"><span>Respondidas</span><strong id="answeredCount">0</strong></div>
+          <div class="dashboard-item"><span>Tempo</span><strong id="timer">00:00</strong></div>
+        </div>
+        <button id="saveAndExitBtn" class="btn btn-ghost" type="button">Salvar e sair</button>
+      </div>
+
+      <div class="progress-wrapper"><div id="progressBar" class="progress-bar"></div></div>
+
+      <article class="card question-card">
+        <div class="question-meta"><span id="questionCategory" class="question-category hidden"></span><span id="questionTypeBadge" class="type-badge"></span></div>
+        <h2 id="questionText"></h2>
+        <div id="questionImageWrapper" class="original-image-scroll hidden"><img id="questionImage" class="question-image" alt="Imagem do enunciado"></div>
+        <div id="multipleAlert" class="multiple-alert hidden">Selecione todas as alternativas corretas.</div>
+        <div id="optionsContainer" class="options-container"></div>
+      </article>
+
+      <nav class="navigation">
+        <button id="prevBtn" class="btn btn-secondary" type="button">← Anterior</button>
+        <button id="nextBtn" class="btn btn-primary" type="button">Próxima →</button>
+      </nav>
+    </section>
+
+    <section id="resultScreen" class="hidden">
+      <div class="card">
+        <div class="section-heading"><div><p class="section-kicker">Conclusão</p><h2>Resultado final</h2></div><span id="resultTime" class="result-time"></span></div>
+        <div class="stats-grid">
+          <div class="stat-card success"><span>Acertos</span><strong id="correctCount">0</strong></div>
+          <div class="stat-card error"><span>Erros</span><strong id="wrongCount">0</strong></div>
+          <div class="stat-card info"><span>Aproveitamento</span><strong id="scorePercent">0%</strong></div>
+        </div>
+        <div class="result-actions"><button id="showOnlyErrors" class="btn btn-danger">Mostrar apenas erros</button><button id="showAllReview" class="btn btn-secondary">Mostrar tudo</button></div>
+        <div id="reviewContainer" class="review-container"></div>
+        <div class="result-footer"><button id="restartBtn" class="btn btn-primary">Novo simulado</button></div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
