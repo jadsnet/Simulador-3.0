@@ -31,7 +31,6 @@
         <button class="side-link" data-scroll="import"><span>⇩</span>Importar banco</button>
         <button class="side-link" data-scroll="backup"><span>⚙</span>Configurações</button>
       </nav>
-      <div class="sidebar-bottom"><span>☾ Tema escuro</span><i></i></div>
     </aside>
 
     <main class="content-shell">
@@ -80,9 +79,65 @@
 
       <section id="setupScreen" class="screen hidden"><article class="panel setup-panel"><div class="panel-title"><div><p>CONFIGURAÇÃO</p><h2 id="selectedBankName">Banco</h2></div><button id="backHomeBtn" class="btn secondary">Voltar</button></div><div id="resumeBox" class="resume-box hidden"><div><span>Em andamento</span><strong>Continuar simulado</strong><p id="resumeText"></p></div><button id="resumeBtn" class="btn primary">Continuar</button></div><div class="setup-grid"><label class="field"><span>Quantidade de questões</span><input id="questionLimit" type="number" min="1" value="50"></label><label class="field"><span>Tempo limite em minutos</span><input id="timeLimit" type="number" min="0" value="0"></label></div><div class="checks"><label><input id="shuffleQuestions" type="checkbox" checked><span><strong>Embaralhar questões</strong><small>Nova ordem para cada simulado.</small></span></label><label><input id="warnUnanswered" type="checkbox" checked><span><strong>Avisar sobre não respondidas</strong><small>Confirma antes de finalizar.</small></span></label></div><div class="actions"><button id="startQuizBtn" class="btn primary">Iniciar novo simulado</button><button id="deleteProgressBtn" class="btn danger hidden">Apagar progresso</button></div></article></section>
 
-      <section id="quizScreen" class="screen hidden"><div class="quiz-top"><div class="dashboard"><div><span>Questão</span><strong><span id="currentQuestion">1</span>/<span id="totalQuestions">0</span></strong></div><div><span>Respondidas</span><strong id="answeredCount">0</strong></div><div><span>Tempo</span><strong id="timer">00:00</strong></div></div><div class="quiz-actions"><button id="toggleNavigatorBtn" class="btn secondary">Navegação</button><button id="saveExitBtn" class="btn secondary">Salvar e sair</button></div></div><div class="progress-track"><div id="progressBar" class="progress-fill"></div></div><div class="quiz-layout"><article class="panel question-card"><div class="question-tags"><span id="categoryBadge" class="badge hidden"></span><span id="typeBadge" class="badge neutral"></span></div><h2 id="questionText"></h2><div id="questionImageWrap" class="image-scroll hidden"><img id="questionImage" class="source-image" alt="Imagem do enunciado"></div><div id="multipleNotice" class="notice hidden">Selecione todas as respostas corretas.</div><div id="optionsContainer" class="options"></div><div class="question-tools"><button id="favoriteBtn" class="text-btn">☆ Favoritar</button><button id="reviewLaterBtn" class="text-btn">⚑ Revisar depois</button></div></article><aside id="questionNavigator" class="panel navigator hidden"><div class="navigator-head"><strong>Navegação</strong><button id="closeNavigatorBtn" class="close-nav">×</button></div><div class="legend"><span><i class="dot blue-dot"></i>Respondida</span><span><i class="dot gray-dot"></i>Não respondida</span><span><i class="dot amber-dot"></i>Marcada</span></div><div id="navigatorGrid" class="navigator-grid"></div></aside></div><nav class="navigation"><button id="prevBtn" class="btn secondary">← Anterior</button><button id="nextBtn" class="btn primary">Próxima →</button></nav></section>
+      <section id="quizScreen" class="screen hidden quiz-focus-screen">
+        <header class="exam-header">
+          <div class="exam-brand">
+            <p class="eyebrow">SIMULADO EM ANDAMENTO</p>
+            <h1 id="examBankTitle">Banco de questões</h1>
+          </div>
 
-      <section id="resultScreen" class="screen hidden"><article class="panel result-card"><div class="panel-title"><div><p>RESULTADO</p><h2>Simulado concluído</h2></div><span id="resultTime" class="time-chip"></span></div><div class="stats"><div class="stat success-bg"><span>Acertos</span><strong id="correctCount">0</strong></div><div class="stat danger-bg"><span>Erros</span><strong id="wrongCount">0</strong></div><div class="stat info-bg"><span>Aproveitamento</span><strong id="scorePercent">0%</strong></div></div><div class="filters"><button data-filter="all" class="filter-btn review-filter">Todas</button><button data-filter="wrong" class="filter-btn review-filter">Erradas</button><button data-filter="correct" class="filter-btn review-filter">Corretas</button><button data-filter="unanswered" class="filter-btn review-filter">Não respondidas</button><button data-filter="favorite" class="filter-btn review-filter">Favoritas</button><button data-filter="marked" class="filter-btn review-filter">Marcadas</button></div><div id="categoryStats" class="category-stats"></div><div id="reviewList" class="review-list"></div><div class="result-actions"><button id="newQuizBtn" class="btn primary">Novo simulado</button><button id="goHomeBtn" class="btn secondary">Início</button></div></article></section>
+          <div class="exam-status-grid">
+            <div class="exam-status-card">
+              <span>Questão</span>
+              <strong><span id="currentQuestion">1</span> de <span id="totalQuestions">0</span></strong>
+            </div>
+
+            <div class="exam-status-card">
+              <span>Respondidas</span>
+              <strong id="answeredCount">0</strong>
+            </div>
+
+            <div class="exam-status-card">
+              <span>Tempo</span>
+              <strong id="timer">00:00</strong>
+            </div>
+
+            <button id="saveExitBtn" class="btn secondary exam-save-button">
+              Salvar e sair
+            </button>
+          </div>
+        </header>
+
+        <div class="progress-track exam-progress">
+          <div id="progressBar" class="progress-fill"></div>
+        </div>
+
+        <article class="panel question-card exam-question-card">
+          <div class="question-tags">
+            <span id="categoryBadge" class="badge hidden"></span>
+            <span id="typeBadge" class="badge neutral"></span>
+          </div>
+
+          <h2 id="questionText"></h2>
+
+          <div id="questionImageWrap" class="image-scroll hidden">
+            <img id="questionImage" class="source-image" alt="Imagem do enunciado">
+          </div>
+
+          <div id="multipleNotice" class="notice hidden">
+            Selecione todas as respostas corretas.
+          </div>
+
+          <div id="optionsContainer" class="options"></div>
+        </article>
+
+        <nav class="navigation exam-navigation">
+          <button id="prevBtn" class="btn secondary">← Anterior</button>
+          <button id="nextBtn" class="btn primary">Próxima →</button>
+        </nav>
+      </section>
+
+<section id="resultScreen" class="screen hidden"><article class="panel result-card"><div class="panel-title"><div><p>RESULTADO</p><h2>Simulado concluído</h2></div><span id="resultTime" class="time-chip"></span></div><div class="stats"><div class="stat success-bg"><span>Acertos</span><strong id="correctCount">0</strong></div><div class="stat danger-bg"><span>Erros</span><strong id="wrongCount">0</strong></div><div class="stat info-bg"><span>Aproveitamento</span><strong id="scorePercent">0%</strong></div></div><div class="filters"><button data-filter="all" class="filter-btn review-filter">Todas</button><button data-filter="wrong" class="filter-btn review-filter">Erradas</button><button data-filter="correct" class="filter-btn review-filter">Corretas</button><button data-filter="unanswered" class="filter-btn review-filter">Não respondidas</button><button data-filter="favorite" class="filter-btn review-filter">Favoritas</button><button data-filter="marked" class="filter-btn review-filter">Marcadas</button></div><div id="categoryStats" class="category-stats"></div><div id="reviewList" class="review-list"></div><div class="result-actions"><button id="newQuizBtn" class="btn primary">Novo simulado</button><button id="goHomeBtn" class="btn secondary">Início</button></div></article></section>
     </main>
   </div>
   <script>

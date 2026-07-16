@@ -9,6 +9,15 @@ async function init(){
   if("serviceWorker"in navigator)navigator.serviceWorker.register("./service-worker.js").catch(()=>{});
 }
 
+
+function enterQuizMode(){
+  document.body.classList.add("quiz-mode");
+}
+
+function exitQuizMode(){
+  document.body.classList.remove("quiz-mode");
+}
+
 function bind(){
   $("refreshBanksBtn").onclick=refreshHome;
   $("importBankBtn").onclick=importBank;
@@ -21,10 +30,6 @@ function bind(){
   $("prevBtn").onclick=()=>goTo(currentIndex-1);
   $("nextBtn").onclick=next;
   $("saveExitBtn").onclick=saveExit;
-  $("toggleNavigatorBtn").onclick=()=>$("questionNavigator").classList.toggle("hidden");
-  $("closeNavigatorBtn").onclick=()=>$("questionNavigator").classList.add("hidden");
-  $("favoriteBtn").onclick=toggleFavorite;
-  $("reviewLaterBtn").onclick=toggleMarked;
   $("newQuizBtn").onclick=()=>showSetup(selectedBank.id);
   $("goHomeBtn").onclick=showHome;
   $("closeImageModal").onclick=closeModal;
@@ -196,6 +201,7 @@ function normalizeQuestions(rows){
 }
 
 async function showSetup(id){
+  exitQuizMode();
   selectedBank=await get("banks",id);
   if(!selectedBank)return;
 
@@ -252,8 +258,13 @@ async function resume(){
 }
 
 function openQuiz(){
+  enterQuizMode();
   $("setupScreen").classList.add("hidden");
+  $("homeScreen").classList.add("hidden");
+  $("resultScreen").classList.add("hidden");
   $("quizScreen").classList.remove("hidden");
+  const examTitle=document.getElementById("examBankTitle");
+  if(examTitle)examTitle.textContent=selectedBank?.name||"Simulado";
   renderQuestion();
   startTimer();
   window.scrollTo(0,0);
@@ -274,10 +285,7 @@ function renderQuestion(){
 
   renderImage("questionImageWrap","questionImage",q.imagem_pergunta);
   renderOptions(q);
-  renderNavigator();
 
-  $("favoriteBtn").textContent=favorites.has(q.id)?"★ Favorita":"☆ Favoritar";
-  $("reviewLaterBtn").textContent=marked.has(q.id)?"⚑ Marcada":"⚑ Revisar depois";
   $("prevBtn").disabled=currentIndex===0;
   $("nextBtn").textContent=currentIndex===questions.length-1?"Finalizar":"Próxima →";
 
@@ -421,6 +429,7 @@ async function saveProgress(){
 }
 
 async function saveExit(){
+  exitQuizMode();
   await saveProgress();
   stopTimer();
   $("quizScreen").classList.add("hidden");
@@ -438,6 +447,7 @@ async function finish(){
   if(settings.warn&&unanswered&&!confirm(`Há ${unanswered} não respondidas. Finalizar?`))return;
 
   stopTimer();
+  exitQuizMode();
   let correct=0;
   reviewData=[];
 
@@ -638,6 +648,7 @@ async function importBackup(){
 }
 
 function showHome(){
+  exitQuizMode();
   stopTimer();
   document.querySelectorAll(".screen").forEach(s=>s.classList.add("hidden"));
   $("homeScreen").classList.remove("hidden");

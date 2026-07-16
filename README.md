@@ -1,8 +1,35 @@
-# Simulador Academy V6
+# Simulador V6.1 — Focus Mode
 
-Nova identidade visual escura inspirada em plataformas modernas de aprendizagem, sem marcas ou logotipos de terceiros.
+Atualização da V6 com uma tela de prova sem distrações.
 
-## Atualização no GitHub
-Substitua todos os arquivos da raiz pelos arquivos deste pacote e pressione Ctrl + Shift + R depois da publicação.
+## Alterações
 
-A versão reutiliza o mesmo IndexedDB das versões anteriores.
+- Menu lateral ocultado durante a execução do teste.
+- Cabeçalho com busca, notificações e perfil ocultado durante o teste.
+- Navegador lateral de questões removido da tela de prova.
+- Botões de favoritos e revisão removidos da tela de prova.
+- A prova mostra somente:
+  - banco atual;
+  - questão atual;
+  - quantidade respondida;
+  - tempo;
+  - salvar e sair;
+  - progresso;
+  - enunciado e alternativas;
+  - anterior e próxima.
+- Controle “Tema escuro” removido, pois o sistema usa exclusivamente tema escuro.
+- Corrigido o indicador “Questão X de Y” para permanecer na mesma linha.
+
+## Atualizar no GitHub
+
+Substitua todos estes arquivos:
+
+- index.html
+- style.css
+- app.js
+- db.js
+- manifest.webmanifest
+- service-worker.js
+- README.md
+
+Depois faça o commit e pressione `Ctrl + Shift + R` no site publicado.
