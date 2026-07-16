@@ -1,13 +1,36 @@
-# Simulador de Certificação
+# Simulador V4.2.1
 
-## Uso
-1. Abra `index.html`.
-2. Selecione o CSV.
-3. Selecione a pasta de imagens.
-4. Inicie o simulado.
+Atualização da V4.2 com revisão completa.
 
-## Salvar e continuar
-Clique em **Salvar e sair**. Depois, abra novamente o site, selecione o mesmo CSV e a pasta de imagens e clique em **Continuar simulado**.
+## Revisão incluída
 
-## GitHub Pages
-Envie os arquivos para a raiz do repositório e ative em **Settings > Pages > Deploy from a branch > main / root**.
+Filtros:
+- Todas
+- Erradas
+- Corretas
+- Não respondidas
+- Favoritas
+- Marcadas
+
+Cada questão mostra:
+- categoria
+- enunciado
+- resposta do usuário
+- resposta correta
+- feedback
+- imagem do enunciado
+- imagens das alternativas relevantes
+
+As imagens mantêm o tamanho original, com rolagem horizontal e zoom.
+
+## Atualização no GitHub
+
+Substitua estes arquivos:
+- index.html
+- style.css
+- app.js
+- db.js
+- manifest.webmanifest
+- service-worker.js
+
+Não apague o repositório nem altere o nome dos arquivos.

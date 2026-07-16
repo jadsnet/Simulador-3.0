@@ -1,0 +1,7 @@
+const DB_NAME="simulador-v42";const DB_VERSION=1;let dbPromise;
+export function openDB(){if(dbPromise)return dbPromise;dbPromise=new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,DB_VERSION);req.onupgradeneeded=()=>{const db=req.result;if(!db.objectStoreNames.contains("banks"))db.createObjectStore("banks",{keyPath:"id"});if(!db.objectStoreNames.contains("progress"))db.createObjectStore("progress",{keyPath:"bankId"});if(!db.objectStoreNames.contains("history"))db.createObjectStore("history",{keyPath:"id"})};req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});return dbPromise}
+async function store(name,mode="readonly"){const db=await openDB();return db.transaction(name,mode).objectStore(name)}
+export async function put(name,value){const s=await store(name,"readwrite");return new Promise((r,j)=>{const q=s.put(value);q.onsuccess=()=>r(value);q.onerror=()=>j(q.error)})}
+export async function get(name,key){const s=await store(name);return new Promise((r,j)=>{const q=s.get(key);q.onsuccess=()=>r(q.result);q.onerror=()=>j(q.error)})}
+export async function getAll(name){const s=await store(name);return new Promise((r,j)=>{const q=s.getAll();q.onsuccess=()=>r(q.result||[]);q.onerror=()=>j(q.error)})}
+export async function del(name,key){const s=await store(name,"readwrite");return new Promise((r,j)=>{const q=s.delete(key);q.onsuccess=()=>r();q.onerror=()=>j(q.error)})}

@@ -1,0 +1,9 @@
+{
+  "name": "Simulador de Certificação V4.2.1",
+  "short_name": "Simulador",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#071326",
+  "theme_color": "#0b1324",
+  "icons": []
+}

@@ -3,116 +3,196 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="Simulador de questões com CSV e imagens.">
-  <title>Simulador de Certificação</title>
+  <meta name="theme-color" content="#0b1324">
+  <title>Simulador V4.2.1</title>
+  <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="style.css">
   <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-  <script defer src="app.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script type="module" src="app.js"></script>
 </head>
 <body>
-  <div id="loadingOverlay" class="loading-overlay hidden"><div class="loading-card"><div class="spinner"></div><p id="loadingText">Carregando...</p></div></div>
-  <div id="imageModal" class="image-modal hidden" role="dialog" aria-modal="true">
-    <button id="closeImageModal" class="modal-close" type="button">×</button>
-    <div class="modal-image-stage"><img id="modalImage" alt="Imagem ampliada"></div>
+  <div id="toast" class="toast hidden"></div>
+
+  <div id="loading" class="overlay hidden">
+    <div class="loading-card">
+      <div class="spinner"></div>
+      <p id="loadingText">Carregando...</p>
+    </div>
   </div>
 
-  <main class="app-container">
-    <header class="main-header">
-      <p class="eyebrow">BANCO DE QUESTÕES</p>
-      <h1>Simulador Online</h1>
-      <p>Importe o CSV e a pasta de imagens para estudar diretamente no navegador.</p>
+  <div id="imageModal" class="image-modal hidden">
+    <button id="closeImageModal" class="modal-close" aria-label="Fechar">×</button>
+    <div class="modal-stage"><img id="modalImage" alt="Imagem ampliada"></div>
+  </div>
+
+  <main class="app-shell">
+    <header class="hero">
+      <p class="eyebrow">PLATAFORMA DE ESTUDOS</p>
+      <h1>Simulador de Certificação</h1>
+      <p>Funciona direto no navegador. Nada precisa ser instalado.</p>
     </header>
 
-    <section id="setupScreen">
-      <div class="card">
-        <div class="section-heading">
-          <div><p class="section-kicker">Configuração</p><h2>Prepare seu simulado</h2></div>
-          <span class="privacy-badge">Processamento local</span>
+    <section id="homeScreen" class="screen">
+      <div class="home-grid">
+        <article class="card">
+          <div class="section-title">
+            <div><p class="kicker">Biblioteca</p><h2>Seus bancos</h2></div>
+            <button id="refreshBanksBtn" class="btn ghost">Atualizar</button>
+          </div>
+          <div id="bankList" class="bank-list"></div>
+          <div id="emptyBanks" class="empty-state">
+            <strong>Nenhum banco importado</strong>
+            <p>Importe um CSV, uma pasta de imagens ou um pacote ZIP.</p>
+          </div>
+        </article>
+
+        <article class="card">
+          <p class="kicker">Importação</p>
+          <h2>Adicionar banco</h2>
+
+          <label class="field"><span>Nome do banco</span><input id="bankName" type="text" placeholder="Ex.: Cisco SD-WAN"></label>
+          <label class="field"><span>CSV</span><input id="csvFile" type="file" accept=".csv,text/csv"></label>
+          <label class="field"><span>Pasta de imagens</span><input id="imageFolder" type="file" webkitdirectory directory multiple></label>
+
+          <div class="divider"><span>ou</span></div>
+
+          <label class="field"><span>Pacote ZIP</span><input id="zipFile" type="file" accept=".zip,application/zip"></label>
+          <button id="importBankBtn" class="btn primary full">Importar banco</button>
+
+          <details class="help">
+            <summary>Formato do CSV</summary>
+            <pre>id;categoria;tipo;pergunta;imagem_pergunta;alt_a;img_a;alt_b;img_b;alt_c;img_c;alt_d;img_d;alt_e;img_e;correta;feedback</pre>
+          </details>
+        </article>
+      </div>
+
+      <article class="card">
+        <div class="section-title">
+          <div><p class="kicker">Histórico</p><h2>Últimos resultados</h2></div>
+          <button id="exportBackupBtn" class="btn ghost">Exportar backup</button>
+        </div>
+        <div id="historyList" class="history-list"></div>
+      </article>
+
+      <article class="card">
+        <p class="kicker">Restauração</p>
+        <h2>Importar backup</h2>
+        <div class="inline-form">
+          <input id="backupFile" type="file" accept=".json,application/json">
+          <button id="importBackupBtn" class="btn secondary">Restaurar</button>
+        </div>
+      </article>
+    </section>
+
+    <section id="setupScreen" class="screen hidden">
+      <article class="card">
+        <div class="section-title">
+          <div><p class="kicker">Configuração</p><h2 id="selectedBankName">Banco</h2></div>
+          <button id="backHomeBtn" class="btn ghost">Voltar</button>
+        </div>
+
+        <div id="resumeBox" class="resume-box hidden">
+          <div><strong>Simulado em andamento</strong><p id="resumeText"></p></div>
+          <button id="resumeBtn" class="btn success">Continuar</button>
         </div>
 
         <div class="form-grid">
-          <div class="form-group">
-            <label for="csvFile">Arquivo CSV</label>
-            <input type="file" id="csvFile" accept=".csv,text/csv">
-            <small>Salve no Excel como CSV UTF-8.</small>
-          </div>
-          <div class="form-group">
-            <label for="imageFolder">Pasta de imagens</label>
-            <input type="file" id="imageFolder" webkitdirectory directory multiple>
-            <small>Selecione a pasta com as imagens citadas no CSV.</small>
-          </div>
-          <div class="form-group">
-            <label for="questionLimit">Quantidade de questões</label>
-            <input type="number" id="questionLimit" value="50" min="1">
-          </div>
-          <div class="form-group">
-            <label for="timeLimit">Tempo limite em minutos</label>
-            <input type="number" id="timeLimit" value="0" min="0">
-            <small>Use 0 para não limitar.</small>
-          </div>
+          <label class="field"><span>Quantidade de questões</span><input id="questionLimit" type="number" min="1" value="50"></label>
+          <label class="field"><span>Tempo limite em minutos</span><input id="timeLimit" type="number" min="0" value="0"></label>
         </div>
 
-        <div class="switch-row">
-          <label><input type="checkbox" id="shuffleQuestions" checked> Embaralhar questões</label>
-          <label><input type="checkbox" id="showUnansweredWarning" checked> Avisar sobre não respondidas</label>
+        <div class="check-row">
+          <label><input id="shuffleQuestions" type="checkbox" checked> Embaralhar questões</label>
+          <label><input id="warnUnanswered" type="checkbox" checked> Avisar sobre não respondidas</label>
         </div>
 
-        <div id="resumeNotice" class="resume-notice hidden">
-          <div><strong>Progresso encontrado</strong><p id="resumeDescription"></p></div>
-          <button id="resumeBtn" class="btn btn-success" type="button">Continuar simulado</button>
+        <div class="button-row">
+          <button id="startQuizBtn" class="btn primary">Iniciar novo simulado</button>
+          <button id="deleteProgressBtn" class="btn danger hidden">Apagar progresso</button>
         </div>
-
-        <div class="setup-actions">
-          <button id="startBtn" class="btn btn-primary" type="button">Iniciar novo simulado</button>
-          <button id="clearSavedBtn" class="btn btn-ghost hidden" type="button">Apagar progresso salvo</button>
-        </div>
-        <div id="importStatus" class="import-status"></div>
-      </div>
-
-      <details class="card csv-help">
-        <summary>Ver formato esperado do CSV</summary>
-        <pre>id;categoria;tipo;pergunta;imagem_pergunta;alt_a;img_a;alt_b;img_b;alt_c;img_c;alt_d;img_d;alt_e;img_e;correta;feedback</pre>
-      </details>
+      </article>
     </section>
 
-    <section id="quizScreen" class="hidden">
-      <div class="quiz-toolbar">
+    <section id="quizScreen" class="screen hidden">
+      <div class="quiz-top">
         <div class="dashboard">
-          <div class="dashboard-item"><span>Questão</span><strong><span id="currentQuestion">1</span>/<span id="totalQuestions">0</span></strong></div>
-          <div class="dashboard-item"><span>Respondidas</span><strong id="answeredCount">0</strong></div>
-          <div class="dashboard-item"><span>Tempo</span><strong id="timer">00:00</strong></div>
+          <div><span>Questão</span><strong><span id="currentQuestion">1</span>/<span id="totalQuestions">0</span></strong></div>
+          <div><span>Respondidas</span><strong id="answeredCount">0</strong></div>
+          <div><span>Tempo</span><strong id="timer">00:00</strong></div>
         </div>
-        <button id="saveAndExitBtn" class="btn btn-ghost" type="button">Salvar e sair</button>
+        <div class="quiz-actions">
+          <button id="toggleNavigatorBtn" class="btn ghost">Navegação</button>
+          <button id="saveExitBtn" class="btn ghost">Salvar e sair</button>
+        </div>
       </div>
 
-      <div class="progress-wrapper"><div id="progressBar" class="progress-bar"></div></div>
+      <div class="progress-track"><div id="progressBar" class="progress-fill"></div></div>
 
-      <article class="card question-card">
-        <div class="question-meta"><span id="questionCategory" class="question-category hidden"></span><span id="questionTypeBadge" class="type-badge"></span></div>
-        <h2 id="questionText"></h2>
-        <div id="questionImageWrapper" class="original-image-scroll hidden"><img id="questionImage" class="question-image" alt="Imagem do enunciado"></div>
-        <div id="multipleAlert" class="multiple-alert hidden">Selecione todas as alternativas corretas.</div>
-        <div id="optionsContainer" class="options-container"></div>
-      </article>
+      <div class="quiz-layout">
+        <aside id="questionNavigator" class="navigator hidden">
+          <div class="navigator-head"><strong>Questões</strong><button id="closeNavigatorBtn" class="icon-btn">×</button></div>
+          <div id="navigatorGrid" class="navigator-grid"></div>
+        </aside>
+
+        <article class="card question-card">
+          <div class="question-tags">
+            <span id="categoryBadge" class="badge hidden"></span>
+            <span id="typeBadge" class="badge warn"></span>
+          </div>
+
+          <h2 id="questionText"></h2>
+
+          <div id="questionImageWrap" class="image-scroll hidden">
+            <img id="questionImage" class="source-image" alt="Imagem do enunciado">
+          </div>
+
+          <div id="multipleNotice" class="notice hidden">Selecione todas as respostas corretas.</div>
+          <div id="optionsContainer" class="options"></div>
+
+          <div class="question-tools">
+            <button id="favoriteBtn" class="btn ghost">☆ Favoritar</button>
+            <button id="reviewLaterBtn" class="btn ghost">⚑ Revisar depois</button>
+          </div>
+        </article>
+      </div>
 
       <nav class="navigation">
-        <button id="prevBtn" class="btn btn-secondary" type="button">← Anterior</button>
-        <button id="nextBtn" class="btn btn-primary" type="button">Próxima →</button>
+        <button id="prevBtn" class="btn secondary">← Anterior</button>
+        <button id="nextBtn" class="btn primary">Próxima →</button>
       </nav>
     </section>
 
-    <section id="resultScreen" class="hidden">
-      <div class="card">
-        <div class="section-heading"><div><p class="section-kicker">Conclusão</p><h2>Resultado final</h2></div><span id="resultTime" class="result-time"></span></div>
-        <div class="stats-grid">
-          <div class="stat-card success"><span>Acertos</span><strong id="correctCount">0</strong></div>
-          <div class="stat-card error"><span>Erros</span><strong id="wrongCount">0</strong></div>
-          <div class="stat-card info"><span>Aproveitamento</span><strong id="scorePercent">0%</strong></div>
+    <section id="resultScreen" class="screen hidden">
+      <article class="card">
+        <div class="section-title">
+          <div><p class="kicker">Resultado</p><h2>Simulado concluído</h2></div>
+          <span id="resultTime" class="pill"></span>
         </div>
-        <div class="result-actions"><button id="showOnlyErrors" class="btn btn-danger">Mostrar apenas erros</button><button id="showAllReview" class="btn btn-secondary">Mostrar tudo</button></div>
-        <div id="reviewContainer" class="review-container"></div>
-        <div class="result-footer"><button id="restartBtn" class="btn btn-primary">Novo simulado</button></div>
-      </div>
+
+        <div class="stats">
+          <div class="stat success-bg"><span>Acertos</span><strong id="correctCount">0</strong></div>
+          <div class="stat danger-bg"><span>Erros</span><strong id="wrongCount">0</strong></div>
+          <div class="stat info-bg"><span>Aproveitamento</span><strong id="scorePercent">0%</strong></div>
+        </div>
+
+        <div class="filters">
+          <button data-filter="all" class="btn secondary review-filter">Todas</button>
+          <button data-filter="wrong" class="btn danger review-filter">Erradas</button>
+          <button data-filter="correct" class="btn success review-filter">Corretas</button>
+          <button data-filter="unanswered" class="btn ghost review-filter">Não respondidas</button>
+          <button data-filter="favorite" class="btn ghost review-filter">Favoritas</button>
+          <button data-filter="marked" class="btn ghost review-filter">Marcadas</button>
+        </div>
+
+        <div id="categoryStats" class="category-stats"></div>
+        <div id="reviewList" class="review-list"></div>
+
+        <div class="button-row">
+          <button id="newQuizBtn" class="btn primary">Novo simulado</button>
+          <button id="goHomeBtn" class="btn ghost">Início</button>
+        </div>
+      </article>
     </section>
   </main>
 </body>
