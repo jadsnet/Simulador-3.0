@@ -1,9 +1,1 @@
-{
-  "name": "Simulador de Certificação V5.1",
-  "short_name": "Simulador V5.1",
-  "start_url": "./",
-  "display": "standalone",
-  "background_color": "#06111f",
-  "theme_color": "#081326",
-  "icons": []
-}
+{"name":"Simulador Academy","short_name":"Simulador","start_url":"./","display":"standalone","background_color":"#050b14","theme_color":"#07111f","icons":[]}

@@ -36,10 +36,37 @@ async function refreshHome(){
   showLoading(true,"Carregando biblioteca...");
   banks=await getAll("banks");
   renderBanks();
-  renderHistory(await getAll("history"));
+  const history = await getAll("history");
+  renderHistory(history);
+  await renderDashboard(history);
   showLoading(false);
 }
 
+
+async function renderDashboard(history){
+  const total = history.reduce((sum,h)=>sum+(h.total||0),0);
+  const correct = history.reduce((sum,h)=>sum+(h.correct||0),0);
+  const seconds = history.reduce((sum,h)=>sum+(h.time||0),0);
+  const sim = document.getElementById("dashSimulations");
+  if(sim) sim.textContent = history.length;
+  const ans = document.getElementById("dashAnswered");
+  if(ans) ans.textContent = total.toLocaleString("pt-BR");
+  const acc = document.getElementById("dashAccuracy");
+  if(acc) acc.textContent = total ? Math.round(correct/total*100)+"%" : "0%";
+  const time = document.getElementById("dashTime");
+  if(time){ const h=Math.floor(seconds/3600), m=Math.floor(seconds%3600/60); time.textContent=String(h).padStart(2,"0")+"h "+String(m).padStart(2,"0")+"m"; }
+  const progress = await getAll("progress");
+  const area = document.getElementById("continueStudy");
+  if(!area) return;
+  if(!progress.length){ area.innerHTML='<div class="empty-state">Nenhum simulado em andamento.</div>'; return; }
+  const pr=progress.sort((a,b)=>(b.savedAt||"").localeCompare(a.savedAt||""))[0];
+  const bank=await get("banks",pr.bankId);
+  if(!bank) return;
+  const answered=Object.values(pr.answers||{}).filter(v=>Array.isArray(v)&&v.length).length;
+  const pct=Math.round(answered/pr.order.length*100);
+  area.innerHTML=`<div class="resume-box" style="margin:0"><div><span>Em andamento</span><strong>${esc(bank.name)}</strong><p>${answered}/${pr.order.length} respondidas · ${pct}%</p></div><button class="btn primary" id="dashResume">Continuar</button></div>`;
+  document.getElementById("dashResume").onclick=async()=>{await showSetup(bank.id);await resume();};
+}
 function renderBanks(){
   const list=$("bankList");
   list.innerHTML="";

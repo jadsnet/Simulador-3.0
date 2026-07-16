@@ -3,294 +3,95 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#081326">
-  <meta name="description" content="Plataforma de simulados e revisão de certificações.">
-  <title>Simulador V5</title>
-
+  <meta name="theme-color" content="#07111f">
+  <meta name="description" content="Plataforma de simulados de certificação.">
+  <title>Simulador Academy</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="style.css">
-
   <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script type="module" src="app.js"></script>
 </head>
-
 <body>
-  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+  <div id="toast" class="toast hidden" role="status"></div>
+  <div id="loading" class="overlay hidden"><div class="loading-card"><div class="spinner"></div><p id="loadingText">Carregando...</p></div></div>
+  <div id="imageModal" class="image-modal hidden"><button id="closeImageModal" class="modal-close">×</button><div class="modal-stage"><img id="modalImage" alt="Imagem ampliada"></div></div>
 
-  <div id="loading" class="overlay hidden">
-    <div class="loading-card">
-      <div class="spinner"></div>
-      <p id="loadingText">Carregando...</p>
-    </div>
-  </div>
-
-  <div id="imageModal" class="image-modal hidden" role="dialog" aria-modal="true">
-    <button id="closeImageModal" class="modal-close" aria-label="Fechar">×</button>
-    <div class="modal-stage">
-      <img id="modalImage" alt="Imagem ampliada">
-    </div>
-  </div>
-
-  <main class="app-shell">
-    <header class="hero">
-      <div class="hero-orb hero-orb-one"></div>
-      <div class="hero-orb hero-orb-two"></div>
-
-      <div class="hero-content">
-        <p class="eyebrow">PLATAFORMA DE ESTUDOS</p>
-        <h1>Simulador de Certificação</h1>
-        <p>Banco de questões, revisão inteligente, histórico e progresso salvo no navegador.</p>
-      </div>
-    </header>
-
-    <section id="homeScreen" class="screen">
-      <div class="home-grid">
-        <article class="card card-interactive">
-          <div class="section-title">
-            <div>
-              <p class="kicker">Biblioteca</p>
-              <h2>Seus bancos</h2>
-            </div>
-            <button id="refreshBanksBtn" class="btn ghost">Atualizar</button>
-          </div>
-
-          <div id="bankList" class="bank-list"></div>
-
-          <div id="emptyBanks" class="empty-state">
-            <div class="empty-icon">◎</div>
-            <strong>Nenhum banco importado</strong>
-            <p>Importe um CSV, uma pasta de imagens ou um pacote ZIP.</p>
-          </div>
-        </article>
-
-        <article class="card card-interactive">
-          <p class="kicker">Importação</p>
-          <h2>Adicionar banco</h2>
-
-          <label class="field">
-            <span>Nome do banco</span>
-            <input id="bankName" type="text" placeholder="Ex.: Cisco SD-WAN">
-          </label>
-
-          <label class="field">
-            <span>CSV</span>
-            <input id="csvFile" type="file" accept=".csv,text/csv">
-          </label>
-
-          <label class="field">
-            <span>Pasta de imagens</span>
-            <input id="imageFolder" type="file" webkitdirectory directory multiple>
-          </label>
-
-          <div class="divider"><span>ou</span></div>
-
-          <label class="field">
-            <span>Pacote ZIP</span>
-            <input id="zipFile" type="file" accept=".zip,application/zip">
-          </label>
-
-          <button id="importBankBtn" class="btn primary full">Importar banco</button>
-
-          <details class="help">
-            <summary>Formato do CSV</summary>
-            <pre>id;categoria;tipo;pergunta;imagem_pergunta;alt_a;img_a;alt_b;img_b;alt_c;img_c;alt_d;img_d;alt_e;img_e;correta;feedback</pre>
-          </details>
-        </article>
-      </div>
-
-      <article class="card card-interactive">
-        <div class="section-title">
-          <div>
-            <p class="kicker">Histórico</p>
-            <h2>Últimos resultados</h2>
-          </div>
-          <button id="exportBackupBtn" class="btn ghost">Exportar backup</button>
-        </div>
-
-        <div id="historyList" class="history-list"></div>
-      </article>
-
-      <article class="card card-interactive">
-        <p class="kicker">Restauração</p>
-        <h2>Importar backup</h2>
-
-        <div class="inline-form">
-          <input id="backupFile" type="file" accept=".json,application/json">
-          <button id="importBackupBtn" class="btn secondary">Restaurar</button>
-        </div>
-      </article>
-    </section>
-
-    <section id="setupScreen" class="screen hidden">
-      <article class="card card-interactive">
-        <div class="section-title">
-          <div>
-            <p class="kicker">Configuração</p>
-            <h2 id="selectedBankName">Banco</h2>
-          </div>
-          <button id="backHomeBtn" class="btn ghost">Voltar</button>
-        </div>
-
-        <div id="resumeBox" class="resume-box hidden">
-          <div>
-            <strong>Simulado em andamento</strong>
-            <p id="resumeText"></p>
-          </div>
-          <button id="resumeBtn" class="btn success">Continuar</button>
-        </div>
-
-        <div class="form-grid">
-          <label class="field">
-            <span>Quantidade de questões</span>
-            <input id="questionLimit" type="number" min="1" value="50">
-          </label>
-
-          <label class="field">
-            <span>Tempo limite em minutos</span>
-            <input id="timeLimit" type="number" min="0" value="0">
-          </label>
-        </div>
-
-        <div class="check-row">
-          <label class="check-card">
-            <input id="shuffleQuestions" type="checkbox" checked>
-            <span>
-              <strong>Embaralhar questões</strong>
-              <small>Gera uma ordem diferente para cada simulado.</small>
-            </span>
-          </label>
-
-          <label class="check-card">
-            <input id="warnUnanswered" type="checkbox" checked>
-            <span>
-              <strong>Avisar sobre não respondidas</strong>
-              <small>Confirma antes de finalizar com questões em branco.</small>
-            </span>
-          </label>
-        </div>
-
-        <div class="button-row">
-          <button id="startQuizBtn" class="btn primary">Iniciar novo simulado</button>
-          <button id="deleteProgressBtn" class="btn danger hidden">Apagar progresso</button>
-        </div>
-      </article>
-    </section>
-
-    <section id="quizScreen" class="screen hidden">
-      <div class="quiz-top">
-        <div class="dashboard">
-          <div class="dashboard-card">
-            <span>Questão</span>
-            <strong><span id="currentQuestion">1</span>/<span id="totalQuestions">0</span></strong>
-          </div>
-
-          <div class="dashboard-card">
-            <span>Respondidas</span>
-            <strong id="answeredCount">0</strong>
-          </div>
-
-          <div class="dashboard-card">
-            <span>Tempo</span>
-            <strong id="timer">00:00</strong>
-          </div>
-        </div>
-
-        <div class="quiz-actions">
-          <button id="toggleNavigatorBtn" class="btn ghost">Navegação</button>
-          <button id="saveExitBtn" class="btn ghost">Salvar e sair</button>
-        </div>
-      </div>
-
-      <div class="progress-track">
-        <div id="progressBar" class="progress-fill"></div>
-      </div>
-
-      <div class="quiz-layout">
-        <aside id="questionNavigator" class="navigator hidden">
-          <div class="navigator-head">
-            <strong>Questões</strong>
-            <button id="closeNavigatorBtn" class="icon-btn" aria-label="Fechar navegação">×</button>
-          </div>
-          <div id="navigatorGrid" class="navigator-grid"></div>
-        </aside>
-
-        <article class="card question-card">
-          <div class="question-tags">
-            <span id="categoryBadge" class="badge hidden"></span>
-            <span id="typeBadge" class="badge warn"></span>
-          </div>
-
-          <h2 id="questionText"></h2>
-
-          <div id="questionImageWrap" class="image-scroll hidden">
-            <img id="questionImage" class="source-image" alt="Imagem do enunciado">
-          </div>
-
-          <div id="multipleNotice" class="notice hidden">
-            Selecione todas as respostas corretas.
-          </div>
-
-          <div id="optionsContainer" class="options"></div>
-
-          <div class="question-tools">
-            <button id="favoriteBtn" class="btn ghost">☆ Favoritar</button>
-            <button id="reviewLaterBtn" class="btn ghost">⚑ Revisar depois</button>
-          </div>
-        </article>
-      </div>
-
-      <nav class="navigation">
-        <button id="prevBtn" class="btn secondary">← Anterior</button>
-        <button id="nextBtn" class="btn primary">Próxima →</button>
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="brand"><div class="brand-mark">S</div><div><strong>Simulador</strong><small>Academy</small></div></div>
+      <nav class="side-nav">
+        <button class="side-link active" data-scroll="dashboard"><span>⌂</span>Início</button>
+        <button class="side-link" data-scroll="banks"><span>▤</span>Bancos de questões</button>
+        <button class="side-link" data-scroll="banks"><span>▶</span>Simulados</button>
+        <button class="side-link" data-scroll="history"><span>◷</span>Histórico</button>
+        <button class="side-link" data-scroll="history"><span>☆</span>Favoritos</button>
+        <button class="side-link" data-scroll="history"><span>✓</span>Revisão</button>
+        <button class="side-link" data-scroll="dashboard"><span>⌁</span>Estatísticas</button>
+        <button class="side-link" data-scroll="import"><span>⇩</span>Importar banco</button>
+        <button class="side-link" data-scroll="backup"><span>⚙</span>Configurações</button>
       </nav>
-    </section>
+      <div class="sidebar-bottom"><span>☾ Tema escuro</span><i></i></div>
+    </aside>
 
-    <section id="resultScreen" class="screen hidden">
-      <article class="card result-card">
-        <div class="section-title">
-          <div>
-            <p class="kicker">Resultado</p>
-            <h2>Simulado concluído</h2>
-          </div>
-          <span id="resultTime" class="pill"></span>
+    <main class="content-shell">
+      <header class="topbar">
+        <div><p class="eyebrow">VISÃO GERAL</p><h1>Bem-vindo de volta!</h1><p>Pronto para continuar seus estudos?</p></div>
+        <div class="top-actions"><label class="search"><span>⌕</span><input id="dashboardSearch" placeholder="Buscar banco..."></label><button class="round-btn">◔</button><button class="avatar">JR</button></div>
+      </header>
+
+      <section id="homeScreen" class="screen">
+        <div id="dashboard" class="metrics">
+          <article><span class="metric-icon blue">▣</span><div><small>Simulados realizados</small><strong id="dashSimulations">0</strong></div></article>
+          <article><span class="metric-icon green">▤</span><div><small>Questões respondidas</small><strong id="dashAnswered">0</strong></div></article>
+          <article><span class="metric-icon purple">◉</span><div><small>Taxa de acertos</small><strong id="dashAccuracy">0%</strong></div></article>
+          <article><span class="metric-icon amber">◷</span><div><small>Tempo total de estudo</small><strong id="dashTime">00h 00m</strong></div></article>
         </div>
 
-        <div class="stats">
-          <div class="stat success-bg">
-            <span>Acertos</span>
-            <strong id="correctCount" data-count="0">0</strong>
-          </div>
-
-          <div class="stat danger-bg">
-            <span>Erros</span>
-            <strong id="wrongCount" data-count="0">0</strong>
-          </div>
-
-          <div class="stat info-bg">
-            <span>Aproveitamento</span>
-            <strong id="scorePercent" data-count="0">0%</strong>
-          </div>
+        <div class="dashboard-columns">
+          <article class="panel"><div class="panel-title"><div><p>CONTINUAR ESTUDANDO</p><h2>Simulado em andamento</h2></div></div><div id="continueStudy" class="panel-body"><div class="empty-state">Nenhum simulado em andamento.</div></div></article>
+          <article class="panel"><div class="panel-title"><div><p>AÇÕES RÁPIDAS</p><h2>Atalhos</h2></div></div><div class="quick-list"><button data-scroll="banks"><span>▣</span><div><strong>Novo simulado</strong><small>Iniciar um novo teste</small></div><b>›</b></button><button data-scroll="history"><span>✓</span><div><strong>Revisar erros</strong><small>Ver questões incorretas</small></div><b>›</b></button><button data-scroll="history"><span>☆</span><div><strong>Favoritos</strong><small>Ver questões favoritas</small></div><b>›</b></button></div></article>
         </div>
 
-        <div class="filters">
-          <button data-filter="all" class="btn secondary review-filter">Todas</button>
-          <button data-filter="wrong" class="btn danger review-filter">Erradas</button>
-          <button data-filter="correct" class="btn success review-filter">Corretas</button>
-          <button data-filter="unanswered" class="btn ghost review-filter">Não respondidas</button>
-          <button data-filter="favorite" class="btn ghost review-filter">Favoritas</button>
-          <button data-filter="marked" class="btn ghost review-filter">Marcadas</button>
+        <div class="home-grid">
+          <article id="banks" class="panel">
+            <div class="panel-title"><div><p>BIBLIOTECA</p><h2>Seus bancos de questões</h2></div><button id="refreshBanksBtn" class="text-btn">Atualizar</button></div>
+            <div id="bankList" class="bank-list"></div>
+            <div id="emptyBanks" class="empty-state"><strong>Nenhum banco importado</strong><p>Importe um CSV, uma pasta de imagens ou um pacote ZIP.</p></div>
+          </article>
+
+          <article id="import" class="panel import-panel">
+            <div class="panel-title"><div><p>IMPORTAÇÃO</p><h2>Adicionar banco</h2></div></div>
+            <div class="panel-body">
+              <label class="field"><span>Nome do banco</span><input id="bankName" placeholder="Ex.: Cisco SD-WAN"></label>
+              <label class="field"><span>CSV</span><input id="csvFile" type="file" accept=".csv,text/csv"></label>
+              <label class="field"><span>Pasta de imagens</span><input id="imageFolder" type="file" webkitdirectory directory multiple></label>
+              <div class="or"><span>ou</span></div>
+              <label class="field"><span>Pacote ZIP</span><input id="zipFile" type="file" accept=".zip,application/zip"></label>
+              <button id="importBankBtn" class="btn primary full">Importar banco</button>
+              <details class="help"><summary>Formato do CSV</summary><pre>id;categoria;tipo;pergunta;imagem_pergunta;alt_a;img_a;alt_b;img_b;alt_c;img_c;alt_d;img_d;alt_e;img_e;correta;feedback</pre></details>
+            </div>
+          </article>
         </div>
 
-        <div id="categoryStats" class="category-stats"></div>
-        <div id="reviewList" class="review-list"></div>
+        <article id="history" class="panel history-panel"><div class="panel-title"><div><p>HISTÓRICO</p><h2>Últimos resultados</h2></div><button id="exportBackupBtn" class="btn secondary">Exportar backup</button></div><div id="historyList" class="history-list"></div></article>
+        <article id="backup" class="panel backup-panel"><div class="panel-title"><div><p>RESTAURAÇÃO</p><h2>Importar backup</h2></div></div><div class="panel-body inline-form"><input id="backupFile" type="file" accept=".json,application/json"><button id="importBackupBtn" class="btn secondary">Restaurar</button></div></article>
+      </section>
 
-        <div class="button-row">
-          <button id="newQuizBtn" class="btn primary">Novo simulado</button>
-          <button id="goHomeBtn" class="btn ghost">Início</button>
-        </div>
-      </article>
-    </section>
-  </main>
+      <section id="setupScreen" class="screen hidden"><article class="panel setup-panel"><div class="panel-title"><div><p>CONFIGURAÇÃO</p><h2 id="selectedBankName">Banco</h2></div><button id="backHomeBtn" class="btn secondary">Voltar</button></div><div id="resumeBox" class="resume-box hidden"><div><span>Em andamento</span><strong>Continuar simulado</strong><p id="resumeText"></p></div><button id="resumeBtn" class="btn primary">Continuar</button></div><div class="setup-grid"><label class="field"><span>Quantidade de questões</span><input id="questionLimit" type="number" min="1" value="50"></label><label class="field"><span>Tempo limite em minutos</span><input id="timeLimit" type="number" min="0" value="0"></label></div><div class="checks"><label><input id="shuffleQuestions" type="checkbox" checked><span><strong>Embaralhar questões</strong><small>Nova ordem para cada simulado.</small></span></label><label><input id="warnUnanswered" type="checkbox" checked><span><strong>Avisar sobre não respondidas</strong><small>Confirma antes de finalizar.</small></span></label></div><div class="actions"><button id="startQuizBtn" class="btn primary">Iniciar novo simulado</button><button id="deleteProgressBtn" class="btn danger hidden">Apagar progresso</button></div></article></section>
+
+      <section id="quizScreen" class="screen hidden"><div class="quiz-top"><div class="dashboard"><div><span>Questão</span><strong><span id="currentQuestion">1</span>/<span id="totalQuestions">0</span></strong></div><div><span>Respondidas</span><strong id="answeredCount">0</strong></div><div><span>Tempo</span><strong id="timer">00:00</strong></div></div><div class="quiz-actions"><button id="toggleNavigatorBtn" class="btn secondary">Navegação</button><button id="saveExitBtn" class="btn secondary">Salvar e sair</button></div></div><div class="progress-track"><div id="progressBar" class="progress-fill"></div></div><div class="quiz-layout"><article class="panel question-card"><div class="question-tags"><span id="categoryBadge" class="badge hidden"></span><span id="typeBadge" class="badge neutral"></span></div><h2 id="questionText"></h2><div id="questionImageWrap" class="image-scroll hidden"><img id="questionImage" class="source-image" alt="Imagem do enunciado"></div><div id="multipleNotice" class="notice hidden">Selecione todas as respostas corretas.</div><div id="optionsContainer" class="options"></div><div class="question-tools"><button id="favoriteBtn" class="text-btn">☆ Favoritar</button><button id="reviewLaterBtn" class="text-btn">⚑ Revisar depois</button></div></article><aside id="questionNavigator" class="panel navigator hidden"><div class="navigator-head"><strong>Navegação</strong><button id="closeNavigatorBtn" class="close-nav">×</button></div><div class="legend"><span><i class="dot blue-dot"></i>Respondida</span><span><i class="dot gray-dot"></i>Não respondida</span><span><i class="dot amber-dot"></i>Marcada</span></div><div id="navigatorGrid" class="navigator-grid"></div></aside></div><nav class="navigation"><button id="prevBtn" class="btn secondary">← Anterior</button><button id="nextBtn" class="btn primary">Próxima →</button></nav></section>
+
+      <section id="resultScreen" class="screen hidden"><article class="panel result-card"><div class="panel-title"><div><p>RESULTADO</p><h2>Simulado concluído</h2></div><span id="resultTime" class="time-chip"></span></div><div class="stats"><div class="stat success-bg"><span>Acertos</span><strong id="correctCount">0</strong></div><div class="stat danger-bg"><span>Erros</span><strong id="wrongCount">0</strong></div><div class="stat info-bg"><span>Aproveitamento</span><strong id="scorePercent">0%</strong></div></div><div class="filters"><button data-filter="all" class="filter-btn review-filter">Todas</button><button data-filter="wrong" class="filter-btn review-filter">Erradas</button><button data-filter="correct" class="filter-btn review-filter">Corretas</button><button data-filter="unanswered" class="filter-btn review-filter">Não respondidas</button><button data-filter="favorite" class="filter-btn review-filter">Favoritas</button><button data-filter="marked" class="filter-btn review-filter">Marcadas</button></div><div id="categoryStats" class="category-stats"></div><div id="reviewList" class="review-list"></div><div class="result-actions"><button id="newQuizBtn" class="btn primary">Novo simulado</button><button id="goHomeBtn" class="btn secondary">Início</button></div></article></section>
+    </main>
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded',()=>{
+      document.querySelectorAll('[data-scroll]').forEach(btn=>btn.addEventListener('click',()=>{
+        const target=document.getElementById(btn.dataset.scroll);
+        if(target){target.scrollIntoView({behavior:'smooth',block:'start'});}
+      }));
+    });
+  </script>
 </body>
 </html>
