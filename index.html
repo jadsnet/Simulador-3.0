@@ -3,16 +3,20 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0b1324">
-  <title>Simulador V4.2.1</title>
+  <meta name="theme-color" content="#081326">
+  <meta name="description" content="Plataforma de simulados e revisão de certificações.">
+  <title>Simulador V5</title>
+
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="style.css">
+
   <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script type="module" src="app.js"></script>
 </head>
+
 <body>
-  <div id="toast" class="toast hidden"></div>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
   <div id="loading" class="overlay hidden">
     <div class="loading-card">
@@ -21,43 +25,71 @@
     </div>
   </div>
 
-  <div id="imageModal" class="image-modal hidden">
+  <div id="imageModal" class="image-modal hidden" role="dialog" aria-modal="true">
     <button id="closeImageModal" class="modal-close" aria-label="Fechar">×</button>
-    <div class="modal-stage"><img id="modalImage" alt="Imagem ampliada"></div>
+    <div class="modal-stage">
+      <img id="modalImage" alt="Imagem ampliada">
+    </div>
   </div>
 
   <main class="app-shell">
     <header class="hero">
-      <p class="eyebrow">PLATAFORMA DE ESTUDOS</p>
-      <h1>Simulador de Certificação</h1>
-      <p>Funciona direto no navegador. Nada precisa ser instalado.</p>
+      <div class="hero-orb hero-orb-one"></div>
+      <div class="hero-orb hero-orb-two"></div>
+
+      <div class="hero-content">
+        <p class="eyebrow">PLATAFORMA DE ESTUDOS</p>
+        <h1>Simulador de Certificação</h1>
+        <p>Banco de questões, revisão inteligente, histórico e progresso salvo no navegador.</p>
+      </div>
     </header>
 
     <section id="homeScreen" class="screen">
       <div class="home-grid">
-        <article class="card">
+        <article class="card card-interactive">
           <div class="section-title">
-            <div><p class="kicker">Biblioteca</p><h2>Seus bancos</h2></div>
+            <div>
+              <p class="kicker">Biblioteca</p>
+              <h2>Seus bancos</h2>
+            </div>
             <button id="refreshBanksBtn" class="btn ghost">Atualizar</button>
           </div>
+
           <div id="bankList" class="bank-list"></div>
+
           <div id="emptyBanks" class="empty-state">
+            <div class="empty-icon">◎</div>
             <strong>Nenhum banco importado</strong>
             <p>Importe um CSV, uma pasta de imagens ou um pacote ZIP.</p>
           </div>
         </article>
 
-        <article class="card">
+        <article class="card card-interactive">
           <p class="kicker">Importação</p>
           <h2>Adicionar banco</h2>
 
-          <label class="field"><span>Nome do banco</span><input id="bankName" type="text" placeholder="Ex.: Cisco SD-WAN"></label>
-          <label class="field"><span>CSV</span><input id="csvFile" type="file" accept=".csv,text/csv"></label>
-          <label class="field"><span>Pasta de imagens</span><input id="imageFolder" type="file" webkitdirectory directory multiple></label>
+          <label class="field">
+            <span>Nome do banco</span>
+            <input id="bankName" type="text" placeholder="Ex.: Cisco SD-WAN">
+          </label>
+
+          <label class="field">
+            <span>CSV</span>
+            <input id="csvFile" type="file" accept=".csv,text/csv">
+          </label>
+
+          <label class="field">
+            <span>Pasta de imagens</span>
+            <input id="imageFolder" type="file" webkitdirectory directory multiple>
+          </label>
 
           <div class="divider"><span>ou</span></div>
 
-          <label class="field"><span>Pacote ZIP</span><input id="zipFile" type="file" accept=".zip,application/zip"></label>
+          <label class="field">
+            <span>Pacote ZIP</span>
+            <input id="zipFile" type="file" accept=".zip,application/zip">
+          </label>
+
           <button id="importBankBtn" class="btn primary full">Importar banco</button>
 
           <details class="help">
@@ -67,17 +99,22 @@
         </article>
       </div>
 
-      <article class="card">
+      <article class="card card-interactive">
         <div class="section-title">
-          <div><p class="kicker">Histórico</p><h2>Últimos resultados</h2></div>
+          <div>
+            <p class="kicker">Histórico</p>
+            <h2>Últimos resultados</h2>
+          </div>
           <button id="exportBackupBtn" class="btn ghost">Exportar backup</button>
         </div>
+
         <div id="historyList" class="history-list"></div>
       </article>
 
-      <article class="card">
+      <article class="card card-interactive">
         <p class="kicker">Restauração</p>
         <h2>Importar backup</h2>
+
         <div class="inline-form">
           <input id="backupFile" type="file" accept=".json,application/json">
           <button id="importBackupBtn" class="btn secondary">Restaurar</button>
@@ -86,25 +123,51 @@
     </section>
 
     <section id="setupScreen" class="screen hidden">
-      <article class="card">
+      <article class="card card-interactive">
         <div class="section-title">
-          <div><p class="kicker">Configuração</p><h2 id="selectedBankName">Banco</h2></div>
+          <div>
+            <p class="kicker">Configuração</p>
+            <h2 id="selectedBankName">Banco</h2>
+          </div>
           <button id="backHomeBtn" class="btn ghost">Voltar</button>
         </div>
 
         <div id="resumeBox" class="resume-box hidden">
-          <div><strong>Simulado em andamento</strong><p id="resumeText"></p></div>
+          <div>
+            <strong>Simulado em andamento</strong>
+            <p id="resumeText"></p>
+          </div>
           <button id="resumeBtn" class="btn success">Continuar</button>
         </div>
 
         <div class="form-grid">
-          <label class="field"><span>Quantidade de questões</span><input id="questionLimit" type="number" min="1" value="50"></label>
-          <label class="field"><span>Tempo limite em minutos</span><input id="timeLimit" type="number" min="0" value="0"></label>
+          <label class="field">
+            <span>Quantidade de questões</span>
+            <input id="questionLimit" type="number" min="1" value="50">
+          </label>
+
+          <label class="field">
+            <span>Tempo limite em minutos</span>
+            <input id="timeLimit" type="number" min="0" value="0">
+          </label>
         </div>
 
         <div class="check-row">
-          <label><input id="shuffleQuestions" type="checkbox" checked> Embaralhar questões</label>
-          <label><input id="warnUnanswered" type="checkbox" checked> Avisar sobre não respondidas</label>
+          <label class="check-card">
+            <input id="shuffleQuestions" type="checkbox" checked>
+            <span>
+              <strong>Embaralhar questões</strong>
+              <small>Gera uma ordem diferente para cada simulado.</small>
+            </span>
+          </label>
+
+          <label class="check-card">
+            <input id="warnUnanswered" type="checkbox" checked>
+            <span>
+              <strong>Avisar sobre não respondidas</strong>
+              <small>Confirma antes de finalizar com questões em branco.</small>
+            </span>
+          </label>
         </div>
 
         <div class="button-row">
@@ -117,21 +180,38 @@
     <section id="quizScreen" class="screen hidden">
       <div class="quiz-top">
         <div class="dashboard">
-          <div><span>Questão</span><strong><span id="currentQuestion">1</span>/<span id="totalQuestions">0</span></strong></div>
-          <div><span>Respondidas</span><strong id="answeredCount">0</strong></div>
-          <div><span>Tempo</span><strong id="timer">00:00</strong></div>
+          <div class="dashboard-card">
+            <span>Questão</span>
+            <strong><span id="currentQuestion">1</span>/<span id="totalQuestions">0</span></strong>
+          </div>
+
+          <div class="dashboard-card">
+            <span>Respondidas</span>
+            <strong id="answeredCount">0</strong>
+          </div>
+
+          <div class="dashboard-card">
+            <span>Tempo</span>
+            <strong id="timer">00:00</strong>
+          </div>
         </div>
+
         <div class="quiz-actions">
           <button id="toggleNavigatorBtn" class="btn ghost">Navegação</button>
           <button id="saveExitBtn" class="btn ghost">Salvar e sair</button>
         </div>
       </div>
 
-      <div class="progress-track"><div id="progressBar" class="progress-fill"></div></div>
+      <div class="progress-track">
+        <div id="progressBar" class="progress-fill"></div>
+      </div>
 
       <div class="quiz-layout">
         <aside id="questionNavigator" class="navigator hidden">
-          <div class="navigator-head"><strong>Questões</strong><button id="closeNavigatorBtn" class="icon-btn">×</button></div>
+          <div class="navigator-head">
+            <strong>Questões</strong>
+            <button id="closeNavigatorBtn" class="icon-btn" aria-label="Fechar navegação">×</button>
+          </div>
           <div id="navigatorGrid" class="navigator-grid"></div>
         </aside>
 
@@ -147,7 +227,10 @@
             <img id="questionImage" class="source-image" alt="Imagem do enunciado">
           </div>
 
-          <div id="multipleNotice" class="notice hidden">Selecione todas as respostas corretas.</div>
+          <div id="multipleNotice" class="notice hidden">
+            Selecione todas as respostas corretas.
+          </div>
+
           <div id="optionsContainer" class="options"></div>
 
           <div class="question-tools">
@@ -164,16 +247,30 @@
     </section>
 
     <section id="resultScreen" class="screen hidden">
-      <article class="card">
+      <article class="card result-card">
         <div class="section-title">
-          <div><p class="kicker">Resultado</p><h2>Simulado concluído</h2></div>
+          <div>
+            <p class="kicker">Resultado</p>
+            <h2>Simulado concluído</h2>
+          </div>
           <span id="resultTime" class="pill"></span>
         </div>
 
         <div class="stats">
-          <div class="stat success-bg"><span>Acertos</span><strong id="correctCount">0</strong></div>
-          <div class="stat danger-bg"><span>Erros</span><strong id="wrongCount">0</strong></div>
-          <div class="stat info-bg"><span>Aproveitamento</span><strong id="scorePercent">0%</strong></div>
+          <div class="stat success-bg">
+            <span>Acertos</span>
+            <strong id="correctCount" data-count="0">0</strong>
+          </div>
+
+          <div class="stat danger-bg">
+            <span>Erros</span>
+            <strong id="wrongCount" data-count="0">0</strong>
+          </div>
+
+          <div class="stat info-bg">
+            <span>Aproveitamento</span>
+            <strong id="scorePercent" data-count="0">0%</strong>
+          </div>
         </div>
 
         <div class="filters">

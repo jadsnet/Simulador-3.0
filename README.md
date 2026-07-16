@@ -1,36 +1,28 @@
-# Simulador V4.2.1
+# Simulador V5
 
-Atualização da V4.2 com revisão completa.
+Versão visualmente aprimorada da plataforma.
 
-## Revisão incluída
+## Novidades
 
-Filtros:
-- Todas
-- Erradas
-- Corretas
-- Não respondidas
-- Favoritas
-- Marcadas
-
-Cada questão mostra:
-- categoria
-- enunciado
-- resposta do usuário
-- resposta correta
-- feedback
-- imagem do enunciado
-- imagens das alternativas relevantes
-
-As imagens mantêm o tamanho original, com rolagem horizontal e zoom.
+- Hover e clique em todos os botões
+- Animações sutis em cards
+- Alternativas com hover e seleção animada
+- Navegação de questões com zoom e pulso
+- Barra de progresso animada
+- Modal de imagens com transição
+- Toast animado
+- Contadores do resultado animados
+- Mantém todos os recursos da V4.2.1
 
 ## Atualização no GitHub
 
-Substitua estes arquivos:
+Substitua:
 - index.html
 - style.css
 - app.js
 - db.js
 - manifest.webmanifest
 - service-worker.js
+- README.md
 
-Não apague o repositório nem altere o nome dos arquivos.
+Depois pressione Ctrl + Shift + R no site publicado.
