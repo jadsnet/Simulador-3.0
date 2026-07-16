@@ -97,12 +97,72 @@ function renderHistory(items){
   const list=$("historyList");
   list.innerHTML=items.length?"":"<div class='empty-state'>Nenhum resultado salvo.</div>";
 
-  items.sort((a,b)=>b.finishedAt.localeCompare(a.finishedAt)).slice(0,10).forEach(h=>{
+  items.sort((a,b)=>b.finishedAt.localeCompare(a.finishedAt)).slice(0,20).forEach(h=>{
     const el=document.createElement("div");
-    el.className="history-item";
-    el.innerHTML=`<strong>${esc(h.bankName)}</strong><p>${h.score}% · ${h.correct}/${h.total} · ${new Date(h.finishedAt).toLocaleString("pt-BR")}</p>`;
+    el.className="history-item history-item-with-actions";
+
+    const summary=document.createElement("div");
+    summary.className="history-summary";
+    summary.innerHTML=`<strong>${esc(h.bankName)}</strong><p>${h.score}% · ${h.correct}/${h.total} · ${new Date(h.finishedAt).toLocaleString("pt-BR")}</p>`;
+
+    const actions=document.createElement("div");
+    actions.className="history-actions";
+
+    const details=document.createElement("button");
+    details.className="btn secondary history-details-btn";
+    details.textContent="Ver detalhes";
+    details.disabled=!Array.isArray(h.reviewData)||!h.reviewData.length;
+    details.title=details.disabled
+      ? "Este resultado foi criado por uma versão antiga e não contém os detalhes das questões."
+      : "Abrir erros, acertos, respostas, feedbacks e imagens";
+    details.onclick=()=>openHistoryDetails(h.id);
+
+    actions.appendChild(details);
+    el.append(summary,actions);
     list.appendChild(el);
   });
+}
+
+async function openHistoryDetails(historyId){
+  const history=await get("history",historyId);
+
+  if(!history||!Array.isArray(history.reviewData)||!history.reviewData.length){
+    alert("Este resultado foi salvo por uma versão anterior e possui apenas o resumo. Os próximos simulados terão revisão completa no histórico.");
+    return;
+  }
+
+  const bank=history.bankId?await get("banks",history.bankId):null;
+
+  if(bank){
+    selectedBank=bank;
+  }else{
+    selectedBank={
+      id:history.bankId||"historico",
+      name:history.bankName||"Resultado anterior",
+      images:history.images||{},
+      questions:history.reviewData.map(item=>item.q).filter(Boolean)
+    };
+  }
+
+  reviewData=history.reviewData;
+  questions=reviewData.map(item=>item.q).filter(Boolean);
+  timerSeconds=Number(history.time)||0;
+
+  $("resultTime").textContent="Tempo: "+formatTime(timerSeconds);
+  $("correctCount").textContent=history.correct||0;
+  $("wrongCount").textContent=Math.max(0,(history.total||reviewData.length)-(history.correct||0));
+  $("scorePercent").textContent=(history.score||0)+"%";
+
+  renderCategoryStats(reviewData);
+  renderReview(reviewData);
+  filterReview("wrong");
+
+  $("homeScreen").classList.add("hidden");
+  $("setupScreen").classList.add("hidden");
+  $("quizScreen").classList.add("hidden");
+  $("resultScreen").classList.remove("hidden");
+  exitQuizMode();
+  window.scrollTo({top:0,behavior:"smooth"});
 }
 
 async function importBank(){
@@ -468,13 +528,20 @@ async function finish(){
 
   const score=Math.round(correct/questions.length*100);
 
-  await put("history",{
+  const historyRecord={
     id:crypto.randomUUID(),
     bankId:selectedBank.id,
     bankName:selectedBank.name,
     finishedAt:new Date().toISOString(),
-    score,correct,total:questions.length,time:timerSeconds
-  });
+    score,
+    correct,
+    total:questions.length,
+    unanswered,
+    time:timerSeconds,
+    reviewData
+  };
+
+  await put("history",historyRecord);
 
   await del("progress",selectedBank.id);
 

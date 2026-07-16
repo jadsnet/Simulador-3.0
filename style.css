@@ -165,3 +165,49 @@ body.quiz-mode .content-shell {
     min-width: 0;
   }
 }
+
+
+/* =========================================================
+   V6.2 — DETALHES DO HISTÓRICO
+   ========================================================= */
+
+.history-item-with-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.history-summary {
+  min-width: 0;
+  flex: 1;
+}
+
+.history-actions {
+  flex: 0 0 auto;
+}
+
+.history-details-btn {
+  min-width: 118px;
+}
+
+.history-details-btn:disabled {
+  opacity: .48;
+  cursor: not-allowed;
+  filter: none;
+}
+
+.history-details-btn:disabled:hover {
+  filter: none;
+}
+
+@media (max-width: 680px) {
+  .history-item-with-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .history-details-btn {
+    width: 100%;
+  }
+}

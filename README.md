@@ -1,28 +1,28 @@
-# Simulador V6.1 — Focus Mode
+# Simulador V6.2 — Histórico detalhado
 
-Atualização da V6 com uma tela de prova sem distrações.
+## Novo recurso
 
-## Alterações
+Cada novo resultado salvo no histórico passa a conter a revisão completa:
 
-- Menu lateral ocultado durante a execução do teste.
-- Cabeçalho com busca, notificações e perfil ocultado durante o teste.
-- Navegador lateral de questões removido da tela de prova.
-- Botões de favoritos e revisão removidos da tela de prova.
-- A prova mostra somente:
-  - banco atual;
-  - questão atual;
-  - quantidade respondida;
-  - tempo;
-  - salvar e sair;
-  - progresso;
-  - enunciado e alternativas;
-  - anterior e próxima.
-- Controle “Tema escuro” removido, pois o sistema usa exclusivamente tema escuro.
-- Corrigido o indicador “Questão X de Y” para permanecer na mesma linha.
+- enunciado da questão;
+- categoria;
+- resposta do usuário;
+- resposta correta;
+- indicação de acerto ou erro;
+- feedback;
+- imagem do enunciado;
+- imagens das alternativas relevantes;
+- filtros de todas, erradas, corretas, não respondidas, favoritas e marcadas.
 
-## Atualizar no GitHub
+O histórico agora mostra o botão **Ver detalhes**.
 
-Substitua todos estes arquivos:
+## Resultados antigos
+
+Resultados criados antes da V6.2 guardavam somente percentual, acertos, total e data. Por isso, o botão de detalhes fica desabilitado nesses registros antigos. Os novos simulados terão os detalhes completos.
+
+## Atualização no GitHub
+
+Substitua:
 
 - index.html
 - style.css
@@ -32,4 +32,4 @@ Substitua todos estes arquivos:
 - service-worker.js
 - README.md
 
-Depois faça o commit e pressione `Ctrl + Shift + R` no site publicado.
+Depois pressione `Ctrl + Shift + R` no site publicado.
