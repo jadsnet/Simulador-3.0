@@ -1,6 +1,6 @@
 {
-  "name": "Simulador de Certificação V5",
-  "short_name": "Simulador V5",
+  "name": "Simulador de Certificação V5.1",
+  "short_name": "Simulador V5.1",
   "start_url": "./",
   "display": "standalone",
   "background_color": "#06111f",

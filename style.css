@@ -717,3 +717,232 @@ button:focus-visible,input:focus-visible,summary:focus-visible{
   .navigation{flex-direction:column}
   .navigation .btn,.button-row .btn{width:100%}
 }
+
+/* =========================================================
+   V5.1 — MICROINTERAÇÕES CORPORATIVAS E ESPAÇAMENTO REFINADO
+   ========================================================= */
+
+/* Cards estruturais permanecem estáveis: sem elevação ou escala. */
+.card-interactive {
+  transform: none;
+  transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
+}
+
+.card-interactive:hover {
+  transform: none;
+  border-color: rgba(96, 165, 250, .20);
+  box-shadow: 0 19px 48px rgba(0, 0, 0, .31);
+}
+
+/* Botões: resposta visual curta, sem salto, zoom ou brilho excessivo. */
+.btn {
+  transform: none;
+  transition: background-color .13s ease, border-color .13s ease, box-shadow .13s ease, filter .13s ease;
+}
+
+.btn::after {
+  display: none;
+}
+
+.btn:hover {
+  transform: none;
+  filter: brightness(1.025);
+  box-shadow: 0 4px 11px rgba(0, 0, 0, .16);
+}
+
+.btn:active {
+  transform: none;
+  filter: brightness(.965);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, .18);
+}
+
+.btn:disabled {
+  filter: none;
+  box-shadow: none;
+}
+
+/* Inputs: apenas indicação de borda e foco, sem mudança forte de fundo. */
+.field input,
+.inline-form input {
+  transition: border-color .14s ease, box-shadow .14s ease;
+}
+
+.field input:hover,
+.inline-form input:hover {
+  background: var(--surface);
+  border-color: rgba(96, 165, 250, .42);
+}
+
+.field input:focus,
+.inline-form input:focus {
+  border-color: var(--primary2);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, .11);
+}
+
+/* Cards menores: microinteração quase imperceptível, sem deslocamento. */
+.bank-card,
+.history-item,
+.dashboard-card,
+.category-card,
+.review-item,
+.check-card {
+  transform: none;
+  transition: border-color .15s ease, background-color .15s ease, box-shadow .15s ease;
+}
+
+.bank-card:hover,
+.history-item:hover,
+.dashboard-card:hover,
+.category-card:hover,
+.review-item:hover,
+.check-card:hover {
+  transform: none;
+  border-color: rgba(96, 165, 250, .22);
+  background: var(--surface2);
+  box-shadow: 0 5px 14px rgba(0, 0, 0, .12);
+}
+
+/* Alternativas: só borda e fundo, sem elevação. */
+.option {
+  transform: none;
+  transition: border-color .14s ease, background-color .14s ease, box-shadow .14s ease;
+}
+
+.option:hover {
+  transform: none;
+  border-color: rgba(96, 165, 250, .30);
+  background: rgba(18, 36, 61, .92);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, .11);
+}
+
+.option:active {
+  transform: none;
+}
+
+.option.selected {
+  animation: none;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, .07);
+}
+
+/* Navegador numérico: variação mínima. */
+.nav-number {
+  transition: background-color .13s ease, box-shadow .13s ease, border-color .13s ease;
+}
+
+.nav-number:hover {
+  transform: none;
+  background: #17304e;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, .13);
+}
+
+.nav-number:active {
+  transform: none;
+  filter: brightness(.96);
+}
+
+.nav-number.current {
+  animation: none;
+  box-shadow: 0 0 0 2px rgba(147, 197, 253, .76);
+}
+
+/* Questões e resultados entram por opacidade, sem deslocamento. */
+.question-card {
+  animation: subtleFade .16s ease both;
+}
+
+.review-item,
+.resume-box,
+.stat,
+.toast,
+.loading-card,
+.modal-stage {
+  animation-name: subtleFade;
+  animation-duration: .18s;
+  animation-timing-function: ease;
+  animation-fill-mode: both;
+}
+
+@keyframes subtleFade {
+  from { opacity: .94; }
+  to { opacity: 1; }
+}
+
+/* Imagens: destaque leve, sem zoom do conteúdo. */
+.source-image {
+  transition: filter .15s ease;
+}
+
+.source-image:hover {
+  transform: none;
+  filter: brightness(1.025);
+}
+
+/* Barra de progresso mantém suavidade, com brilho muito discreto. */
+.progress-fill {
+  transition: width .28s ease;
+}
+
+.progress-fill::after {
+  opacity: .22;
+  animation-duration: 3.8s;
+}
+
+/* Modal e toast mais discretos. */
+.overlay,
+.image-modal {
+  animation-duration: .14s;
+}
+
+.toast {
+  animation: toastSubtle .2s ease both;
+}
+
+@keyframes toastSubtle {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.modal-close {
+  transition: background-color .13s ease, filter .13s ease;
+}
+
+.modal-close:hover {
+  transform: none;
+  background: #475569;
+}
+
+.modal-close:active {
+  transform: none;
+  filter: brightness(.94);
+}
+
+.icon-btn:hover,
+.icon-btn:active {
+  transform: none;
+}
+
+/* Mais respiro entre o último bloco de revisão/feedback e os botões finais. */
+.result-card .review-list {
+  margin-bottom: 38px;
+}
+
+.result-card > .button-row {
+  margin-top: 34px;
+  padding-top: 22px;
+  border-top: 1px solid rgba(148, 163, 184, .13);
+}
+
+/* Espaço extra no fim de cada feedback para evitar sensação de conteúdo colado. */
+.review-item .feedback {
+  margin-bottom: 4px;
+}
+
+/* Respeita preferência do sistema por menos movimento. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

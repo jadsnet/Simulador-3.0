@@ -1,28 +1,19 @@
-# Simulador V5
+# Simulador V5.1
 
-Versão visualmente aprimorada da plataforma.
+Revisão visual corporativa da V5.
 
-## Novidades
+## Ajustes
 
-- Hover e clique em todos os botões
-- Animações sutis em cards
-- Alternativas com hover e seleção animada
-- Navegação de questões com zoom e pulso
-- Barra de progresso animada
-- Modal de imagens com transição
-- Toast animado
-- Contadores do resultado animados
-- Mantém todos os recursos da V4.2.1
+- cartões grandes não se movimentam no hover
+- botões não sobem nem aumentam de escala
+- hover e clique mais sutis
+- inputs com destaque discreto
+- alternativas sem elevação exagerada
+- navegação numérica mais estável
+- animações reduzidas a microinterações
+- mais espaço entre a revisão/feedback e os botões finais
+- suporte a `prefers-reduced-motion`
 
 ## Atualização no GitHub
 
-Substitua:
-- index.html
-- style.css
-- app.js
-- db.js
-- manifest.webmanifest
-- service-worker.js
-- README.md
-
-Depois pressione Ctrl + Shift + R no site publicado.
+Substitua todos os arquivos do projeto pelos desta versão e depois use Ctrl + Shift + R.
