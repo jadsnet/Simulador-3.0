@@ -1,12 +1,13 @@
 import {put,get,getAll,del} from "./db.js";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
-let banks=[],selectedBank=null,questions=[],answers={},currentIndex=0,timerSeconds=0,timerHandle=null,settings={},favorites=new Set(),marked=new Set(),reviewData=[];
+let banks=[],selectedBank=null,questions=[],answers={},currentIndex=0,timerSeconds=0,timerHandle=null,settings={},favorites=new Set(),marked=new Set(),notes={},reviewData=[];
 document.addEventListener("DOMContentLoaded",init);
 
 async function init(){
   bind();
   await refreshHome();
-  if("serviceWorker"in navigator)navigator.serviceWorker.register("./service-worker.js").catch(()=>{});
+  if("serviceWorker" in navigator) navigator.serviceWorker.register("./service-worker.js").catch(()=>{});
+  window.setTimeout(startOnboardingIfNeeded,500);
 }
 
 
@@ -30,11 +31,135 @@ function bind(){
   $("prevBtn").onclick=()=>goTo(currentIndex-1);
   $("nextBtn").onclick=next;
   $("saveExitBtn").onclick=saveExit;
+  $("favoriteQuestionBtn").onclick=toggleFavorite;
+  $("markQuestionBtn").onclick=toggleMarked;
+  $("noteQuestionBtn").onclick=openNoteModal;
+  $("navigatorToggleBtn").onclick=toggleNavigator;
+  $("closeNavigatorBtn").onclick=toggleNavigator;
+  $("closeNoteBtn").onclick=closeNoteModal;
+  $("saveNoteBtn").onclick=saveCurrentNote;
+  $("deleteNoteBtn").onclick=deleteCurrentNote;
+  $("noteTextarea").oninput=updateNoteCounter;
+  $("noteModal").onclick=e=>{if(e.target===$("noteModal"))closeNoteModal()};
+  document.addEventListener("keydown",handleExamShortcuts);
   $("newQuizBtn").onclick=()=>showSetup(selectedBank.id);
   $("goHomeBtn").onclick=showHome;
+  $("onboardingNextBtn").onclick=nextOnboardingStep;
+  $("onboardingPrevBtn").onclick=previousOnboardingStep;
+  $("onboardingSkipBtn").onclick=finishOnboarding;
+  $("onboardingExitBtn").onclick=finishOnboarding;
+  window.addEventListener("resize",()=>{if(!$("onboardingOverlay").classList.contains("hidden"))positionOnboarding()});
   $("closeImageModal").onclick=closeModal;
   $("imageModal").onclick=e=>{if(e.target===$("imageModal"))closeModal()};
   document.querySelectorAll(".review-filter").forEach(b=>b.onclick=()=>filterReview(b.dataset.filter));
+}
+
+
+function startOnboardingIfNeeded(){
+  if(localStorage.getItem(ONBOARDING_KEY)==="done")return;
+  if(!$("homeScreen")||$("homeScreen").classList.contains("hidden"))return;
+
+  onboardingStep=0;
+  $("onboardingOverlay").classList.remove("hidden");
+  $("onboardingOverlay").setAttribute("aria-hidden","false");
+  showOnboardingStep();
+}
+
+function showOnboardingStep(){
+  clearOnboardingTarget();
+
+  const step=onboardingSteps[onboardingStep];
+  const target=document.querySelector(step.selector);
+
+  if(!target){
+    if(onboardingStep<onboardingSteps.length-1){
+      onboardingStep++;
+      showOnboardingStep();
+    }else{
+      finishOnboarding();
+    }
+    return;
+  }
+
+  onboardingTarget=target;
+  onboardingTarget.classList.add("onboarding-target-active");
+
+  $("onboardingStepLabel").textContent=`Passo ${onboardingStep+1} de ${onboardingSteps.length}`;
+  $("onboardingIcon").textContent=step.icon;
+  $("onboardingTitle").textContent=step.title;
+  $("onboardingText").textContent=step.text;
+  $("onboardingPrevBtn").disabled=onboardingStep===0;
+  $("onboardingNextBtn").textContent=onboardingStep===onboardingSteps.length-1?"Concluir ✓":"Próximo →";
+
+  target.scrollIntoView({behavior:"smooth",block:"center"});
+  window.setTimeout(positionOnboarding,260);
+}
+
+function positionOnboarding(){
+  if(!onboardingTarget)return;
+
+  const step=onboardingSteps[onboardingStep];
+  const rect=onboardingTarget.getBoundingClientRect();
+  const padding=8;
+  const spotlight=$("onboardingSpotlight");
+  const card=$("onboardingCard");
+
+  spotlight.style.top=`${Math.max(6,rect.top-padding)}px`;
+  spotlight.style.left=`${Math.max(6,rect.left-padding)}px`;
+  spotlight.style.width=`${Math.min(window.innerWidth-12,rect.width+padding*2)}px`;
+  spotlight.style.height=`${Math.min(window.innerHeight-12,rect.height+padding*2)}px`;
+
+  const cardWidth=card.offsetWidth||410;
+  const cardHeight=card.offsetHeight||240;
+  const gap=14;
+
+  let top=rect.bottom+gap;
+  let left=Math.min(Math.max(14,rect.left),window.innerWidth-cardWidth-14);
+
+  if(step.placement==="top"||top+cardHeight>window.innerHeight-14){
+    top=rect.top-cardHeight-gap;
+  }
+
+  if(step.placement==="right"&&rect.right+cardWidth+gap<window.innerWidth){
+    top=Math.max(14,rect.top);
+    left=rect.right+gap;
+  }
+
+  if(top<14){
+    top=Math.min(window.innerHeight-cardHeight-14,rect.bottom+gap);
+  }
+
+  card.style.top=`${Math.max(14,top)}px`;
+  card.style.left=`${Math.max(14,left)}px`;
+}
+
+function nextOnboardingStep(){
+  if(onboardingStep>=onboardingSteps.length-1){
+    finishOnboarding();
+    return;
+  }
+  onboardingStep++;
+  showOnboardingStep();
+}
+
+function previousOnboardingStep(){
+  if(onboardingStep<=0)return;
+  onboardingStep--;
+  showOnboardingStep();
+}
+
+function clearOnboardingTarget(){
+  if(onboardingTarget){
+    onboardingTarget.classList.remove("onboarding-target-active");
+    onboardingTarget=null;
+  }
+}
+
+function finishOnboarding(){
+  clearOnboardingTarget();
+  $("onboardingOverlay").classList.add("hidden");
+  $("onboardingOverlay").setAttribute("aria-hidden","true");
+  localStorage.setItem(ONBOARDING_KEY,"done");
 }
 
 async function refreshHome(){
@@ -60,6 +185,15 @@ async function renderDashboard(history){
   if(acc) acc.textContent = total ? Math.round(correct/total*100)+"%" : "0%";
   const time = document.getElementById("dashTime");
   if(time){ const h=Math.floor(seconds/3600), m=Math.floor(seconds%3600/60); time.textContent=String(h).padStart(2,"0")+"h "+String(m).padStart(2,"0")+"m"; }
+  const metadata=await getAll("questionData");
+  const latest=history.slice().sort((a,b)=>(b.finishedAt||"").localeCompare(a.finishedAt||""))[0];
+  const favCount=metadata.filter(x=>x.favorite).length;
+  const noteCount=metadata.filter(x=>String(x.note||"").trim()).length;
+  const errorCount=history.reduce((sum,h)=>sum+Math.max(0,(h.total||0)-(h.correct||0)),0);
+  if($("dashFavorites"))$("dashFavorites").textContent=favCount;
+  if($("dashNotes"))$("dashNotes").textContent=noteCount;
+  if($("dashMarked"))$("dashMarked").textContent=latest?.reviewData?.filter(x=>x.marked).length||0;
+  if($("dashErrors"))$("dashErrors").textContent=errorCount;
   const progress = await getAll("progress");
   const area = document.getElementById("continueStudy");
   if(!area) return;
@@ -294,6 +428,8 @@ async function startNew(){
   answers={};
   favorites=new Set();
   marked=new Set();
+  notes={};
+  await loadQuestionMetadata();
   currentIndex=0;
   timerSeconds=0;
 
@@ -310,6 +446,8 @@ async function resume(){
   answers=p.answers||{};
   favorites=new Set(p.favorites||[]);
   marked=new Set(p.marked||[]);
+  notes=p.notes||{};
+  await loadQuestionMetadata();
   currentIndex=p.currentIndex||0;
   timerSeconds=p.timerSeconds||0;
   settings=p.settings||{};
@@ -342,6 +480,10 @@ function renderQuestion(){
   $("categoryBadge").classList.toggle("hidden",!q.categoria);
   $("typeBadge").textContent=q.tipo==="multiple"?"Múltiplas respostas":"Resposta única";
   $("multipleNotice").classList.toggle("hidden",q.tipo!=="multiple");
+
+  updateQuestionActions(q);
+  updateLiveCounts();
+  renderNavigator();
 
   renderImage("questionImageWrap","questionImage",q.imagem_pergunta);
   renderOptions(q);
@@ -416,6 +558,8 @@ function renderNavigator(){
     b.className="nav-number";
     if((answers[q.id]||[]).length)b.classList.add("answered");
     if(marked.has(q.id))b.classList.add("marked");
+    if(favorites.has(q.id))b.classList.add("favorite");
+    if(String(notes[q.id]||"").trim())b.classList.add("note");
     if(i===currentIndex)b.classList.add("current");
     b.textContent=i+1;
     b.onclick=()=>goTo(i);
@@ -435,16 +579,108 @@ function next(){
   else finish();
 }
 
-function toggleFavorite(){
+async function toggleFavorite(){
   const id=questions[currentIndex].id;
   favorites.has(id)?favorites.delete(id):favorites.add(id);
+  await persistQuestionMetadata(id);
   renderQuestion();
+  toast(favorites.has(id)?"Questão adicionada aos favoritos.":"Questão removida dos favoritos.");
 }
 
 function toggleMarked(){
   const id=questions[currentIndex].id;
   marked.has(id)?marked.delete(id):marked.add(id);
   renderQuestion();
+  toast(marked.has(id)?"Questão marcada para revisão.":"Marcação removida.");
+}
+
+function metadataKey(questionId){return `${selectedBank.id}::${questionId}`}
+
+async function loadQuestionMetadata(){
+  if(!selectedBank)return;
+  const all=await getAll("questionData");
+  all.filter(x=>x.bankId===selectedBank.id).forEach(x=>{
+    if(x.favorite)favorites.add(x.questionId);
+    if(String(x.note||"").trim())notes[x.questionId]=x.note;
+  });
+}
+
+async function persistQuestionMetadata(questionId){
+  await put("questionData",{
+    key:metadataKey(questionId),
+    bankId:selectedBank.id,
+    questionId,
+    favorite:favorites.has(questionId),
+    note:notes[questionId]||"",
+    updatedAt:new Date().toISOString()
+  });
+}
+
+function updateQuestionActions(q){
+  const fav=favorites.has(q.id),mark=marked.has(q.id),hasNote=Boolean(String(notes[q.id]||"").trim());
+  const fb=$("favoriteQuestionBtn"),mb=$("markQuestionBtn"),nb=$("noteQuestionBtn");
+  fb.classList.toggle("active",fav);fb.setAttribute("aria-pressed",String(fav));fb.querySelector("span").textContent=fav?"★":"☆";fb.querySelector("small").textContent=fav?"Favorita":"Favoritar";
+  mb.classList.toggle("active",mark);mb.setAttribute("aria-pressed",String(mark));mb.querySelector("small").textContent=mark?"Marcada":"Revisar";
+  nb.classList.toggle("active",hasNote);nb.setAttribute("aria-pressed",String(hasNote));$("noteIndicator").classList.toggle("hidden",!hasNote);
+}
+
+function updateLiveCounts(){
+  const answered=questions.filter(q=>(answers[q.id]||[]).length).length;
+  const noteCount=questions.filter(q=>String(notes[q.id]||"").trim()).length;
+  if($("liveAnswered"))$("liveAnswered").textContent=answered;
+  if($("liveRemaining"))$("liveRemaining").textContent=Math.max(0,questions.length-answered);
+  if($("liveFavorites"))$("liveFavorites").textContent=favorites.size;
+  if($("liveMarked"))$("liveMarked").textContent=marked.size;
+  if($("liveNotes"))$("liveNotes").textContent=noteCount;
+}
+
+function toggleNavigator(){
+  $("questionNavigator").classList.toggle("hidden");
+  if(!$("questionNavigator").classList.contains("hidden"))renderNavigator();
+}
+
+function openNoteModal(){
+  const q=questions[currentIndex];
+  $("noteQuestionPreview").textContent=`Questão ${currentIndex+1}: ${q.pergunta||""}`;
+  $("noteTextarea").value=notes[q.id]||"";
+  updateNoteCounter();
+  $("noteModal").classList.remove("hidden");
+  document.body.style.overflow="hidden";
+  setTimeout(()=>$("noteTextarea").focus(),50);
+}
+
+function closeNoteModal(){
+  $("noteModal").classList.add("hidden");
+  document.body.style.overflow="";
+}
+
+function updateNoteCounter(){
+  $("noteCharCount").textContent=`${$("noteTextarea").value.length}/4000`;
+}
+
+async function saveCurrentNote(){
+  const id=questions[currentIndex].id;
+  const value=$("noteTextarea").value.trim();
+  if(value)notes[id]=value;else delete notes[id];
+  await persistQuestionMetadata(id);
+  await saveProgress();
+  closeNoteModal();renderQuestion();toast(value?"Anotação salva.":"Anotação removida.");
+}
+
+async function deleteCurrentNote(){
+  const id=questions[currentIndex].id;
+  delete notes[id];$("noteTextarea").value="";
+  await persistQuestionMetadata(id);await saveProgress();
+  closeNoteModal();renderQuestion();toast("Anotação apagada.");
+}
+
+function handleExamShortcuts(e){
+  if($("quizScreen").classList.contains("hidden")||!$("noteModal").classList.contains("hidden"))return;
+  if(["INPUT","TEXTAREA","SELECT"].includes(document.activeElement?.tagName))return;
+  const key=e.key.toLowerCase();
+  if(key==="f"){e.preventDefault();toggleFavorite()}
+  if(key==="r"){e.preventDefault();toggleMarked()}
+  if(key==="n"){e.preventDefault();openNoteModal()}
 }
 
 function startTimer(){
@@ -484,6 +720,7 @@ async function saveProgress(){
     settings,
     favorites:[...favorites],
     marked:[...marked],
+    notes,
     savedAt:new Date().toISOString()
   });
 }
@@ -504,6 +741,7 @@ async function deleteProgress(){
 
 async function finish(){
   const unanswered=questions.filter(q=>!(answers[q.id]||[]).length).length;
+  if(marked.size&&!confirm(`Há ${marked.size} questão(ões) marcada(s) para revisão. Deseja finalizar mesmo assim?`))return;
   if(settings.warn&&unanswered&&!confirm(`Há ${unanswered} não respondidas. Finalizar?`))return;
 
   stopTimer();
@@ -522,7 +760,8 @@ async function finish(){
       q,u,r,ok,
       unanswered:!u.length,
       favorite:favorites.has(q.id),
-      marked:marked.has(q.id)
+      marked:marked.has(q.id),
+      note:notes[q.id]||""
     });
   }
 
@@ -605,6 +844,7 @@ function renderReview(items){
     e.dataset.unanswered=x.unanswered;
     e.dataset.favorite=x.favorite;
     e.dataset.marked=x.marked;
+    e.dataset.notes=Boolean(String(x.note||"").trim());
 
     const cat=document.createElement("div");
     cat.className="review-category";
@@ -634,6 +874,13 @@ function renderReview(items){
     for(const letter of relevant){
       const img=resolveImage(x.q[`img_${letter.toLowerCase()}`]);
       if(img)e.appendChild(makeLabeledImage(`Imagem da alternativa ${letter}`,img));
+    }
+
+    if(String(x.note||"").trim()){
+      const n=document.createElement("div");
+      n.className="personal-note";
+      n.innerHTML=`<strong>📝 Minha anotação</strong><p>${esc(x.note)}</p>`;
+      e.appendChild(n);
     }
 
     if(x.q.feedback){
@@ -682,7 +929,8 @@ function filterReview(f){
       f==="correct"&&e.dataset.correct==="true"||
       f==="unanswered"&&e.dataset.unanswered==="true"||
       f==="favorite"&&e.dataset.favorite==="true"||
-      f==="marked"&&e.dataset.marked==="true";
+      f==="marked"&&e.dataset.marked==="true"||
+      f==="notes"&&e.dataset.notes==="true";
 
     e.classList.toggle("hidden",!show);
   });
@@ -690,11 +938,12 @@ function filterReview(f){
 
 async function exportBackup(){
   const data={
-    version:"5.0",
+    version:"7.0",
     exportedAt:new Date().toISOString(),
     banks:await getAll("banks"),
     progress:await getAll("progress"),
-    history:await getAll("history")
+    history:await getAll("history"),
+    questionData:await getAll("questionData")
   };
 
   download("simulador-backup.json",JSON.stringify(data,null,2),"application/json");
@@ -709,6 +958,7 @@ async function importBackup(){
   for(const x of data.banks||[])await put("banks",x);
   for(const x of data.progress||[])await put("progress",x);
   for(const x of data.history||[])await put("history",x);
+  for(const x of data.questionData||[])await put("questionData",x);
 
   await refreshHome();
   toast("Backup restaurado.");
