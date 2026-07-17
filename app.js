@@ -1,5 +1,16 @@
 import {put,get,getAll,del} from "./db.js";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
+const ONBOARDING_KEY="simulador-academy-onboarding-v2";
+let onboardingStep=0,onboardingTarget=null;
+const onboardingSteps=[
+  {selector:"#dashboard",icon:"⌂",title:"Visão geral",text:"Acompanhe simulados, questões respondidas, taxa de acertos e tempo de estudo.",placement:"bottom"},
+  {selector:"#banks",icon:"▤",title:"Bancos de questões",text:"Abra um banco já importado para iniciar ou continuar um simulado.",placement:"right"},
+  {selector:"#import",icon:"⇩",title:"Importar conteúdo",text:"Importe CSV, pasta de imagens ou um pacote ZIP completo.",placement:"top"},
+  {selector:"#continueStudy",icon:"▶",title:"Continuar simulado",text:"Quando houver progresso salvo, use esta área para continuar exatamente de onde parou.",placement:"bottom"},
+  {selector:"#studyInsights",icon:"☆",title:"Estudo inteligente",text:"Veja favoritas, marcações, anotações e erros registrados.",placement:"top"},
+  {selector:"#history",icon:"◷",title:"Histórico",text:"Consulte resultados anteriores e abra os detalhes de cada tentativa.",placement:"top"},
+  {selector:"#recoveryPanel",icon:"↶",title:"Recuperação de progresso",text:"Use esta área após uma atualização para localizar e restaurar simulados salvos no navegador.",placement:"top"}
+];
 let banks=[],selectedBank=null,questions=[],answers={},currentIndex=0,timerSeconds=0,timerHandle=null,settings={},favorites=new Set(),marked=new Set(),notes={},reviewData=[];
 document.addEventListener("DOMContentLoaded",init);
 
@@ -21,6 +32,8 @@ function exitQuizMode(){
 
 function bind(){
   $("refreshBanksBtn").onclick=refreshHome;
+  if($("openGuideBtn"))$("openGuideBtn").onclick=()=>{localStorage.removeItem(ONBOARDING_KEY);startOnboardingIfNeeded();};
+  if($("scanRecoveryBtn"))$("scanRecoveryBtn").onclick=renderRecoveryCandidates;
   $("importBankBtn").onclick=importBank;
   $("exportBackupBtn").onclick=exportBackup;
   $("importBackupBtn").onclick=importBackup;
@@ -169,6 +182,7 @@ async function refreshHome(){
   const history = await getAll("history");
   renderHistory(history);
   await renderDashboard(history);
+  await renderRecoveryCandidates();
   showLoading(false);
 }
 
@@ -200,12 +214,75 @@ async function renderDashboard(history){
   if(!progress.length){ area.innerHTML='<div class="empty-state">Nenhum simulado em andamento.</div>'; return; }
   const pr=progress.sort((a,b)=>(b.savedAt||"").localeCompare(a.savedAt||""))[0];
   const bank=await get("banks",pr.bankId);
-  if(!bank) return;
+  if(!bank){
+    area.innerHTML='<div class="empty-state"><strong>Progresso encontrado, mas o banco associado não foi localizado.</strong><p>Use a seção Recuperação de progresso logo abaixo.</p></div>';
+    return;
+  }
   const answered=Object.values(pr.answers||{}).filter(v=>Array.isArray(v)&&v.length).length;
   const pct=Math.round(answered/pr.order.length*100);
   area.innerHTML=`<div class="resume-box" style="margin:0"><div><span>Em andamento</span><strong>${esc(bank.name)}</strong><p>${answered}/${pr.order.length} respondidas · ${pct}%</p></div><button class="btn primary" id="dashResume">Continuar</button></div>`;
   document.getElementById("dashResume").onclick=async()=>{await showSetup(bank.id);await resume();};
 }
+
+async function renderRecoveryCandidates(){
+  const box=$("recoveryList");
+  if(!box)return;
+  const progress=await getAll("progress");
+  const allBanks=await getAll("banks");
+  box.innerHTML="";
+  $("recoveryEmpty")?.classList.toggle("hidden",progress.length>0);
+
+  if(!progress.length)return;
+
+  progress.sort((a,b)=>(b.savedAt||"").localeCompare(a.savedAt||"")).forEach(pr=>{
+    const direct=allBanks.find(b=>b.id===pr.bankId);
+    const order=Array.isArray(pr.order)?pr.order.map(String):[];
+    let suggested=direct;
+
+    if(!suggested&&order.length){
+      let best=null,bestScore=0;
+      for(const bank of allBanks){
+        const ids=new Set((bank.questions||[]).map(q=>String(q.id)));
+        const score=order.filter(id=>ids.has(id)).length;
+        if(score>bestScore){best=bank;bestScore=score}
+      }
+      if(best&&bestScore>=Math.max(1,Math.ceil(order.length*.6)))suggested=best;
+    }
+
+    const answered=Object.values(pr.answers||{}).filter(v=>Array.isArray(v)&&v.length).length;
+    const total=order.length||0;
+    const card=document.createElement("div");
+    card.className="recovery-item";
+    const date=pr.savedAt?new Date(pr.savedAt).toLocaleString("pt-BR"):"data não registrada";
+    card.innerHTML=`<div><strong>${suggested?esc(suggested.name):"Simulado salvo sem banco associado"}</strong><p>${answered}/${total} respondidas · salvo em ${date}</p><small>ID original: ${esc(String(pr.bankId||""))}</small></div>`;
+
+    const actions=document.createElement("div");
+    actions.className="recovery-actions";
+    const btn=document.createElement("button");
+    btn.className="btn primary";
+    btn.textContent=suggested?"Recuperar e continuar":"Banco não localizado";
+    btn.disabled=!suggested;
+    btn.onclick=async()=>{
+      try{
+        showLoading(true,"Recuperando progresso...");
+        if(pr.bankId!==suggested.id){
+          const migrated={...pr,bankId:suggested.id,savedAt:new Date().toISOString()};
+          await put("progress",migrated);
+        }
+        selectedBank=suggested;
+        await showSetup(suggested.id);
+        await resume();
+        toast("Progresso recuperado com sucesso.");
+      }catch(e){
+        alert("Não foi possível recuperar automaticamente: "+(e.message||e));
+      }finally{showLoading(false)}
+    };
+    actions.appendChild(btn);
+    card.appendChild(actions);
+    box.appendChild(card);
+  });
+}
+
 function renderBanks(){
   const list=$("bankList");
   list.innerHTML="";

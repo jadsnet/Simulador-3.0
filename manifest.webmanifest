@@ -1,1 +1,9 @@
-{"name":"Simulador Academy","short_name":"Simulador","start_url":"./","display":"standalone","background_color":"#050b14","theme_color":"#07111f","icons":[]}
+{
+  "name": "Simulador Academy V7",
+  "short_name": "Academy V7",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#050b14",
+  "theme_color": "#07111f",
+  "icons": []
+}

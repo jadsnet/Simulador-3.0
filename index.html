@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#07111f">
   <meta name="description" content="Plataforma de simulados de certificação.">
-  <title>Simulador Academy</title>
+  <title>Simulador Academy V7.2 — Recuperação Segura</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="style.css">
   <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
@@ -25,8 +25,8 @@
         <button class="side-link" data-scroll="banks"><span>▤</span>Bancos de questões</button>
         <button class="side-link" data-scroll="banks"><span>▶</span>Simulados</button>
         <button class="side-link" data-scroll="history"><span>◷</span>Histórico</button>
-        <button class="side-link" data-scroll="history"><span>☆</span>Favoritos</button>
-        <button class="side-link" data-scroll="history"><span>✓</span>Revisão</button>
+        <button class="side-link" data-scroll="studyInsights"><span>☆</span>Estudo inteligente</button>
+        <button class="side-link" data-scroll="studyInsights"><span>✓</span>Revisão</button>
         <button class="side-link" data-scroll="dashboard"><span>⌁</span>Estatísticas</button>
         <button class="side-link" data-scroll="import"><span>⇩</span>Importar banco</button>
         <button class="side-link" data-scroll="backup"><span>⚙</span>Configurações</button>
@@ -36,7 +36,7 @@
     <main class="content-shell">
       <header class="topbar">
         <div><p class="eyebrow">VISÃO GERAL</p><h1>Bem-vindo de volta!</h1><p>Pronto para continuar seus estudos?</p></div>
-        <div class="top-actions"><label class="search"><span>⌕</span><input id="dashboardSearch" placeholder="Buscar banco..."></label><button class="round-btn">◔</button><button class="avatar">JR</button></div>
+        <div class="top-actions"><button id="openGuideBtn" class="btn secondary guide-button" type="button">? Guia de uso</button><label class="search"><span>⌕</span><input id="dashboardSearch" placeholder="Buscar banco..."></label><button class="round-btn">◔</button><button class="avatar">JR</button></div>
       </header>
 
       <section id="homeScreen" class="screen">
@@ -51,6 +51,17 @@
           <article class="panel"><div class="panel-title"><div><p>CONTINUAR ESTUDANDO</p><h2>Simulado em andamento</h2></div></div><div id="continueStudy" class="panel-body"><div class="empty-state">Nenhum simulado em andamento.</div></div></article>
           <article class="panel"><div class="panel-title"><div><p>AÇÕES RÁPIDAS</p><h2>Atalhos</h2></div></div><div class="quick-list"><button data-scroll="banks"><span>▣</span><div><strong>Novo simulado</strong><small>Iniciar um novo teste</small></div><b>›</b></button><button data-scroll="history"><span>✓</span><div><strong>Revisar erros</strong><small>Ver questões incorretas</small></div><b>›</b></button><button data-scroll="history"><span>☆</span><div><strong>Favoritos</strong><small>Ver questões favoritas</small></div><b>›</b></button></div></article>
         </div>
+
+        <article id="studyInsights" class="panel v7-insights">
+          <div class="panel-title"><div><p>V7 · ESTUDO INTELIGENTE</p><h2>Sua biblioteca de revisão</h2></div></div>
+          <div class="v7-insight-grid">
+            <div><span>⭐</span><small>Favoritas</small><strong id="dashFavorites">0</strong></div>
+            <div><span>🚩</span><small>Marcadas no último exame</small><strong id="dashMarked">0</strong></div>
+            <div><span>📝</span><small>Com anotações</small><strong id="dashNotes">0</strong></div>
+            <div><span>❌</span><small>Erros registrados</small><strong id="dashErrors">0</strong></div>
+          </div>
+          <p class="v7-hint">Durante o exame use <kbd>F</kbd> para favoritar, <kbd>R</kbd> para revisar depois e <kbd>N</kbd> para anotar.</p>
+        </article>
 
         <div class="home-grid">
           <article id="banks" class="panel">
@@ -73,6 +84,14 @@
           </article>
         </div>
 
+        <article id="recoveryPanel" class="panel recovery-panel">
+          <div class="panel-title">
+            <div><p>RECUPERAÇÃO SEGURA</p><h2>Progresso salvo no navegador</h2></div>
+            <button id="scanRecoveryBtn" class="btn secondary" type="button">Procurar novamente</button>
+          </div>
+          <div id="recoveryList" class="recovery-list"></div>
+          <div id="recoveryEmpty" class="empty-state"><strong>Nenhum progresso salvo foi encontrado.</strong><p>O Ctrl + Shift + R não apaga o IndexedDB.</p></div>
+        </article>
         <article id="history" class="panel history-panel"><div class="panel-title"><div><p>HISTÓRICO</p><h2>Últimos resultados</h2></div><button id="exportBackupBtn" class="btn secondary">Exportar backup</button></div><div id="historyList" class="history-list"></div></article>
         <article id="backup" class="panel backup-panel"><div class="panel-title"><div><p>RESTAURAÇÃO</p><h2>Importar backup</h2></div></div><div class="panel-body inline-form"><input id="backupFile" type="file" accept=".json,application/json"><button id="importBackupBtn" class="btn secondary">Restaurar</button></div></article>
       </section>
@@ -113,9 +132,17 @@
         </div>
 
         <article class="panel question-card exam-question-card">
-          <div class="question-tags">
-            <span id="categoryBadge" class="badge hidden"></span>
-            <span id="typeBadge" class="badge neutral"></span>
+          <div class="question-toolbar">
+            <div class="question-tags">
+              <span id="categoryBadge" class="badge hidden"></span>
+              <span id="typeBadge" class="badge neutral"></span>
+            </div>
+            <div class="question-actions" aria-label="Ações da questão">
+              <button id="favoriteQuestionBtn" class="question-action" type="button" title="Favoritar questão (F)" aria-pressed="false"><span>☆</span><small>Favoritar</small></button>
+              <button id="markQuestionBtn" class="question-action" type="button" title="Revisar depois (R)" aria-pressed="false"><span>🚩</span><small>Revisar</small></button>
+              <button id="noteQuestionBtn" class="question-action" type="button" title="Adicionar anotação (N)" aria-pressed="false"><span>📝</span><small>Anotar</small><i id="noteIndicator" class="action-dot hidden"></i></button>
+              <button id="navigatorToggleBtn" class="question-action" type="button" title="Abrir mapa de questões"><span>▦</span><small>Questões</small></button>
+            </div>
           </div>
 
           <h2 id="questionText"></h2>
@@ -131,13 +158,29 @@
           <div id="optionsContainer" class="options"></div>
         </article>
 
+        <section id="questionNavigator" class="panel question-navigator hidden" aria-label="Mapa das questões">
+          <div class="navigator-head">
+            <div><p class="eyebrow">NAVEGAÇÃO RÁPIDA</p><h3>Mapa das questões</h3></div>
+            <button id="closeNavigatorBtn" class="round-btn" type="button" aria-label="Fechar mapa">×</button>
+          </div>
+          <div class="exam-live-counts">
+            <span><b id="liveAnswered">0</b> respondidas</span>
+            <span><b id="liveRemaining">0</b> restantes</span>
+            <span><b id="liveFavorites">0</b> favoritas</span>
+            <span><b id="liveMarked">0</b> marcadas</span>
+            <span><b id="liveNotes">0</b> anotações</span>
+          </div>
+          <div id="navigatorGrid" class="navigator-grid"></div>
+          <div class="navigator-legend"><span class="answered">Respondida</span><span class="marked">Marcada</span><span class="favorite">Favorita</span><span class="note">Anotação</span></div>
+        </section>
+
         <nav class="navigation exam-navigation">
           <button id="prevBtn" class="btn secondary">← Anterior</button>
           <button id="nextBtn" class="btn primary">Próxima →</button>
         </nav>
       </section>
 
-<section id="resultScreen" class="screen hidden"><article class="panel result-card"><div class="panel-title"><div><p>RESULTADO</p><h2>Simulado concluído</h2></div><span id="resultTime" class="time-chip"></span></div><div class="stats"><div class="stat success-bg"><span>Acertos</span><strong id="correctCount">0</strong></div><div class="stat danger-bg"><span>Erros</span><strong id="wrongCount">0</strong></div><div class="stat info-bg"><span>Aproveitamento</span><strong id="scorePercent">0%</strong></div></div><div class="filters"><button data-filter="all" class="filter-btn review-filter">Todas</button><button data-filter="wrong" class="filter-btn review-filter">Erradas</button><button data-filter="correct" class="filter-btn review-filter">Corretas</button><button data-filter="unanswered" class="filter-btn review-filter">Não respondidas</button><button data-filter="favorite" class="filter-btn review-filter">Favoritas</button><button data-filter="marked" class="filter-btn review-filter">Marcadas</button></div><div id="categoryStats" class="category-stats"></div><div id="reviewList" class="review-list"></div><div class="result-actions"><button id="newQuizBtn" class="btn primary">Novo simulado</button><button id="goHomeBtn" class="btn secondary">Início</button></div></article></section>
+<section id="resultScreen" class="screen hidden"><article class="panel result-card"><div class="panel-title"><div><p>RESULTADO</p><h2>Simulado concluído</h2></div><span id="resultTime" class="time-chip"></span></div><div class="stats"><div class="stat success-bg"><span>Acertos</span><strong id="correctCount">0</strong></div><div class="stat danger-bg"><span>Erros</span><strong id="wrongCount">0</strong></div><div class="stat info-bg"><span>Aproveitamento</span><strong id="scorePercent">0%</strong></div></div><div class="filters"><button data-filter="all" class="filter-btn review-filter">Todas</button><button data-filter="wrong" class="filter-btn review-filter">Erradas</button><button data-filter="correct" class="filter-btn review-filter">Corretas</button><button data-filter="unanswered" class="filter-btn review-filter">Não respondidas</button><button data-filter="favorite" class="filter-btn review-filter">Favoritas</button><button data-filter="marked" class="filter-btn review-filter">Marcadas</button><button data-filter="notes" class="filter-btn review-filter">Com anotações</button></div><div id="categoryStats" class="category-stats"></div><div id="reviewList" class="review-list"></div><div class="result-actions"><button id="newQuizBtn" class="btn primary">Novo simulado</button><button id="goHomeBtn" class="btn secondary">Início</button></div></article></section>
     </main>
   </div>
   <script>
@@ -148,5 +191,36 @@
       }));
     });
   </script>
+
+  <div id="noteModal" class="note-modal hidden" role="dialog" aria-modal="true" aria-labelledby="noteModalTitle">
+    <div class="note-dialog">
+      <div class="note-dialog-head"><div><p class="eyebrow">ANOTAÇÃO PESSOAL</p><h2 id="noteModalTitle">Minhas anotações</h2></div><button id="closeNoteBtn" class="modal-close note-close" type="button">×</button></div>
+      <p id="noteQuestionPreview" class="note-preview"></p>
+      <textarea id="noteTextarea" rows="8" maxlength="4000" placeholder="Registre um macete, conceito importante ou motivo da dúvida..."></textarea>
+      <div class="note-footer"><span id="noteCharCount">0/4000</span><div><button id="deleteNoteBtn" class="btn danger" type="button">Apagar</button><button id="saveNoteBtn" class="btn primary" type="button">Salvar anotação</button></div></div>
+    </div>
+  </div>
+
+  <div id="onboardingOverlay" class="onboarding-overlay hidden" aria-hidden="true">
+    <div id="onboardingSpotlight" class="onboarding-spotlight"></div>
+
+    <section id="onboardingCard" class="onboarding-card" role="dialog" aria-modal="true" aria-labelledby="onboardingTitle">
+      <div class="onboarding-progress">
+        <span id="onboardingStepLabel">Passo 1 de 6</span>
+        <button id="onboardingExitBtn" class="onboarding-close" type="button" aria-label="Sair do guia">×</button>
+      </div>
+
+      <div class="onboarding-icon" id="onboardingIcon">👋</div>
+      <h2 id="onboardingTitle">Bem-vindo ao Simulador Academy</h2>
+      <p id="onboardingText">Este guia rápido apresenta as principais áreas da página inicial.</p>
+
+      <div class="onboarding-actions">
+        <button id="onboardingPrevBtn" class="btn secondary" type="button">← Anterior</button>
+        <button id="onboardingSkipBtn" class="btn secondary" type="button">Sair</button>
+        <button id="onboardingNextBtn" class="btn primary" type="button">Próximo →</button>
+      </div>
+    </section>
+  </div>
+
 </body>
 </html>
