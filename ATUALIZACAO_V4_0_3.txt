@@ -1,0 +1,21 @@
+ATUALIZAÇÃO V4.0.3 — PÁGINAS INTERNAS
+
+Arquivos alterados:
+- index.html
+- app.js
+- style.css
+- service-worker.js
+
+O README.md não foi alterado.
+
+Mudanças:
+- Tela inicial simplificada: continuar estudo, bancos e importação.
+- Histórico em página própria.
+- Revisão/estudo inteligente em página própria.
+- Estatísticas em página própria.
+- Configurações, restauração e backup em página própria.
+- Menu lateral funcional após salvar o progresso.
+- Cards de favoritas, marcadas, anotações e erros agora são clicáveis.
+- Correção da linha visual que atravessava os cards.
+
+Após publicar no GitHub Pages, use Ctrl+Shift+R.

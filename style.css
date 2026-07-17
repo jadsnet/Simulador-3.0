@@ -377,3 +377,86 @@ body.quiz-mode .content-shell {
 .auth-card h1{margin:0 0 8px}.auth-card>p{color:var(--muted)}.auth-toggle{width:100%;margin-top:10px;text-align:center}.auth-message{min-height:24px;color:#fbbf24!important}.auth-local-note{margin-top:18px;padding:12px;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:.85rem;background:#081321}
 .cloud-status{white-space:nowrap;padding:7px 10px;border:1px solid var(--border);border-radius:999px;font-size:.75rem;font-weight:800}.cloud-status.online{color:#86efac;background:rgba(34,197,94,.1)}.cloud-status.syncing{color:#93c5fd;background:rgba(59,130,246,.1)}.cloud-status.offline{color:#fde68a;background:rgba(245,158,11,.1)}.cloud-status.error{color:#fca5a5;background:rgba(239,68,68,.1)}
 .soft-divider{margin:18px 0;border:0;border-top:1px solid var(--border)}.legacy-help{color:var(--muted);line-height:1.55}.legacy-help code{color:#bfdbfe}.inline-form select{min-width:220px}
+
+
+/* =========================================================
+   V4.0.3 — PÁGINAS INTERNAS E TELA INICIAL SIMPLIFICADA
+   ========================================================= */
+
+.app-page{display:grid;gap:14px}
+.page-heading{display:flex;align-items:end;justify-content:space-between;margin:2px 0 2px;padding:0 2px}
+.page-heading h2{margin:0;font-size:1.35rem}
+#pageHome>.page-heading{display:none}
+#pageHome .dashboard-columns{grid-template-columns:1fr}
+.home-quick-actions{display:none!important}
+
+#pageHistory #history,
+#pageSettings #backup,
+#pageReview #studyInsights{margin-bottom:0}
+
+.v7-insights{overflow:hidden}
+.v7-insight-grid{border-top:0!important;padding-top:16px}
+.v7-insight-grid>div{
+  position:relative;
+  border:1px solid var(--border)!important;
+  border-radius:12px;
+  cursor:pointer;
+  transition:transform .15s ease,border-color .15s ease,background .15s ease;
+}
+.v7-insight-grid>div:hover,
+.v7-insight-grid>div:focus{
+  transform:translateY(-2px);
+  border-color:#3b82f6!important;
+  background:rgba(47,125,244,.08);
+  outline:0;
+}
+.v7-insight-grid>div:after{
+  content:"Abrir";
+  position:absolute;
+  right:14px;
+  bottom:10px;
+  color:#60a5fa;
+  font-size:.68rem;
+  font-weight:800;
+  opacity:0;
+  transition:opacity .15s;
+}
+.v7-insight-grid>div:hover:after,
+.v7-insight-grid>div:focus:after{opacity:1}
+
+.review-library-panel{overflow:hidden}
+.review-library-title{align-items:center}
+.review-library-filters{display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end}
+.review-library-filter.active{border-color:#2f7df4;background:#17365f}
+.review-library-list{display:grid;gap:10px;padding:16px}
+.review-library-card{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) auto;
+  align-items:center;
+  gap:18px;
+  padding:15px;
+  border:1px solid var(--border);
+  border-left-width:4px;
+  border-radius:9px;
+  background:var(--surface);
+}
+.review-library-card.correct{border-left-color:var(--green)}
+.review-library-card.wrong{border-left-color:var(--red)}
+.review-library-card h3{margin:10px 0;line-height:1.45}
+.review-library-card p{margin:5px 0;color:#c2cede}
+.review-library-card-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.review-status{color:var(--muted);font-size:.76rem;font-weight:800}
+.library-note{margin-top:10px;padding:10px;border-radius:8px;color:#dce7f5;background:#111f33}
+.review-highlight{animation:reviewPulse 1.8s ease}
+@keyframes reviewPulse{
+  0%,100%{box-shadow:none}
+  20%,70%{box-shadow:0 0 0 3px rgba(47,125,244,.65)}
+}
+.stats-explanation p{margin:7px 0 0;color:var(--muted)}
+#pageStats .metrics{margin-bottom:0}
+
+@media(max-width:760px){
+  .review-library-title{align-items:flex-start;flex-direction:column}
+  .review-library-card{grid-template-columns:1fr}
+  .review-library-card .btn{width:100%}
+}

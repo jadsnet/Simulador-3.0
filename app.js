@@ -16,10 +16,250 @@ let authMode="signin", cloudSaveTimer=null;
 document.addEventListener("DOMContentLoaded",init);
 
 async function init(){
+  setupApplicationPages();
   bind();
   bindAuth();
+  bindSidebarNavigation();
   await initializeAuth(handleAuthChange);
   if("serviceWorker" in navigator) navigator.serviceWorker.register("./service-worker.js").catch(()=>{});
+}
+
+
+let activeApplicationPage="home";
+let reviewLibraryFilter="all";
+
+function makeApplicationPage(id,title,subtitle){
+  const page=document.createElement("section");
+  page.id=id;
+  page.className="app-page hidden";
+  page.innerHTML=`<header class="page-heading"><div><p class="eyebrow">${esc(subtitle)}</p><h2>${esc(title)}</h2></div></header>`;
+  return page;
+}
+
+function setupApplicationPages(){
+  const root=$("homeScreen");
+  if(!root||$("pageHome"))return;
+
+  const metrics=$("dashboard");
+  const dashboardColumns=document.querySelector(".dashboard-columns");
+  const insights=$("studyInsights");
+  const homeGrid=document.querySelector(".home-grid");
+  const history=$("history");
+  const backup=$("backup");
+
+  const home=makeApplicationPage("pageHome","Início","ESTUDO");
+  const historyPage=makeApplicationPage("pageHistory","Histórico","RESULTADOS");
+  const reviewPage=makeApplicationPage("pageReview","Revisão","BIBLIOTECA DE QUESTÕES");
+  const statsPage=makeApplicationPage("pageStats","Estatísticas","DESEMPENHO");
+  const settingsPage=makeApplicationPage("pageSettings","Configurações","DADOS E BACKUP");
+
+  if(dashboardColumns){
+    const quick=dashboardColumns.querySelector(".home-quick-actions");
+    if(quick)quick.remove();
+    home.appendChild(dashboardColumns);
+  }
+  if(homeGrid)home.appendChild(homeGrid);
+
+  if(history)historyPage.appendChild(history);
+
+  if(insights){
+    reviewPage.appendChild(insights);
+    const cards=[...insights.querySelectorAll(".v7-insight-grid > div")];
+    const filters=["favorite","marked","notes","wrong"];
+    cards.forEach((card,index)=>{
+      card.dataset.reviewLibraryFilter=filters[index];
+      card.setAttribute("role","button");
+      card.setAttribute("tabindex","0");
+      card.setAttribute("aria-label","Abrir questões deste grupo");
+      const activate=()=>showReviewLibrary(filters[index]);
+      card.onclick=activate;
+      card.onkeydown=e=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();activate()}};
+    });
+  }
+
+  const library=document.createElement("article");
+  library.id="reviewLibraryPanel";
+  library.className="panel review-library-panel";
+  library.innerHTML=`
+    <div class="panel-title review-library-title">
+      <div><p>QUESTÕES</p><h2 id="reviewLibraryHeading">Todas as questões revisadas</h2></div>
+      <div class="review-library-filters">
+        <button class="filter-btn review-library-filter" data-library-filter="all">Todas</button>
+        <button class="filter-btn review-library-filter" data-library-filter="wrong">Erros</button>
+        <button class="filter-btn review-library-filter" data-library-filter="correct">Acertos</button>
+        <button class="filter-btn review-library-filter" data-library-filter="favorite">Favoritas</button>
+        <button class="filter-btn review-library-filter" data-library-filter="marked">Marcadas</button>
+        <button class="filter-btn review-library-filter" data-library-filter="notes">Anotações</button>
+      </div>
+    </div>
+    <div id="reviewLibraryList" class="review-library-list"></div>`;
+  reviewPage.appendChild(library);
+  library.querySelectorAll("[data-library-filter]").forEach(btn=>{
+    btn.onclick=()=>showReviewLibrary(btn.dataset.libraryFilter);
+  });
+
+  if(metrics)statsPage.appendChild(metrics);
+  const statsNote=document.createElement("article");
+  statsNote.className="panel stats-explanation";
+  statsNote.innerHTML='<div class="panel-body"><strong>Resumo do seu desempenho</strong><p>Os indicadores acima são calculados a partir dos simulados finalizados e armazenados no histórico.</p></div>';
+  statsPage.appendChild(statsNote);
+
+  if(backup)settingsPage.appendChild(backup);
+
+  root.innerHTML="";
+  root.append(home,historyPage,reviewPage,statsPage,settingsPage);
+  home.classList.remove("hidden");
+}
+
+function bindSidebarNavigation(){
+  document.querySelectorAll(".side-link[data-page]").forEach(button=>{
+    button.onclick=()=>{
+      const page=button.dataset.page;
+      if(page==="banks"){showApplicationPage("home","banks");return}
+      if(page==="simulations"){showApplicationPage("home","continueStudy");return}
+      if(page==="import"){showApplicationPage("home","import");return}
+      if(page==="review"){
+        showApplicationPage("review");
+        showReviewLibrary(button.dataset.reviewFilter||"all");
+        return;
+      }
+      showApplicationPage(page);
+    };
+  });
+}
+
+function updateSidebarActive(page){
+  document.querySelectorAll(".side-link[data-page]").forEach(button=>{
+    const value=button.dataset.page;
+    const active=value===page||(page==="home"&&["banks","simulations","import"].includes(value)===false&&value==="home");
+    button.classList.toggle("active",active);
+  });
+}
+
+function showApplicationPage(page="home",scrollTarget=""){
+  exitQuizMode();
+  stopTimer();
+  document.querySelectorAll(".screen").forEach(screen=>screen.classList.add("hidden"));
+  $("homeScreen").classList.remove("hidden");
+  document.querySelectorAll(".app-page").forEach(section=>section.classList.add("hidden"));
+
+  const target=$(`page${page.charAt(0).toUpperCase()+page.slice(1)}`)||$("pageHome");
+  target.classList.remove("hidden");
+  activeApplicationPage=page;
+  updateSidebarActive(page);
+
+  if(page==="history")refreshHome();
+  if(page==="review")renderReviewLibrary(reviewLibraryFilter);
+  if(page==="stats")refreshHome();
+  if(page==="settings")scanLegacyProgress();
+
+  window.setTimeout(()=>{
+    if(scrollTarget){
+      const element=$(scrollTarget);
+      if(element)element.scrollIntoView({behavior:"smooth",block:"start"});
+    }else{
+      window.scrollTo({top:0,behavior:"smooth"});
+    }
+  },50);
+}
+
+async function showReviewLibrary(filter="all"){
+  reviewLibraryFilter=filter;
+  if(activeApplicationPage!=="review")showApplicationPage("review");
+  await renderReviewLibrary(filter);
+}
+
+async function renderReviewLibrary(filter="all"){
+  const list=$("reviewLibraryList");
+  if(!list)return;
+
+  const headings={
+    all:"Todas as questões revisadas",
+    wrong:"Questões respondidas incorretamente",
+    correct:"Questões respondidas corretamente",
+    favorite:"Questões favoritas",
+    marked:"Questões marcadas para revisão",
+    notes:"Questões com anotações"
+  };
+  $("reviewLibraryHeading").textContent=headings[filter]||headings.all;
+  document.querySelectorAll(".review-library-filter").forEach(btn=>{
+    btn.classList.toggle("active",btn.dataset.libraryFilter===filter);
+  });
+
+  const history=await getAll("history");
+  const metadata=await getAll("questionData");
+  const metadataMap=new Map(metadata.map(item=>[`${item.bankId}::${item.questionId}`,item]));
+  const rows=[];
+  const seen=new Set();
+
+  history
+    .slice()
+    .sort((a,b)=>String(b.finishedAt||"").localeCompare(String(a.finishedAt||"")))
+    .forEach(record=>{
+      (record.reviewData||[]).forEach((item,index)=>{
+        if(!item?.q)return;
+        const key=`${record.bankId}::${item.q.id}`;
+        if(seen.has(key))return;
+        seen.add(key);
+        const meta=metadataMap.get(key)||{};
+        rows.push({
+          ...item,
+          favorite:Boolean(meta.favorite||item.favorite),
+          note:String(meta.note||item.note||""),
+          historyId:record.id,
+          finishedAt:record.finishedAt,
+          originalIndex:index
+        });
+      });
+    });
+
+  const filtered=rows.filter(item=>{
+    if(filter==="wrong")return !item.ok;
+    if(filter==="correct")return item.ok;
+    if(filter==="favorite")return item.favorite;
+    if(filter==="marked")return item.marked;
+    if(filter==="notes")return Boolean(item.note.trim());
+    return true;
+  });
+
+  list.innerHTML="";
+  if(!filtered.length){
+    list.innerHTML='<div class="empty-state"><strong>Nenhuma questão encontrada.</strong><p>Quando houver itens neste grupo, eles aparecerão aqui.</p></div>';
+    return;
+  }
+
+  filtered.forEach(item=>{
+    const card=document.createElement("article");
+    card.className=`review-library-card ${item.ok?"correct":"wrong"}`;
+    card.innerHTML=`
+      <div class="review-library-card-main">
+        <div class="review-library-card-meta">
+          <span class="review-category">${esc(item.q.categoria||"Sem categoria")}</span>
+          <span class="review-status">${item.ok?"✓ Correta":"✕ Incorreta"}</span>
+          ${item.favorite?'<span title="Favorita">★</span>':""}
+          ${item.marked?'<span title="Marcada">⚑</span>':""}
+          ${item.note?'<span title="Com anotação">📝</span>':""}
+        </div>
+        <h3>${esc(item.q.pergunta||"Questão sem enunciado")}</h3>
+        <p><strong>Sua resposta:</strong> ${esc((item.u||[]).join(", ")||"Não respondida")}</p>
+        <p><strong>Resposta correta:</strong> ${esc((item.r||[]).join(", ")||"Não informada")}</p>
+        ${item.note?`<div class="library-note"><strong>Minha anotação:</strong> ${esc(item.note)}</div>`:""}
+      </div>
+      <button class="btn secondary open-reviewed-question" type="button">Abrir questão</button>`;
+    card.querySelector(".open-reviewed-question").onclick=async()=>{
+      await openHistoryDetails(item.historyId);
+      window.setTimeout(()=>{
+        const reviewItems=[...document.querySelectorAll("#reviewList .review-item")];
+        const target=reviewItems[item.originalIndex];
+        if(target){
+          target.scrollIntoView({behavior:"smooth",block:"start"});
+          target.classList.add("review-highlight");
+          window.setTimeout(()=>target.classList.remove("review-highlight"),1800);
+        }
+      },180);
+    };
+    list.appendChild(card);
+  });
 }
 
 
@@ -313,7 +553,8 @@ async function refreshHome(){
   const history = await getAll("history");
   renderHistory(history);
   await renderDashboard(history);
-  await scanLegacyProgress();
+  if(activeApplicationPage==="settings")await scanLegacyProgress();
+  if(activeApplicationPage==="review")await renderReviewLibrary(reviewLibraryFilter);
   showLoading(false);
 }
 
@@ -364,8 +605,9 @@ async function scanLegacyProgress(showFeedback=false){
     panel=document.createElement("article");
     panel.id="legacyRecoveryPanel";
     panel.className="panel legacy-recovery-panel";
-    const history=$("history");
-    if(history)history.before(panel); else home.appendChild(panel);
+    const settingsPage=$("pageSettings");
+    if(settingsPage)settingsPage.insertBefore(panel,settingsPage.firstElementChild?.nextSibling||null);
+    else home.appendChild(panel);
   }
 
   panel.innerHTML=`
@@ -1234,10 +1476,7 @@ async function importBackup(){
 }
 
 function showHome(){
-  exitQuizMode();
-  stopTimer();
-  document.querySelectorAll(".screen").forEach(s=>s.classList.add("hidden"));
-  $("homeScreen").classList.remove("hidden");
+  showApplicationPage("home");
   refreshHome();
 }
 

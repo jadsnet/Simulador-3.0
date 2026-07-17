@@ -7,10 +7,10 @@
   <meta name="description" content="Plataforma de simulados de certificação.">
   <title>Simulador Academy V4.0 Cloud.1</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=4.0.2">
+  <link rel="stylesheet" href="style.css?v=4.0.3">
   <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script type="module" src="app.js?v=4.0.2"></script>
+  <script type="module" src="app.js?v=4.0.3"></script>
 </head>
 <body>
 
@@ -36,15 +36,15 @@
     <aside class="sidebar">
       <div class="brand"><div class="brand-mark">S</div><div><strong>Simulador</strong><small>Academy</small></div></div>
       <nav class="side-nav">
-        <button class="side-link active" data-scroll="dashboard"><span>⌂</span>Início</button>
-        <button class="side-link" data-scroll="banks"><span>▤</span>Bancos de questões</button>
-        <button class="side-link" data-scroll="banks"><span>▶</span>Simulados</button>
-        <button class="side-link" data-scroll="history"><span>◷</span>Histórico</button>
-        <button class="side-link" data-scroll="studyInsights"><span>☆</span>Estudo inteligente</button>
-        <button class="side-link" data-scroll="studyInsights"><span>✓</span>Revisão</button>
-        <button class="side-link" data-scroll="dashboard"><span>⌁</span>Estatísticas</button>
-        <button class="side-link" data-scroll="import"><span>⇩</span>Importar banco</button>
-        <button class="side-link" data-scroll="backup"><span>⚙</span>Configurações</button>
+        <button class="side-link active" data-page="home"><span>⌂</span>Início</button>
+        <button class="side-link" data-page="banks"><span>▤</span>Bancos de questões</button>
+        <button class="side-link" data-page="simulations"><span>▶</span>Simulados</button>
+        <button class="side-link" data-page="history"><span>◷</span>Histórico</button>
+        <button class="side-link" data-page="review" data-review-filter="all"><span>☆</span>Estudo inteligente</button>
+        <button class="side-link" data-page="review" data-review-filter="wrong"><span>✓</span>Revisão</button>
+        <button class="side-link" data-page="stats"><span>⌁</span>Estatísticas</button>
+        <button class="side-link" data-page="import"><span>⇩</span>Importar banco</button>
+        <button class="side-link" data-page="settings"><span>⚙</span>Configurações</button>
         <button id="sidebarTutorialBtn" class="side-link tutorial-link" type="button"><span>?</span>Guia de utilização</button>
       </nav>
     </aside>
@@ -65,7 +65,7 @@
 
         <div class="dashboard-columns">
           <article class="panel"><div class="panel-title"><div><p>CONTINUAR ESTUDANDO</p><h2>Simulado em andamento</h2></div></div><div id="continueStudy" class="panel-body"><div class="empty-state">Nenhum simulado em andamento.</div></div></article>
-          <article class="panel"><div class="panel-title"><div><p>AÇÕES RÁPIDAS</p><h2>Atalhos</h2></div></div><div class="quick-list"><button data-scroll="banks"><span>▣</span><div><strong>Novo simulado</strong><small>Iniciar um novo teste</small></div><b>›</b></button><button data-scroll="history"><span>✓</span><div><strong>Revisar erros</strong><small>Ver questões incorretas</small></div><b>›</b></button><button data-scroll="history"><span>☆</span><div><strong>Favoritos</strong><small>Ver questões favoritas</small></div><b>›</b></button></div></article>
+          <article class="panel home-quick-actions"><div class="panel-title"><div><p>AÇÕES RÁPIDAS</p><h2>Atalhos</h2></div></div><div class="quick-list"><button data-scroll="banks"><span>▣</span><div><strong>Novo simulado</strong><small>Iniciar um novo teste</small></div><b>›</b></button><button data-scroll="history"><span>✓</span><div><strong>Revisar erros</strong><small>Ver questões incorretas</small></div><b>›</b></button><button data-scroll="history"><span>☆</span><div><strong>Favoritos</strong><small>Ver questões favoritas</small></div><b>›</b></button></div></article>
         </div>
 
         <article id="studyInsights" class="panel v7-insights">
