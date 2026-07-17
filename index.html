@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#07111f">
   <meta name="description" content="Plataforma de simulados de certificação.">
-  <title>Simulador Academy V7.2 — Recuperação Segura</title>
+  <title>Simulador Academy V7.1</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=7.1">
   <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script type="module" src="app.js"></script>
+  <script type="module" src="app.js?v=7.1"></script>
 </head>
 <body>
   <div id="toast" class="toast hidden" role="status"></div>
@@ -30,13 +30,14 @@
         <button class="side-link" data-scroll="dashboard"><span>⌁</span>Estatísticas</button>
         <button class="side-link" data-scroll="import"><span>⇩</span>Importar banco</button>
         <button class="side-link" data-scroll="backup"><span>⚙</span>Configurações</button>
+        <button id="sidebarTutorialBtn" class="side-link tutorial-link" type="button"><span>?</span>Guia de utilização</button>
       </nav>
     </aside>
 
     <main class="content-shell">
       <header class="topbar">
         <div><p class="eyebrow">VISÃO GERAL</p><h1>Bem-vindo de volta!</h1><p>Pronto para continuar seus estudos?</p></div>
-        <div class="top-actions"><button id="openGuideBtn" class="btn secondary guide-button" type="button">? Guia de uso</button><label class="search"><span>⌕</span><input id="dashboardSearch" placeholder="Buscar banco..."></label><button class="round-btn">◔</button><button class="avatar">JR</button></div>
+        <div class="top-actions"><label class="search"><span>⌕</span><input id="dashboardSearch" placeholder="Buscar banco..."></label><button id="openTutorialBtn" class="help-tour-btn" type="button" title="Abrir guia de utilização">? <span>Guia de uso</span></button><button class="avatar">JR</button></div>
       </header>
 
       <section id="homeScreen" class="screen">
@@ -84,14 +85,6 @@
           </article>
         </div>
 
-        <article id="recoveryPanel" class="panel recovery-panel">
-          <div class="panel-title">
-            <div><p>RECUPERAÇÃO SEGURA</p><h2>Progresso salvo no navegador</h2></div>
-            <button id="scanRecoveryBtn" class="btn secondary" type="button">Procurar novamente</button>
-          </div>
-          <div id="recoveryList" class="recovery-list"></div>
-          <div id="recoveryEmpty" class="empty-state"><strong>Nenhum progresso salvo foi encontrado.</strong><p>O Ctrl + Shift + R não apaga o IndexedDB.</p></div>
-        </article>
         <article id="history" class="panel history-panel"><div class="panel-title"><div><p>HISTÓRICO</p><h2>Últimos resultados</h2></div><button id="exportBackupBtn" class="btn secondary">Exportar backup</button></div><div id="historyList" class="history-list"></div></article>
         <article id="backup" class="panel backup-panel"><div class="panel-title"><div><p>RESTAURAÇÃO</p><h2>Importar backup</h2></div></div><div class="panel-body inline-form"><input id="backupFile" type="file" accept=".json,application/json"><button id="importBackupBtn" class="btn secondary">Restaurar</button></div></article>
       </section>
@@ -131,18 +124,26 @@
           <div id="progressBar" class="progress-fill"></div>
         </div>
 
+        <section class="exam-question-tools" aria-label="Ferramentas da questão atual">
+          <div>
+            <strong>Ferramentas da questão</strong>
+            <small>Salve, marque para revisar ou registre uma anotação.</small>
+          </div>
+          <div class="exam-question-tools-actions">
+            <button id="favoriteQuestionBtn" class="question-action prominent" type="button" title="Salvar questão nos favoritos (F)" aria-pressed="false"><span>☆</span><small>Salvar questão</small></button>
+            <button id="markQuestionBtn" class="question-action prominent" type="button" title="Marcar para revisar depois (R)" aria-pressed="false"><span>🚩</span><small>Revisar depois</small></button>
+            <button id="noteQuestionBtn" class="question-action prominent" type="button" title="Adicionar anotação (N)" aria-pressed="false"><span>📝</span><small>Anotações</small><i id="noteIndicator" class="action-dot hidden"></i></button>
+            <button id="navigatorToggleBtn" class="question-action prominent" type="button" title="Abrir mapa de questões"><span>▦</span><small>Mapa</small></button>
+          </div>
+        </section>
+
         <article class="panel question-card exam-question-card">
           <div class="question-toolbar">
             <div class="question-tags">
               <span id="categoryBadge" class="badge hidden"></span>
               <span id="typeBadge" class="badge neutral"></span>
             </div>
-            <div class="question-actions" aria-label="Ações da questão">
-              <button id="favoriteQuestionBtn" class="question-action" type="button" title="Favoritar questão (F)" aria-pressed="false"><span>☆</span><small>Favoritar</small></button>
-              <button id="markQuestionBtn" class="question-action" type="button" title="Revisar depois (R)" aria-pressed="false"><span>🚩</span><small>Revisar</small></button>
-              <button id="noteQuestionBtn" class="question-action" type="button" title="Adicionar anotação (N)" aria-pressed="false"><span>📝</span><small>Anotar</small><i id="noteIndicator" class="action-dot hidden"></i></button>
-              <button id="navigatorToggleBtn" class="question-action" type="button" title="Abrir mapa de questões"><span>▦</span><small>Questões</small></button>
-            </div>
+
           </div>
 
           <h2 id="questionText"></h2>
