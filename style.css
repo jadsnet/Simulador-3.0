@@ -368,3 +368,12 @@ body.quiz-mode .content-shell {
 .legacy-recovery-status strong{display:block;color:var(--text)}
 .legacy-recovery-status p{margin:5px 0 0;line-height:1.5}
 .legacy-recovery-item small{display:block;margin-top:5px;color:var(--amber)}
+
+
+/* V4.0 Cloud */
+.auth-screen{position:fixed;z-index:50000;inset:0;display:grid;place-items:center;padding:20px;background:radial-gradient(circle at 50% -10%,rgba(47,125,244,.18),transparent 35%),#050b14}
+.auth-screen.hidden{display:none}.auth-card{width:min(430px,100%);padding:28px;border:1px solid var(--border);border-radius:18px;background:linear-gradient(145deg,#101f34,#0b1728);box-shadow:0 28px 90px rgba(0,0,0,.55)}
+.auth-brand{display:flex;gap:12px;align-items:center;margin-bottom:25px}.auth-brand strong,.auth-brand small{display:block}.auth-brand small{color:var(--muted)}
+.auth-card h1{margin:0 0 8px}.auth-card>p{color:var(--muted)}.auth-toggle{width:100%;margin-top:10px;text-align:center}.auth-message{min-height:24px;color:#fbbf24!important}.auth-local-note{margin-top:18px;padding:12px;border:1px solid var(--border);border-radius:10px;color:var(--muted);font-size:.85rem;background:#081321}
+.cloud-status{white-space:nowrap;padding:7px 10px;border:1px solid var(--border);border-radius:999px;font-size:.75rem;font-weight:800}.cloud-status.online{color:#86efac;background:rgba(34,197,94,.1)}.cloud-status.syncing{color:#93c5fd;background:rgba(59,130,246,.1)}.cloud-status.offline{color:#fde68a;background:rgba(245,158,11,.1)}.cloud-status.error{color:#fca5a5;background:rgba(239,68,68,.1)}
+.soft-divider{margin:18px 0;border:0;border-top:1px solid var(--border)}.legacy-help{color:var(--muted);line-height:1.55}.legacy-help code{color:#bfdbfe}.inline-form select{min-width:220px}

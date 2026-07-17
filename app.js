@@ -1,4 +1,5 @@
 import {put,get,getAll,del} from "./db.js";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,pushHistory,ensureCloudBank} from "./cloud.js";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 let onboardingStep=0,onboardingTarget=null;
@@ -11,13 +12,124 @@ const onboardingSteps=[
   {selector:"#history",icon:"◷",title:"Histórico",text:"Abra resultados anteriores e revise suas respostas.",placement:"top"}
 ];
 let banks=[],selectedBank=null,questions=[],answers={},currentIndex=0,timerSeconds=0,timerHandle=null,settings={},favorites=new Set(),marked=new Set(),notes={},reviewData=[];
+let authMode="signin", cloudSaveTimer=null;
 document.addEventListener("DOMContentLoaded",init);
 
 async function init(){
   bind();
-  await refreshHome();
+  bindAuth();
+  await initializeAuth(handleAuthChange);
   if("serviceWorker" in navigator) navigator.serviceWorker.register("./service-worker.js").catch(()=>{});
+}
+
+
+function bindAuth(){
+  $("authSubmitBtn").onclick=submitAuth;
+  $("authToggleBtn").onclick=()=>{
+    authMode=authMode==="signin"?"signup":"signin";
+    $("authTitle").textContent=authMode==="signin"?"Entrar":"Criar conta";
+    $("authSubmitBtn").textContent=authMode==="signin"?"Entrar":"Cadastrar";
+    $("authToggleBtn").textContent=authMode==="signin"?"Criar uma conta":"Já tenho uma conta";
+    $("authMessage").textContent="";
+  };
+  $("logoutBtn").onclick=()=>signOut();
+  $("syncNowBtn").onclick=syncAllNow;
+  $("importLegacyBtn").onclick=importLegacyProgress;
+}
+
+async function submitAuth(){
+  const email=$("authEmail").value.trim();
+  const password=$("authPassword").value;
+  if(!email||password.length<8){$("authMessage").textContent="Informe um e-mail válido e uma senha com pelo menos 8 caracteres.";return;}
+  $("authSubmitBtn").disabled=true;
+  $("authMessage").textContent="Aguarde...";
+  try{
+    if(authMode==="signin") await signIn(email,password);
+    else{
+      await signUp(email,password);
+      $("authMessage").textContent="Cadastro criado. Confirme o e-mail e depois entre.";
+    }
+  }catch(e){$("authMessage").textContent=e.message||"Falha na autenticação."}
+  finally{$("authSubmitBtn").disabled=false;}
+}
+
+async function handleAuthChange(user){
+  $("authScreen").classList.toggle("hidden",!!user);
+  document.querySelector(".app-layout").classList.toggle("hidden",!user);
+  if(!user)return;
+  $("logoutBtn").textContent=(user.email||"U").slice(0,2).toUpperCase();
+  setCloudStatus("Sincronizando","syncing");
+  await refreshHome();
+  populateLegacyBanks();
+  setCloudStatus("Nuvem ativa","online");
   window.setTimeout(startOnboardingIfNeeded,500);
+}
+
+function setCloudStatus(text,state){
+  const el=$("cloudStatus"); if(!el)return;
+  el.textContent=text; el.className="cloud-status "+state;
+}
+
+async function syncAllNow(){
+  if(!getCloudUser())return;
+  setCloudStatus("Sincronizando","syncing");
+  try{
+    banks=await getAll("banks");
+    for(const bank of banks){
+      await ensureCloudBank(bank);
+      const local=await get("progress",bank.id);
+      const remote=await pullProgress(bank);
+      if(remote && (!local || String(remote.savedAt||"")>String(local.savedAt||""))) await put("progress",remote);
+      else if(local) await pushProgress(bank,local);
+    }
+    await refreshHome();
+    setCloudStatus("Sincronizado","online");
+    toast("Sincronização concluída.");
+  }catch(e){setCloudStatus("Erro de sync","error");console.error(e);toast("Falha ao sincronizar.");}
+}
+
+function queueCloudProgress(progress){
+  clearTimeout(cloudSaveTimer);
+  cloudSaveTimer=setTimeout(async()=>{
+    try{await pushProgress(selectedBank,progress);setCloudStatus("Salvo","online");}
+    catch(e){console.error(e);setCloudStatus("Pendente","offline");}
+  },500);
+}
+
+function populateLegacyBanks(){
+  const sel=$("legacyBankSelect"); if(!sel)return;
+  sel.innerHTML=banks.map(b=>`<option value="${esc(b.id)}">${esc(b.name)} (${b.questions?.length||0})</option>`).join("");
+}
+
+async function importLegacyProgress(){
+  const file=$("legacyBackupFile").files[0];
+  const bankId=$("legacyBankSelect").value;
+  const bank=await get("banks",bankId);
+  if(!file||!bank){alert("Selecione o backup antigo e o banco correspondente.");return;}
+  try{
+    const root=JSON.parse(await file.text());
+    const raw=root["simulador_v2_progresso"];
+    if(!raw)throw new Error("A chave simulador_v2_progresso não foi encontrada.");
+    const old=typeof raw==="string"?JSON.parse(raw):raw;
+    const list=Array.isArray(old.userAnswers)?old.userAnswers:[];
+    const restored={};
+    bank.questions.forEach((q,i)=>{
+      const value=list[i];
+      if(Array.isArray(value)&&value.length)restored[q.id]=normAnswers(value);
+    });
+    const order=bank.questions.map(q=>q.id);
+    const progress={
+      bankId:bank.id,
+      currentIndex:Math.min(Number(old.currentQuestion)||0,Math.max(0,order.length-1)),
+      order,answers:restored,timerSeconds:Number(old.timerSeconds)||0,
+      settings:{limit:order.length,timeLimit:0,shuffle:false,warn:true},
+      favorites:[],marked:[],notes:{},savedAt:new Date().toISOString()
+    };
+    await put("progress",progress);
+    await pushProgress(bank,progress);
+    toast(`${Object.keys(restored).length} respostas antigas recuperadas.`);
+    await refreshHome();
+  }catch(e){alert(e.message||"Não foi possível importar o progresso antigo.");}
 }
 
 
@@ -856,7 +968,7 @@ function stopTimer(){
 async function saveProgress(){
   if(!selectedBank||!questions.length)return;
 
-  await put("progress",{
+  const progressRecord={
     bankId:selectedBank.id,
     currentIndex,
     order:questions.map(q=>q.id),
@@ -867,7 +979,9 @@ async function saveProgress(){
     marked:[...marked],
     notes,
     savedAt:new Date().toISOString()
-  });
+  };
+  await put("progress",progressRecord);
+  queueCloudProgress(progressRecord);
 }
 
 async function saveExit(){
@@ -881,6 +995,7 @@ async function saveExit(){
 
 async function deleteProgress(){
   await del("progress",selectedBank.id);
+  try{await deleteCloudProgress(selectedBank)}catch(e){console.error(e)}
   await showSetup(selectedBank.id);
 }
 
@@ -926,8 +1041,9 @@ async function finish(){
   };
 
   await put("history",historyRecord);
-
+  try{await pushHistory(selectedBank,historyRecord)}catch(e){console.error("Histórico pendente:",e)}
   await del("progress",selectedBank.id);
+  try{await deleteCloudProgress(selectedBank)}catch(e){console.error(e)}
 
   $("quizScreen").classList.add("hidden");
   $("resultScreen").classList.remove("hidden");

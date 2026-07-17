@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#07111f">
   <meta name="description" content="Plataforma de simulados de certificação.">
-  <title>Simulador Academy V7.1</title>
+  <title>Simulador Academy V4.0 Cloud.1</title>
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="stylesheet" href="style.css?v=7.1">
   <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
@@ -13,6 +13,21 @@
   <script type="module" src="app.js?v=7.1"></script>
 </head>
 <body>
+
+  <section id="authScreen" class="auth-screen">
+    <div class="auth-card">
+      <div class="auth-brand"><div class="brand-mark">S</div><div><strong>Simulador Academy</strong><small>V4.0 Cloud</small></div></div>
+      <h1 id="authTitle">Entrar</h1>
+      <p id="authSubtitle">Seu progresso será salvo localmente e no Supabase.</p>
+      <label class="field"><span>E-mail</span><input id="authEmail" type="email" autocomplete="email" placeholder="voce@exemplo.com"></label>
+      <label class="field"><span>Senha</span><input id="authPassword" type="password" autocomplete="current-password" minlength="8" placeholder="Mínimo de 8 caracteres"></label>
+      <button id="authSubmitBtn" class="btn primary full" type="button">Entrar</button>
+      <button id="authToggleBtn" class="text-btn auth-toggle" type="button">Criar uma conta</button>
+      <p id="authMessage" class="auth-message"></p>
+      <div class="auth-local-note">O IndexedDB continua ativo como cópia offline.</div>
+    </div>
+  </section>
+
   <div id="toast" class="toast hidden" role="status"></div>
   <div id="loading" class="overlay hidden"><div class="loading-card"><div class="spinner"></div><p id="loadingText">Carregando...</p></div></div>
   <div id="imageModal" class="image-modal hidden"><button id="closeImageModal" class="modal-close">×</button><div class="modal-stage"><img id="modalImage" alt="Imagem ampliada"></div></div>
@@ -54,7 +69,7 @@
         </div>
 
         <article id="studyInsights" class="panel v7-insights">
-          <div class="panel-title"><div><p>V7 · ESTUDO INTELIGENTE</p><h2>Sua biblioteca de revisão</h2></div></div>
+          <div class="panel-title"><div><p>V4.0 CLOUD · ESTUDO INTELIGENTE</p><h2>Sua biblioteca de revisão</h2></div></div>
           <div class="v7-insight-grid">
             <div><span>⭐</span><small>Favoritas</small><strong id="dashFavorites">0</strong></div>
             <div><span>🚩</span><small>Marcadas no último exame</small><strong id="dashMarked">0</strong></div>
@@ -86,7 +101,12 @@
         </div>
 
         <article id="history" class="panel history-panel"><div class="panel-title"><div><p>HISTÓRICO</p><h2>Últimos resultados</h2></div><button id="exportBackupBtn" class="btn secondary">Exportar backup</button></div><div id="historyList" class="history-list"></div></article>
-        <article id="backup" class="panel backup-panel"><div class="panel-title"><div><p>RESTAURAÇÃO</p><h2>Importar backup</h2></div></div><div class="panel-body inline-form"><input id="backupFile" type="file" accept=".json,application/json"><button id="importBackupBtn" class="btn secondary">Restaurar</button></div></article>
+        <article id="backup" class="panel backup-panel"><div class="panel-title"><div><p>RESTAURAÇÃO</p><h2>Importar backup</h2></div></div><div class="panel-body">
+          <div class="inline-form"><input id="backupFile" type="file" accept=".json,application/json"><button id="importBackupBtn" class="btn secondary">Restaurar backup V4</button></div>
+          <hr class="soft-divider">
+          <p class="legacy-help"><strong>Recuperar progresso antigo:</strong> selecione o arquivo <code>backup-localstorage-simulador.json</code>, escolha o banco correspondente acima e importe as respostas preservadas.</p>
+          <div class="inline-form"><input id="legacyBackupFile" type="file" accept=".json,application/json"><select id="legacyBankSelect"></select><button id="importLegacyBtn" class="btn primary">Importar progresso antigo</button></div>
+        </div></article>
       </section>
 
       <section id="setupScreen" class="screen hidden"><article class="panel setup-panel"><div class="panel-title"><div><p>CONFIGURAÇÃO</p><h2 id="selectedBankName">Banco</h2></div><button id="backHomeBtn" class="btn secondary">Voltar</button></div><div id="resumeBox" class="resume-box hidden"><div><span>Em andamento</span><strong>Continuar simulado</strong><p id="resumeText"></p></div><button id="resumeBtn" class="btn primary">Continuar</button></div><div class="setup-grid"><label class="field"><span>Quantidade de questões</span><input id="questionLimit" type="number" min="1" value="50"></label><label class="field"><span>Tempo limite em minutos</span><input id="timeLimit" type="number" min="0" value="0"></label></div><div class="checks"><label><input id="shuffleQuestions" type="checkbox" checked><span><strong>Embaralhar questões</strong><small>Nova ordem para cada simulado.</small></span></label><label><input id="warnUnanswered" type="checkbox" checked><span><strong>Avisar sobre não respondidas</strong><small>Confirma antes de finalizar.</small></span></label></div><div class="actions"><button id="startQuizBtn" class="btn primary">Iniciar novo simulado</button><button id="deleteProgressBtn" class="btn danger hidden">Apagar progresso</button></div></article></section>
