@@ -99,10 +99,49 @@ function setupApplicationPages(){
   });
 
   if(metrics)statsPage.appendChild(metrics);
-  const statsNote=document.createElement("article");
-  statsNote.className="panel stats-explanation";
-  statsNote.innerHTML='<div class="panel-body"><strong>Resumo do seu desempenho</strong><p>Os indicadores acima são calculados a partir dos simulados finalizados e armazenados no histórico.</p></div>';
-  statsPage.appendChild(statsNote);
+
+  const analytics=document.createElement("div");
+  analytics.id="analyticsDashboard";
+  analytics.className="analytics-dashboard";
+  analytics.innerHTML=`
+    <article class="panel analytics-card analytics-card-wide">
+      <div class="analytics-card-head">
+        <div><p>CURVA DE APRENDIZADO</p><h3>Evolução da taxa de acertos</h3></div>
+        <span id="learningTrendBadge" class="analytics-badge">Sem dados</span>
+      </div>
+      <div class="chart-wrap chart-wrap-large"><canvas id="learningCurveChart"></canvas></div>
+    </article>
+
+    <article class="panel analytics-card">
+      <div class="analytics-card-head">
+        <div><p>DESEMPENHO</p><h3>Acertos x erros</h3></div>
+      </div>
+      <div class="chart-wrap chart-wrap-donut"><canvas id="accuracyDonutChart"></canvas></div>
+      <div id="accuracyLegend" class="analytics-legend"></div>
+    </article>
+
+    <article class="panel analytics-card">
+      <div class="analytics-card-head">
+        <div><p>ATIVIDADE</p><h3>Questões por simulado</h3></div>
+      </div>
+      <div class="chart-wrap"><canvas id="questionsBarChart"></canvas></div>
+    </article>
+
+    <article class="panel analytics-card analytics-card-wide">
+      <div class="analytics-card-head">
+        <div><p>CATEGORIAS</p><h3>Taxa de acerto por assunto</h3></div>
+      </div>
+      <div id="categoryPerformance" class="category-performance"></div>
+    </article>
+
+    <article class="panel analytics-card">
+      <div class="analytics-card-head">
+        <div><p>RITMO</p><h3>Tempo médio por questão</h3></div>
+      </div>
+      <div class="analytics-focus-number"><strong id="averageQuestionTime">0s</strong><span>por questão respondida</span></div>
+      <div id="studySummaryMini" class="study-summary-mini"></div>
+    </article>`;
+  statsPage.appendChild(analytics);
 
   if(backup)settingsPage.appendChild(backup);
 
@@ -115,8 +154,6 @@ function bindSidebarNavigation(){
   document.querySelectorAll(".side-link[data-page]").forEach(button=>{
     button.onclick=()=>{
       const page=button.dataset.page;
-      if(page==="banks"){showApplicationPage("home","banks");return}
-      if(page==="simulations"){showApplicationPage("home","continueStudy");return}
       if(page==="import"){showApplicationPage("home","import");return}
       if(page==="review"){
         showApplicationPage("review");
@@ -130,9 +167,7 @@ function bindSidebarNavigation(){
 
 function updateSidebarActive(page){
   document.querySelectorAll(".side-link[data-page]").forEach(button=>{
-    const value=button.dataset.page;
-    const active=value===page||(page==="home"&&["banks","simulations","import"].includes(value)===false&&value==="home");
-    button.classList.toggle("active",active);
+    button.classList.toggle("active",button.dataset.page===page);
   });
 }
 
@@ -150,7 +185,7 @@ function showApplicationPage(page="home",scrollTarget=""){
 
   if(page==="history")refreshHome();
   if(page==="review")renderReviewLibrary(reviewLibraryFilter);
-  if(page==="stats")refreshHome();
+  if(page==="stats")refreshHome().then(renderAnalyticsDashboard);
   if(page==="settings")scanLegacyProgress();
 
   window.setTimeout(()=>{
@@ -422,6 +457,7 @@ function bind(){
   $("openTutorialBtn").onclick=restartOnboarding;
   $("sidebarTutorialBtn").onclick=restartOnboarding;
   window.addEventListener("resize",()=>{if(!$("onboardingOverlay").classList.contains("hidden"))positionOnboarding()});
+  window.addEventListener("resize",()=>{if(activeApplicationPage==="stats")renderAnalyticsDashboard()});
   $("closeImageModal").onclick=closeModal;
   $("imageModal").onclick=e=>{if(e.target===$("imageModal"))closeModal()};
   document.querySelectorAll(".review-filter").forEach(b=>b.onclick=()=>filterReview(b.dataset.filter));
@@ -555,6 +591,7 @@ async function refreshHome(){
   await renderDashboard(history);
   if(activeApplicationPage==="settings")await scanLegacyProgress();
   if(activeApplicationPage==="review")await renderReviewLibrary(reviewLibraryFilter);
+  if(activeApplicationPage==="stats")await renderAnalyticsDashboard(history);
   showLoading(false);
 }
 
@@ -591,6 +628,229 @@ async function renderDashboard(history){
   const pct=Math.round(answered/pr.order.length*100);
   area.innerHTML=`<div class="resume-box" style="margin:0"><div><span>Em andamento</span><strong>${esc(bank.name)}</strong><p>${answered}/${pr.order.length} respondidas · ${pct}%</p></div><button class="btn primary" id="dashResume">Continuar</button></div>`;
   document.getElementById("dashResume").onclick=async()=>{await showSetup(bank.id);await resume();};
+}
+
+
+function chartContext(canvas){
+  if(!canvas)return null;
+  const dpr=Math.max(1,window.devicePixelRatio||1);
+  const rect=canvas.getBoundingClientRect();
+  const width=Math.max(280,Math.floor(rect.width));
+  const height=Math.max(180,Math.floor(rect.height));
+  canvas.width=width*dpr;
+  canvas.height=height*dpr;
+  const ctx=canvas.getContext("2d");
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return {ctx,width,height};
+}
+
+function cssColor(name,fallback){
+  const value=getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value||fallback;
+}
+
+function drawEmptyChart(ctx,width,height,message="Sem dados suficientes"){
+  ctx.clearRect(0,0,width,height);
+  ctx.fillStyle=cssColor("--muted","#8e9eb4");
+  ctx.font='12px Inter, "Segoe UI", Arial';
+  ctx.textAlign="center";
+  ctx.fillText(message,width/2,height/2);
+}
+
+function roundedRect(ctx,x,y,w,h,r){
+  const radius=Math.min(r,w/2,h/2);
+  ctx.beginPath();
+  ctx.moveTo(x+radius,y);
+  ctx.arcTo(x+w,y,x+w,y+h,radius);
+  ctx.arcTo(x+w,y+h,x,y+h,radius);
+  ctx.arcTo(x,y+h,x,y,radius);
+  ctx.arcTo(x,y,x+w,y,radius);
+  ctx.closePath();
+}
+
+function drawLearningCurve(history){
+  const chart=chartContext($("learningCurveChart"));
+  if(!chart)return;
+  const {ctx,width,height}=chart;
+  const ordered=history.slice().sort((a,b)=>String(a.finishedAt||"").localeCompare(String(b.finishedAt||""))).slice(-12);
+  if(!ordered.length){drawEmptyChart(ctx,width,height);return}
+
+  const pad={left:42,right:18,top:18,bottom:34};
+  const plotW=width-pad.left-pad.right;
+  const plotH=height-pad.top-pad.bottom;
+  const scores=ordered.map(item=>Number(item.score)||0);
+  const line=cssColor("--blue","#2f7df4");
+  const grid=cssColor("--border","#22334b");
+  const muted=cssColor("--muted","#8e9eb4");
+
+  ctx.clearRect(0,0,width,height);
+  ctx.strokeStyle=grid;
+  ctx.lineWidth=1;
+  ctx.fillStyle=muted;
+  ctx.font='10px Inter, "Segoe UI", Arial';
+  ctx.textAlign="right";
+  [0,25,50,75,100].forEach(value=>{
+    const y=pad.top+plotH-(value/100)*plotH;
+    ctx.beginPath();ctx.moveTo(pad.left,y);ctx.lineTo(width-pad.right,y);ctx.stroke();
+    ctx.fillText(value+"%",pad.left-8,y+3);
+  });
+
+  const points=scores.map((score,index)=>({
+    x:pad.left+(ordered.length===1?plotW/2:index*plotW/(ordered.length-1)),
+    y:pad.top+plotH-(score/100)*plotH
+  }));
+
+  const gradient=ctx.createLinearGradient(0,pad.top,0,pad.top+plotH);
+  gradient.addColorStop(0,"rgba(47,125,244,.28)");
+  gradient.addColorStop(1,"rgba(47,125,244,0)");
+  ctx.beginPath();
+  points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
+  ctx.lineTo(points.at(-1).x,pad.top+plotH);
+  ctx.lineTo(points[0].x,pad.top+plotH);
+  ctx.closePath();
+  ctx.fillStyle=gradient;ctx.fill();
+
+  ctx.beginPath();
+  points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));
+  ctx.strokeStyle=line;ctx.lineWidth=2.5;ctx.stroke();
+
+  points.forEach((p,index)=>{
+    ctx.beginPath();ctx.arc(p.x,p.y,4,0,Math.PI*2);
+    ctx.fillStyle=line;ctx.fill();
+    if(index===points.length-1){
+      ctx.beginPath();ctx.arc(p.x,p.y,8,0,Math.PI*2);
+      ctx.strokeStyle="rgba(47,125,244,.25)";ctx.lineWidth=5;ctx.stroke();
+    }
+  });
+
+  ctx.fillStyle=muted;ctx.textAlign="center";
+  ordered.forEach((item,index)=>{
+    if(ordered.length>7 && index%2!==0 && index!==ordered.length-1)return;
+    const date=new Date(item.finishedAt);
+    ctx.fillText(date.toLocaleDateString("pt-BR",{day:"2-digit",month:"2-digit"}),points[index].x,height-12);
+  });
+
+  const first=scores[0]||0,last=scores.at(-1)||0,diff=Math.round(last-first);
+  const badge=$("learningTrendBadge");
+  if(badge){
+    badge.textContent=diff===0?"Estável":`${diff>0?"+":""}${diff}% no período`;
+    badge.classList.toggle("positive",diff>0);
+    badge.classList.toggle("negative",diff<0);
+  }
+}
+
+function drawAccuracyDonut(history){
+  const chart=chartContext($("accuracyDonutChart"));
+  if(!chart)return;
+  const {ctx,width,height}=chart;
+  const total=history.reduce((sum,h)=>sum+(Number(h.total)||0),0);
+  const correct=history.reduce((sum,h)=>sum+(Number(h.correct)||0),0);
+  const wrong=Math.max(0,total-correct);
+  if(!total){drawEmptyChart(ctx,width,height);return}
+
+  ctx.clearRect(0,0,width,height);
+  const cx=width/2,cy=height/2,radius=Math.min(width,height)*.31,thickness=Math.max(16,radius*.24);
+  const green=cssColor("--green","#39d98a");
+  const red=cssColor("--red","#ff5d66");
+  const start=-Math.PI/2;
+  const correctAngle=(correct/total)*Math.PI*2;
+
+  ctx.lineWidth=thickness;ctx.lineCap="round";
+  ctx.beginPath();ctx.arc(cx,cy,radius,start,start+correctAngle);ctx.strokeStyle=green;ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,radius,start+correctAngle+.035,start+Math.PI*2);ctx.strokeStyle=red;ctx.stroke();
+
+  ctx.fillStyle=cssColor("--text","#f4f7fb");
+  ctx.font='700 24px Inter, "Segoe UI", Arial';
+  ctx.textAlign="center";ctx.fillText(Math.round(correct/total*100)+"%",cx,cy+3);
+  ctx.fillStyle=cssColor("--muted","#8e9eb4");
+  ctx.font='11px Inter, "Segoe UI", Arial';ctx.fillText("aproveitamento",cx,cy+23);
+
+  const legend=$("accuracyLegend");
+  if(legend)legend.innerHTML=`<span><i class="legend-dot success-dot"></i>${correct} acertos</span><span><i class="legend-dot error-dot"></i>${wrong} erros</span>`;
+}
+
+function drawQuestionsBars(history){
+  const chart=chartContext($("questionsBarChart"));
+  if(!chart)return;
+  const {ctx,width,height}=chart;
+  const ordered=history.slice().sort((a,b)=>String(a.finishedAt||"").localeCompare(String(b.finishedAt||""))).slice(-8);
+  if(!ordered.length){drawEmptyChart(ctx,width,height);return}
+  ctx.clearRect(0,0,width,height);
+  const values=ordered.map(h=>Number(h.total)||0);
+  const max=Math.max(...values,1);
+  const pad={left:18,right:12,top:15,bottom:28};
+  const plotH=height-pad.top-pad.bottom;
+  const gap=10;
+  const barW=(width-pad.left-pad.right-gap*(values.length-1))/values.length;
+  const blue=cssColor("--blue","#2f7df4");
+  const muted=cssColor("--muted","#8e9eb4");
+
+  values.forEach((value,index)=>{
+    const h=(value/max)*plotH;
+    const x=pad.left+index*(barW+gap);
+    const y=pad.top+plotH-h;
+    const grad=ctx.createLinearGradient(0,y,0,y+h);
+    grad.addColorStop(0,"rgba(96,165,250,1)");
+    grad.addColorStop(1,blue);
+    roundedRect(ctx,x,y,barW,h,5);
+    ctx.fillStyle=grad;ctx.fill();
+    ctx.fillStyle=muted;ctx.font='9px Inter, "Segoe UI", Arial';ctx.textAlign="center";
+    ctx.fillText(String(index+1),x+barW/2,height-10);
+  });
+}
+
+function renderCategoryPerformance(history){
+  const host=$("categoryPerformance");
+  if(!host)return;
+  const map=new Map();
+  history.forEach(record=>{
+    (record.reviewData||[]).forEach(item=>{
+      const category=String(item?.q?.categoria||"Sem categoria");
+      const entry=map.get(category)||{total:0,correct:0};
+      entry.total++;if(item.ok)entry.correct++;
+      map.set(category,entry);
+    });
+  });
+  const rows=[...map.entries()]
+    .map(([name,data])=>({name,...data,pct:data.total?Math.round(data.correct/data.total*100):0}))
+    .sort((a,b)=>b.total-a.total)
+    .slice(0,8);
+
+  if(!rows.length){
+    host.innerHTML='<div class="empty-state">Finalize simulados para gerar o desempenho por categoria.</div>';
+    return;
+  }
+
+  host.innerHTML=rows.map(row=>`
+    <div class="category-performance-row">
+      <div class="category-performance-label"><strong>${esc(row.name)}</strong><span>${row.correct}/${row.total} · ${row.pct}%</span></div>
+      <div class="category-performance-track"><i style="width:${row.pct}%"></i></div>
+    </div>`).join("");
+}
+
+async function renderAnalyticsDashboard(historyInput){
+  if(!$("analyticsDashboard"))return;
+  const history=historyInput||await getAll("history");
+  drawLearningCurve(history);
+  drawAccuracyDonut(history);
+  drawQuestionsBars(history);
+  renderCategoryPerformance(history);
+
+  const total=history.reduce((sum,h)=>sum+(Number(h.total)||0),0);
+  const seconds=history.reduce((sum,h)=>sum+(Number(h.time)||0),0);
+  const average=total?Math.round(seconds/total):0;
+  const avgEl=$("averageQuestionTime");
+  if(avgEl)avgEl.textContent=average>=60?`${Math.floor(average/60)}m ${average%60}s`:`${average}s`;
+
+  const mini=$("studySummaryMini");
+  if(mini){
+    const best=history.length?Math.max(...history.map(h=>Number(h.score)||0)):0;
+    const last=history.slice().sort((a,b)=>String(b.finishedAt||"").localeCompare(String(a.finishedAt||"")))[0];
+    mini.innerHTML=`
+      <div><span>Melhor resultado</span><strong>${best}%</strong></div>
+      <div><span>Último resultado</span><strong>${last?last.score+"%":"—"}</strong></div>
+      <div><span>Simulados concluídos</span><strong>${history.length}</strong></div>`;
+  }
 }
 
 async function scanLegacyProgress(showFeedback=false){
