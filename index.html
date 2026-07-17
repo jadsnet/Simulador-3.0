@@ -7,10 +7,10 @@
   <meta name="description" content="Plataforma de simulados de certificação.">
   <title>Simulador Academy V4.0 Cloud.1</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=7.1">
+  <link rel="stylesheet" href="style.css?v=4.0.2">
   <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script type="module" src="app.js?v=7.1"></script>
+  <script type="module" src="app.js?v=4.0.2"></script>
 </head>
 <body>
 
@@ -52,7 +52,7 @@
     <main class="content-shell">
       <header class="topbar">
         <div><p class="eyebrow">VISÃO GERAL</p><h1>Bem-vindo de volta!</h1><p>Pronto para continuar seus estudos?</p></div>
-        <div class="top-actions"><label class="search"><span>⌕</span><input id="dashboardSearch" placeholder="Buscar banco..."></label><button id="openTutorialBtn" class="help-tour-btn" type="button" title="Abrir guia de utilização">? <span>Guia de uso</span></button><button class="avatar">JR</button></div>
+        <div class="top-actions"><label class="search"><span>⌕</span><input id="dashboardSearch" placeholder="Buscar banco..."></label><span id="cloudStatus" class="cloud-status offline">Local</span><button id="syncNowBtn" class="round-btn" type="button" title="Sincronizar agora">↻</button><button id="openTutorialBtn" class="help-tour-btn" type="button" title="Abrir guia de utilização">? <span>Guia de uso</span></button><button id="logoutBtn" class="avatar" type="button" title="Sair">JR</button></div>
       </header>
 
       <section id="homeScreen" class="screen">

@@ -24,17 +24,23 @@ async function init(){
 
 
 function bindAuth(){
-  $("authSubmitBtn").onclick=submitAuth;
-  $("authToggleBtn").onclick=()=>{
+  const submitBtn=$("authSubmitBtn");
+  const toggleBtn=$("authToggleBtn");
+  const logoutBtn=$("logoutBtn");
+  const syncBtn=$("syncNowBtn");
+  const legacyBtn=$("importLegacyBtn");
+
+  if(submitBtn) submitBtn.onclick=submitAuth;
+  if(toggleBtn) toggleBtn.onclick=()=>{
     authMode=authMode==="signin"?"signup":"signin";
     $("authTitle").textContent=authMode==="signin"?"Entrar":"Criar conta";
     $("authSubmitBtn").textContent=authMode==="signin"?"Entrar":"Cadastrar";
     $("authToggleBtn").textContent=authMode==="signin"?"Criar uma conta":"Já tenho uma conta";
     $("authMessage").textContent="";
   };
-  $("logoutBtn").onclick=()=>signOut();
-  $("syncNowBtn").onclick=syncAllNow;
-  $("importLegacyBtn").onclick=importLegacyProgress;
+  if(logoutBtn) logoutBtn.onclick=()=>signOut();
+  if(syncBtn) syncBtn.onclick=syncAllNow;
+  if(legacyBtn) legacyBtn.onclick=importLegacyProgress;
 }
 
 async function submitAuth(){
@@ -44,8 +50,10 @@ async function submitAuth(){
   $("authSubmitBtn").disabled=true;
   $("authMessage").textContent="Aguarde...";
   try{
-    if(authMode==="signin") await signIn(email,password);
-    else{
+    if(authMode==="signin"){
+      await signIn(email,password);
+      $("authMessage").textContent="Login confirmado. Carregando...";
+    }else{
       await signUp(email,password);
       $("authMessage").textContent="Cadastro criado. Confirme o e-mail e depois entre.";
     }
