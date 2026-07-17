@@ -376,3 +376,11 @@ Copie o `README.md` e a pasta `docs` para a raiz do seu repositório.
 <p align="center">
   Desenvolvido para estudos, revisão e preparação para certificações.
 </p>
+
+
+## Correção V7.2.2
+
+- Botão **Procurar novamente** agora executa a busca e mostra o resultado.
+- Exibe mensagem quando nenhum progresso é encontrado.
+- Exibe quantidade de progressos encontrados.
+- Botão de recuperação mostra estado de carregamento e erros.

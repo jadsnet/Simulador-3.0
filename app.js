@@ -232,17 +232,13 @@ async function renderDashboard(history){
   document.getElementById("dashResume").onclick=async()=>{await showSetup(bank.id);await resume();};
 }
 
-async function scanLegacyProgress(){
+async function scanLegacyProgress(showFeedback=false){
   const home=$("homeScreen");
   if(!home)return;
+
   let panel=$("legacyRecoveryPanel");
   const progress=await getAll("progress");
   const currentBanks=await getAll("banks");
-
-  if(!progress.length){
-    if(panel)panel.remove();
-    return;
-  }
 
   if(!panel){
     panel=document.createElement("article");
@@ -251,6 +247,44 @@ async function scanLegacyProgress(){
     const history=$("history");
     if(history)history.before(panel); else home.appendChild(panel);
   }
+
+  panel.innerHTML=`
+    <div class="panel-title">
+      <div>
+        <p>RECUPERAÇÃO</p>
+        <h2>Progresso salvo no navegador</h2>
+      </div>
+      <button id="legacyRescanBtn" class="btn secondary" type="button">Procurar novamente</button>
+    </div>
+    <div id="legacyRecoveryStatus" class="legacy-recovery-status">Verificando o IndexedDB...</div>
+    <div class="legacy-recovery-list"></div>
+  `;
+
+  const rescanBtn=panel.querySelector("#legacyRescanBtn");
+  const status=panel.querySelector("#legacyRecoveryStatus");
+  const list=panel.querySelector(".legacy-recovery-list");
+
+  rescanBtn.onclick=async()=>{
+    rescanBtn.disabled=true;
+    rescanBtn.textContent="Procurando...";
+    try{
+      await scanLegacyProgress(true);
+    }finally{
+      const newBtn=$("legacyRescanBtn");
+      if(newBtn){
+        newBtn.disabled=false;
+        newBtn.textContent="Procurar novamente";
+      }
+    }
+  };
+
+  if(!progress.length){
+    status.innerHTML="<strong>Nenhum progresso foi encontrado neste banco do navegador.</strong><p>Não apague os dados do site. Verifique também se você está usando o mesmo navegador, perfil e endereço do GitHub Pages.</p>";
+    if(showFeedback)toast("Busca concluída: nenhum progresso encontrado.");
+    return;
+  }
+
+  status.innerHTML=`<strong>${progress.length} progresso(s) encontrado(s).</strong><p>Escolha abaixo o simulado que deseja continuar.</p>`;
 
   const rows=[];
   for(const pr of progress.sort((a,b)=>(b.savedAt||"").localeCompare(a.savedAt||""))){
@@ -271,27 +305,50 @@ async function scanLegacyProgress(){
     rows.push({pr,bank,answered,total:order.length});
   }
 
-  panel.innerHTML=`<div class="panel-title"><div><p>RECUPERAÇÃO</p><h2>Progresso encontrado no navegador</h2></div></div><div class="legacy-recovery-list"></div>`;
-  const list=panel.querySelector(".legacy-recovery-list");
-
   rows.forEach(({pr,bank,answered,total})=>{
     const item=document.createElement("div");
     item.className="legacy-recovery-item";
     const when=pr.savedAt?new Date(pr.savedAt).toLocaleString("pt-BR"):"data não registrada";
-    item.innerHTML=`<div><strong>${bank?esc(bank.name):"Simulado salvo"}</strong><p>${answered}/${total} respondidas · ${when}</p></div>`;
+
+    item.innerHTML=`
+      <div>
+        <strong>${bank?esc(bank.name):"Simulado salvo sem banco associado"}</strong>
+        <p>${answered}/${total} respondidas · ${when}</p>
+        ${bank?"":"<small>O progresso existe, mas o banco correspondente não foi localizado.</small>"}
+      </div>
+    `;
+
     const btn=document.createElement("button");
     btn.className="btn primary";
     btn.textContent=bank?"Recuperar e continuar":"Banco não localizado";
     btn.disabled=!bank;
+
     btn.onclick=async()=>{
-      if(pr.bankId!==bank.id)await put("progress",{...pr,bankId:bank.id,savedAt:new Date().toISOString()});
-      selectedBank=bank;
-      await showSetup(bank.id);
-      await resume();
+      try{
+        btn.disabled=true;
+        btn.textContent="Recuperando...";
+
+        if(pr.bankId!==bank.id){
+          await put("progress",{...pr,bankId:bank.id,savedAt:new Date().toISOString()});
+        }
+
+        selectedBank=bank;
+        await showSetup(bank.id);
+        await resume();
+        toast("Progresso recuperado com sucesso.");
+      }catch(error){
+        console.error(error);
+        alert("Não foi possível recuperar o progresso: "+(error.message||error));
+        btn.disabled=false;
+        btn.textContent="Recuperar e continuar";
+      }
     };
+
     item.appendChild(btn);
     list.appendChild(item);
   });
+
+  if(showFeedback)toast(`Busca concluída: ${progress.length} progresso(s) encontrado(s).`);
 }
 
 function renderBanks(){

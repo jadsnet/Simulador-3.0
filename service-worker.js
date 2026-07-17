@@ -1,4 +1,4 @@
-const CACHE="simulador-v7-2-1";
+const CACHE="simulador-v7-2-2";
 const ASSETS=["./","./index.html","./style.css","./app.js","./db.js","./manifest.webmanifest"];
 self.addEventListener("install",e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)))});
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==CACHE).map(x=>caches.delete(x)))).then(()=>self.clients.claim())));
