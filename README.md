@@ -138,6 +138,10 @@ A aplicação pode ser instalada no computador ou celular e continua funcionando
 
 O progresso é salvo primeiro no **IndexedDB**. Quando há conexão e o usuário está autenticado, os dados são sincronizados com o **Supabase**.
 
+Na versão **V6.0.2**, o mesmo banco passa a ser reconhecido pelo conteúdo das questões, mesmo quando é importado novamente em outro computador. Registros criados pelas versões anteriores são identificados e migrados automaticamente, preservando as respostas já sincronizadas.
+
+Esta versão também corrige a falha do botão **Salvar e sair** causada pelas variáveis de fila de sincronização não declaradas.
+
 ---
 
 ## 🛠️ Tecnologias

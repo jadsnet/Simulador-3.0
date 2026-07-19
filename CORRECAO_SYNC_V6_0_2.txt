@@ -1,0 +1,21 @@
+CORREÇÃO V6.0.2 — RECUPERAÇÃO DO PROGRESSO EM OUTRO COMPUTADOR
+
+- O banco agora possui uma identidade estável calculada pelo conteúdo das questões.
+- O mesmo CSV ou ZIP é reconhecido mesmo que o navegador gere outro ID local.
+- Bancos salvos pelas versões anteriores são localizados por arquivo, nome e quantidade de questões.
+- O registro antigo é migrado sem apagar o progresso associado no Supabase.
+- Corrigido o erro `pendingCloudProgress is not defined` ao usar Salvar e sair.
+- Corrigido o erro `cloudSaveInFlight is not defined` durante a sincronização.
+- A versão continua compatível com IndexedDB, backup JSON e importação de progresso antigo.
+
+COMO RECUPERAR
+
+1. Publique todos os arquivos desta versão no GitHub Pages.
+2. Entre com o mesmo e-mail usado anteriormente.
+3. Importe o mesmo banco CSV/ZIP, caso ele ainda não esteja neste computador.
+4. Clique em Sincronizar agora ou abra o banco.
+5. A opção Continuar simulado mostrará as respostas recuperadas da nuvem.
+
+Se as respostas nunca chegaram ao Supabase, abra o computador antigo com esta
+versão, entre no mesmo usuário e use Salvar e sair uma vez. Depois sincronize no
+computador novo.

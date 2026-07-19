@@ -39,20 +39,89 @@ async function requireUser(){
   currentUser=user; return user;
 }
 
-export async function ensureCloudBank(bank){
+// O ID gerado pelo navegador muda entre computadores. Esta assinatura usa o
+// conteúdo do banco e, portanto, permanece igual ao importar o mesmo CSV/ZIP.
+function stableBankId(bank){
+  const questions=Array.isArray(bank?.questions)?bank.questions:[];
+  const source=questions.map(q=>[
+    q.id,q.pergunta,q.alt_a,q.alt_b,q.alt_c,q.alt_d,q.alt_e,
+    Array.isArray(q.correta)?q.correta.join(","):q.correta
+  ].map(v=>String(v??"").trim()).join("\u001f")).join("\u001e");
+  let h1=0x811c9dc5,h2=0x9e3779b9;
+  for(let i=0;i<source.length;i++){
+    const c=source.charCodeAt(i);
+    h1=Math.imul(h1^c,0x01000193);
+    h2=Math.imul(h2^c,0x85ebca6b);
+  }
+  return `bank-${questions.length}-${(h1>>>0).toString(16).padStart(8,"0")}${(h2>>>0).toString(16).padStart(8,"0")}`;
+}
+
+async function resolveCloudBank(bank,{create=true}={}){
   const user=await requireUser();
+  const stableId=stableBankId(bank);
+  const columns="id,local_bank_id,name,file_name,question_count,updated_at";
+
+  // Formato novo: identidade estável compartilhada por todos os dispositivos.
+  let {data,error}=await supabase.from("question_banks").select(columns)
+    .eq("user_id",user.id).eq("local_bank_id",stableId).maybeSingle();
+  if(error)throw error;
+  if(data)return data;
+
+  // Compatibilidade: procura o registro criado pelas versões com ID aleatório.
+  ({data,error}=await supabase.from("question_banks").select(columns)
+    .eq("user_id",user.id).eq("local_bank_id",String(bank.id)).maybeSingle());
+  if(error)throw error;
+
+  if(!data){
+    const count=Array.isArray(bank.questions)?bank.questions.length:0;
+    let legacyQuery=supabase.from("question_banks").select(columns)
+      .eq("user_id",user.id).eq("question_count",count)
+      .order("updated_at",{ascending:false}).limit(20);
+    const legacy=await legacyQuery;
+    if(legacy.error)throw legacy.error;
+    const rows=legacy.data||[];
+    const fileName=String(bank.fileName||"").trim().toLowerCase();
+    const name=String(bank.name||"").trim().toLowerCase();
+    const compatible=rows.filter(r=>(fileName&&String(r.file_name||"").trim().toLowerCase()===fileName)
+      ||(name&&String(r.name||"").trim().toLowerCase()===name));
+    const candidates=compatible.length?compatible:(rows.length===1?rows:[]);
+
+    // Se versões antigas criaram registros duplicados, escolhe aquele que de
+    // fato contém o progresso mais recente, e não um banco vazio mais novo.
+    if(candidates.length){
+      const ids=candidates.map(r=>r.id);
+      const progressRows=await supabase.from("quiz_progress")
+        .select("bank_id,client_updated_at,updated_at").eq("user_id",user.id).in("bank_id",ids);
+      if(progressRows.error)throw progressRows.error;
+      const latest=new Map((progressRows.data||[]).map(p=>[p.bank_id,p.client_updated_at||p.updated_at||""]));
+      data=[...candidates].sort((a,b)=>String(latest.get(b.id)||"").localeCompare(String(latest.get(a.id)||"")))[0];
+    }
+  }
+
+  if(data){
+    // Migra sem apagar o progresso ligado ao registro existente.
+    const migrated=await supabase.from("question_banks")
+      .update({local_bank_id:stableId,name:bank.name||data.name,updated_at:new Date().toISOString()})
+      .eq("id",data.id).eq("user_id",user.id).select(columns).single();
+    if(migrated.error)throw migrated.error;
+    return migrated.data;
+  }
+
+  if(!create)return null;
   const payload={
-    user_id:user.id,
-    local_bank_id:String(bank.id),
-    name:bank.name||"Banco de questões",
-    file_name:bank.fileName||null,
+    user_id:user.id,local_bank_id:stableId,
+    name:bank.name||"Banco de questões",file_name:bank.fileName||null,
     question_count:Array.isArray(bank.questions)?bank.questions.length:0,
     updated_at:new Date().toISOString()
   };
-  const {data,error}=await supabase.from("question_banks")
-    .upsert(payload,{onConflict:"user_id,local_bank_id"})
-    .select("id").single();
-  if(error) throw error;
+  const inserted=await supabase.from("question_banks")
+    .upsert(payload,{onConflict:"user_id,local_bank_id"}).select(columns).single();
+  if(inserted.error)throw inserted.error;
+  return inserted.data;
+}
+
+export async function ensureCloudBank(bank){
+  const data=await resolveCloudBank(bank);
   return data.id;
 }
 
@@ -79,9 +148,7 @@ export async function pushProgress(bank,progress){
 
 export async function pullProgress(bank){
   const user=await requireUser();
-  const {data:bankRow,error:bankError}=await supabase.from("question_banks")
-    .select("id").eq("user_id",user.id).eq("local_bank_id",String(bank.id)).maybeSingle();
-  if(bankError) throw bankError;
+  const bankRow=await resolveCloudBank(bank,{create:false});
   if(!bankRow) return null;
   const {data,error}=await supabase.from("quiz_progress").select("*")
     .eq("user_id",user.id).eq("bank_id",bankRow.id).maybeSingle();
@@ -98,8 +165,7 @@ export async function pullProgress(bank){
 
 export async function deleteCloudProgress(bank){
   const user=await requireUser();
-  const {data}=await supabase.from("question_banks").select("id")
-    .eq("user_id",user.id).eq("local_bank_id",String(bank.id)).maybeSingle();
+  const data=await resolveCloudBank(bank,{create:false});
   if(data?.id) await supabase.from("quiz_progress").delete().eq("user_id",user.id).eq("bank_id",data.id);
 }
 

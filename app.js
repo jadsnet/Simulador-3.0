@@ -12,7 +12,7 @@ const onboardingSteps=[
   {selector:"#history",icon:"◷",title:"Histórico",text:"Abra resultados anteriores e revise suas respostas.",placement:"top"}
 ];
 let banks=[],selectedBank=null,questions=[],answers={},currentIndex=0,timerSeconds=0,timerHandle=null,settings={},favorites=new Set(),marked=new Set(),notes={},reviewData=[];
-let authMode="signin", cloudSaveTimer=null;
+let authMode="signin",cloudSaveTimer=null,pendingCloudProgress=null,cloudSaveInFlight=false;
 document.addEventListener("DOMContentLoaded",init);
 
 async function init(){
