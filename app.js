@@ -17,6 +17,7 @@ document.addEventListener("DOMContentLoaded",init);
 
 async function init(){
   setupApplicationPages();
+  setupV6Features();
   bind();
   bindAuth();
   bindSidebarNavigation();
@@ -186,6 +187,9 @@ function showApplicationPage(page="home",scrollTarget=""){
   if(page==="history")refreshHome();
   if(page==="review")renderReviewLibrary(reviewLibraryFilter);
   if(page==="stats")refreshHome().then(renderAnalyticsDashboard);
+  if(page==="flashcards")renderFlashcards();
+  if(page==="profile")renderProfilePage();
+  if(page==="search")renderGlobalSearch();
   if(page==="settings")scanLegacyProgress();
 
   window.setTimeout(()=>{
@@ -298,6 +302,311 @@ async function renderReviewLibrary(filter="all"){
 }
 
 
+const V6_GOAL_KEY="simulador-academy-v6-goal";
+const V6_PROFILE_KEY="simulador-academy-v6-profile";
+let deferredInstallPrompt=null;
+let flashcardItems=[],flashcardIndex=0,flashcardRevealed=false;
+
+function setupV6Features(){
+  const root=$("homeScreen");
+  if(!root||$("pageFlashcards"))return;
+
+  const flashcards=makeApplicationPage("pageFlashcards","Flashcards","MEMORIZAÇÃO");
+  flashcards.innerHTML+=`
+    <article class="panel v6-toolbar">
+      <div>
+        <p>CRIADOS A PARTIR DOS ERROS</p>
+        <h2>Revisão rápida</h2>
+      </div>
+      <div class="v6-toolbar-actions">
+        <select id="flashcardCategoryFilter" class="v6-select"><option value="">Todas as categorias</option></select>
+        <button id="shuffleFlashcardsBtn" class="btn secondary">Embaralhar</button>
+      </div>
+    </article>
+    <div id="flashcardStage" class="flashcard-stage"></div>`;
+
+  const profile=makeApplicationPage("pageProfile","Perfil e metas","PROGRESSO PESSOAL");
+  profile.innerHTML+=`
+    <section class="profile-grid">
+      <article class="panel profile-hero">
+        <div class="profile-avatar">JD</div>
+        <div>
+          <p>NÍVEL DE ESTUDO</p>
+          <h2 id="profileLevel">Nível 1</h2>
+          <div class="xp-track"><i id="profileXpBar"></i></div>
+          <span id="profileXpText">0 XP</span>
+        </div>
+      </article>
+      <article class="panel goal-card">
+        <div class="panel-body">
+          <p class="eyebrow">META DIÁRIA</p>
+          <h2 id="dailyGoalTitle">20 questões por dia</h2>
+          <div class="goal-progress"><i id="dailyGoalBar"></i></div>
+          <p id="dailyGoalText">0 de 20 concluídas hoje</p>
+          <label class="field compact-field"><span>Alterar meta</span><input id="dailyGoalInput" type="number" min="1" max="500" value="20"></label>
+          <button id="saveDailyGoalBtn" class="btn primary">Salvar meta</button>
+        </div>
+      </article>
+      <article class="panel streak-card">
+        <div class="panel-body">
+          <p class="eyebrow">SEQUÊNCIA</p>
+          <strong id="studyStreak">0 dias</strong>
+          <span>estudando consecutivamente</span>
+        </div>
+      </article>
+    </section>
+    <article class="panel">
+      <div class="panel-title"><div><p>ATIVIDADE</p><h2>Calendário de estudos</h2></div></div>
+      <div id="activityHeatmap" class="activity-heatmap"></div>
+    </article>
+    <article class="panel">
+      <div class="panel-title"><div><p>CONQUISTAS</p><h2>Marcos desbloqueados</h2></div></div>
+      <div id="achievementGrid" class="achievement-grid"></div>
+    </article>
+    <article class="panel">
+      <div class="panel-title"><div><p>RECOMENDAÇÕES</p><h2>Próximos assuntos para revisar</h2></div></div>
+      <div id="recommendationList" class="recommendation-list"></div>
+    </article>`;
+
+  const search=makeApplicationPage("pageSearch","Busca global","QUESTÕES E CONTEÚDOS");
+  search.innerHTML+=`
+    <article class="panel">
+      <div class="panel-body">
+        <div class="global-search-controls">
+          <input id="globalSearchInput" class="global-search-input" placeholder="Pesquisar enunciado, resposta, feedback ou categoria...">
+          <select id="globalSearchFilter" class="v6-select">
+            <option value="all">Tudo</option>
+            <option value="wrong">Erros</option>
+            <option value="favorite">Favoritas</option>
+            <option value="image">Com imagens</option>
+          </select>
+          <button id="runGlobalSearchBtn" class="btn primary">Pesquisar</button>
+        </div>
+      </div>
+    </article>
+    <div id="globalSearchResults" class="global-search-results"></div>`;
+
+  root.append(flashcards,profile,search);
+
+  $("shuffleFlashcardsBtn").onclick=()=>{
+    flashcardItems=flashcardItems.sort(()=>Math.random()-.5);
+    flashcardIndex=0;flashcardRevealed=false;renderFlashcardCard();
+  };
+  $("flashcardCategoryFilter").onchange=renderFlashcards;
+  $("saveDailyGoalBtn").onclick=saveDailyGoal;
+  $("runGlobalSearchBtn").onclick=renderGlobalSearch;
+  $("globalSearchInput").onkeydown=e=>{if(e.key==="Enter")renderGlobalSearch()};
+
+  const searchBox=$("dashboardSearch");
+  if(searchBox){
+    searchBox.placeholder="Buscar em todo o sistema...";
+    searchBox.onkeydown=e=>{
+      if(e.key==="Enter"){
+        showApplicationPage("search");
+        $("globalSearchInput").value=searchBox.value;
+        renderGlobalSearch();
+      }
+    };
+  }
+
+  window.addEventListener("beforeinstallprompt",e=>{
+    e.preventDefault();
+    deferredInstallPrompt=e;
+    $("installAppBtn")?.classList.remove("hidden");
+  });
+  $("installAppBtn").onclick=async()=>{
+    if(!deferredInstallPrompt)return;
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt=null;
+    $("installAppBtn").classList.add("hidden");
+  };
+}
+
+async function collectReviewedQuestions(){
+  const history=await getAll("history");
+  const metadata=await getAll("questionData");
+  const metaMap=new Map(metadata.map(item=>[`${item.bankId}::${item.questionId}`,item]));
+  const rows=[];
+  history.slice().sort((a,b)=>String(b.finishedAt||"").localeCompare(String(a.finishedAt||""))).forEach(record=>{
+    (record.reviewData||[]).forEach(item=>{
+      if(!item?.q)return;
+      const meta=metaMap.get(`${record.bankId}::${item.q.id}`)||{};
+      rows.push({...item,bankId:record.bankId,historyId:record.id,favorite:Boolean(meta.favorite||item.favorite),note:meta.note||item.note||""});
+    });
+  });
+  return rows;
+}
+
+async function renderFlashcards(){
+  const rows=await collectReviewedQuestions();
+  const categories=[...new Set(rows.map(x=>x.q.categoria||"Sem categoria"))].sort();
+  const select=$("flashcardCategoryFilter");
+  const selected=select.value;
+  select.innerHTML='<option value="">Todas as categorias</option>'+categories.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
+  select.value=selected;
+  flashcardItems=rows.filter(item=>!item.ok&&(!selected||(item.q.categoria||"Sem categoria")===selected));
+  flashcardIndex=0;flashcardRevealed=false;
+  renderFlashcardCard();
+}
+
+function renderFlashcardCard(){
+  const stage=$("flashcardStage");
+  if(!stage)return;
+  if(!flashcardItems.length){
+    stage.innerHTML='<div class="empty-state"><strong>Nenhum flashcard disponível.</strong><p>Finalize simulados com erros para gerar cartões automaticamente.</p></div>';
+    return;
+  }
+  const item=flashcardItems[flashcardIndex];
+  stage.innerHTML=`
+    <article class="flashcard ${flashcardRevealed?"revealed":""}">
+      <div class="flashcard-top">
+        <span>${esc(item.q.categoria||"Sem categoria")}</span>
+        <strong>${flashcardIndex+1} / ${flashcardItems.length}</strong>
+      </div>
+      <div class="flashcard-question">${esc(item.q.pergunta||"")}</div>
+      <div class="flashcard-answer ${flashcardRevealed?"":"hidden"}">
+        <p><strong>Resposta correta:</strong> ${esc((item.r||[]).join(", "))}</p>
+        ${item.q.feedback?`<p>${esc(item.q.feedback)}</p>`:""}
+      </div>
+      <div class="flashcard-actions">
+        <button id="prevFlashcardBtn" class="btn secondary">Anterior</button>
+        <button id="revealFlashcardBtn" class="btn primary">${flashcardRevealed?"Ocultar resposta":"Mostrar resposta"}</button>
+        <button id="nextFlashcardBtn" class="btn secondary">Próximo</button>
+      </div>
+    </article>`;
+  $("prevFlashcardBtn").onclick=()=>{flashcardIndex=(flashcardIndex-1+flashcardItems.length)%flashcardItems.length;flashcardRevealed=false;renderFlashcardCard()};
+  $("nextFlashcardBtn").onclick=()=>{flashcardIndex=(flashcardIndex+1)%flashcardItems.length;flashcardRevealed=false;renderFlashcardCard()};
+  $("revealFlashcardBtn").onclick=()=>{flashcardRevealed=!flashcardRevealed;renderFlashcardCard()};
+}
+
+function getDailyGoal(){
+  return Math.max(1,Number(localStorage.getItem(V6_GOAL_KEY))||20);
+}
+
+function saveDailyGoal(){
+  const value=Math.max(1,Math.min(500,Number($("dailyGoalInput").value)||20));
+  localStorage.setItem(V6_GOAL_KEY,String(value));
+  renderProfilePage();
+  toast("Meta diária atualizada.");
+}
+
+async function renderProfilePage(){
+  const history=await getAll("history");
+  const today=new Date().toISOString().slice(0,10);
+  const todayAnswered=history.filter(h=>String(h.finishedAt||"").slice(0,10)===today).reduce((s,h)=>s+(Number(h.total)||0),0);
+  const totalAnswered=history.reduce((s,h)=>s+(Number(h.total)||0),0);
+  const totalCorrect=history.reduce((s,h)=>s+(Number(h.correct)||0),0);
+  const xp=totalAnswered*5+totalCorrect*5+history.length*20;
+  const level=Math.floor(xp/500)+1;
+  const levelProgress=xp%500;
+  $("profileLevel").textContent=`Nível ${level}`;
+  $("profileXpText").textContent=`${xp} XP · faltam ${500-levelProgress} XP para o próximo nível`;
+  $("profileXpBar").style.width=`${levelProgress/5}%`;
+
+  const goal=getDailyGoal();
+  $("dailyGoalInput").value=goal;
+  $("dailyGoalTitle").textContent=`${goal} questões por dia`;
+  $("dailyGoalText").textContent=`${todayAnswered} de ${goal} concluídas hoje`;
+  $("dailyGoalBar").style.width=`${Math.min(100,todayAnswered/goal*100)}%`;
+
+  const dates=[...new Set(history.map(h=>String(h.finishedAt||"").slice(0,10)).filter(Boolean))].sort();
+  let streak=0;
+  const cursor=new Date();
+  for(;;){
+    const key=cursor.toISOString().slice(0,10);
+    if(dates.includes(key)){streak++;cursor.setDate(cursor.getDate()-1)}
+    else break;
+  }
+  $("studyStreak").textContent=`${streak} dia${streak===1?"":"s"}`;
+
+  renderActivityHeatmap(history);
+  renderAchievements({history,totalAnswered,totalCorrect,streak});
+  renderRecommendations(history);
+}
+
+function renderActivityHeatmap(history){
+  const host=$("activityHeatmap");
+  const counts={};
+  history.forEach(h=>{
+    const key=String(h.finishedAt||"").slice(0,10);
+    counts[key]=(counts[key]||0)+(Number(h.total)||0);
+  });
+  const days=[];
+  const cursor=new Date();cursor.setDate(cursor.getDate()-83);
+  for(let i=0;i<84;i++){
+    const key=cursor.toISOString().slice(0,10);
+    days.push({key,count:counts[key]||0});
+    cursor.setDate(cursor.getDate()+1);
+  }
+  host.innerHTML=days.map(day=>{
+    const level=day.count===0?0:day.count<10?1:day.count<30?2:day.count<60?3:4;
+    return `<i class="heat-${level}" title="${day.key}: ${day.count} questões"></i>`;
+  }).join("");
+}
+
+function renderAchievements({history,totalAnswered,totalCorrect,streak}){
+  const achievements=[
+    ["🎯","Primeiro simulado",history.length>=1],
+    ["📚","100 questões",totalAnswered>=100],
+    ["🏅","500 questões",totalAnswered>=500],
+    ["🔥","7 dias seguidos",streak>=7],
+    ["⭐","80% de acertos",totalAnswered>0&&totalCorrect/totalAnswered>=.8],
+    ["🚀","10 simulados",history.length>=10],
+  ];
+  $("achievementGrid").innerHTML=achievements.map(([icon,name,unlocked])=>`
+    <div class="achievement ${unlocked?"unlocked":"locked"}"><span>${icon}</span><strong>${esc(name)}</strong><small>${unlocked?"Desbloqueada":"Bloqueada"}</small></div>`).join("");
+}
+
+function renderRecommendations(history){
+  const map=new Map();
+  history.forEach(record=>(record.reviewData||[]).forEach(item=>{
+    const name=item?.q?.categoria||"Sem categoria";
+    const row=map.get(name)||{total:0,correct:0};
+    row.total++;if(item.ok)row.correct++;
+    map.set(name,row);
+  }));
+  const weak=[...map.entries()].map(([name,v])=>({name,pct:v.total?Math.round(v.correct/v.total*100):0,total:v.total}))
+    .filter(x=>x.total>=1).sort((a,b)=>a.pct-b.pct).slice(0,5);
+  $("recommendationList").innerHTML=weak.length?weak.map(x=>`
+    <button class="recommendation-item" type="button" data-category="${esc(x.name)}">
+      <span><strong>${esc(x.name)}</strong><small>${x.pct}% de acerto em ${x.total} questão(ões)</small></span><b>Revisar →</b>
+    </button>`).join(""):'<div class="empty-state">Conclua mais simulados para receber recomendações.</div>';
+  document.querySelectorAll(".recommendation-item").forEach(btn=>btn.onclick=()=>{
+    showApplicationPage("review");
+    showReviewLibrary("wrong");
+  });
+}
+
+async function renderGlobalSearch(){
+  const input=$("globalSearchInput");
+  if(!input)return;
+  const term=input.value.trim().toLowerCase();
+  const filter=$("globalSearchFilter").value;
+  const rows=await collectReviewedQuestions();
+  const filtered=rows.filter(item=>{
+    const q=item.q||{};
+    const text=[q.pergunta,q.feedback,q.categoria,q.alt_a,q.alt_b,q.alt_c,q.alt_d,q.alt_e,(item.r||[]).join(" ")].join(" ").toLowerCase();
+    if(term&&!text.includes(term))return false;
+    if(filter==="wrong"&&item.ok)return false;
+    if(filter==="favorite"&&!item.favorite)return false;
+    if(filter==="image"&&!q.imagem_pergunta&&!q.img_a&&!q.img_b&&!q.img_c&&!q.img_d&&!q.img_e)return false;
+    return true;
+  }).slice(0,100);
+  const host=$("globalSearchResults");
+  host.innerHTML=filtered.length?filtered.map(item=>`
+    <article class="panel global-search-card">
+      <div>
+        <span class="review-category">${esc(item.q.categoria||"Sem categoria")}</span>
+        <h3>${esc(item.q.pergunta||"")}</h3>
+        <p>${item.ok?"✓ Respondida corretamente":"✕ Respondida incorretamente"} · correta: ${esc((item.r||[]).join(", "))}</p>
+      </div>
+      <button class="btn secondary search-open-question" data-history="${esc(item.historyId)}">Abrir</button>
+    </article>`).join(""):'<div class="empty-state">Nenhum resultado encontrado.</div>';
+  host.querySelectorAll(".search-open-question").forEach(btn=>btn.onclick=()=>openHistoryDetails(btn.dataset.history));
+}
+
+
 function bindAuth(){
   const submitBtn=$("authSubmitBtn");
   const toggleBtn=$("authToggleBtn");
@@ -342,9 +651,15 @@ async function handleAuthChange(user){
   if(!user)return;
   $("logoutBtn").textContent=(user.email||"U").slice(0,2).toUpperCase();
   setCloudStatus("Sincronizando","syncing");
-  await refreshHome();
-  populateLegacyBanks();
-  setCloudStatus("Nuvem ativa","online");
+  try{
+    await syncAllNow({silent:true});
+    populateLegacyBanks();
+    setCloudStatus("Nuvem ativa","online");
+  }catch(error){
+    console.error("Falha na sincronização inicial",error);
+    await refreshHome();
+    setCloudStatus("Sync pendente","offline");
+  }
   window.setTimeout(startOnboardingIfNeeded,500);
 }
 
@@ -353,7 +668,7 @@ function setCloudStatus(text,state){
   el.textContent=text; el.className="cloud-status "+state;
 }
 
-async function syncAllNow(){
+async function syncAllNow(options={}){
   if(!getCloudUser())return;
   setCloudStatus("Sincronizando","syncing");
   try{
@@ -362,21 +677,49 @@ async function syncAllNow(){
       await ensureCloudBank(bank);
       const local=await get("progress",bank.id);
       const remote=await pullProgress(bank);
-      if(remote && (!local || String(remote.savedAt||"")>String(local.savedAt||""))) await put("progress",remote);
-      else if(local) await pushProgress(bank,local);
+      if(remote && (!local || String(remote.savedAt||"")>String(local.savedAt||""))){
+        await put("progress",remote);
+      }else if(local){
+        await pushProgress(bank,local);
+      }
     }
     await refreshHome();
     setCloudStatus("Sincronizado","online");
-    toast("Sincronização concluída.");
-  }catch(e){setCloudStatus("Erro de sync","error");console.error(e);toast("Falha ao sincronizar.");}
+    if(!options.silent)toast("Sincronização concluída.");
+  }catch(e){
+    setCloudStatus("Erro de sync","error");
+    console.error(e);
+    if(!options.silent)toast("Falha ao sincronizar: "+(e.message||"erro desconhecido"));
+    throw e;
+  }
 }
 
 function queueCloudProgress(progress){
+  pendingCloudProgress=progress;
   clearTimeout(cloudSaveTimer);
-  cloudSaveTimer=setTimeout(async()=>{
-    try{await pushProgress(selectedBank,progress);setCloudStatus("Salvo","online");}
-    catch(e){console.error(e);setCloudStatus("Pendente","offline");}
-  },500);
+  cloudSaveTimer=setTimeout(()=>flushCloudProgress(),250);
+}
+
+async function flushCloudProgress(){
+  if(cloudSaveInFlight||!pendingCloudProgress||!selectedBank||!getCloudUser())return;
+  const progress=pendingCloudProgress;
+  pendingCloudProgress=null;
+  cloudSaveInFlight=true;
+  setCloudStatus("Salvando","syncing");
+  try{
+    await pushProgress(selectedBank,progress);
+    setCloudStatus("Salvo na nuvem","online");
+  }catch(e){
+    console.error("Falha ao salvar progresso na nuvem",e);
+    pendingCloudProgress=progress;
+    setCloudStatus("Pendente","offline");
+  }finally{
+    cloudSaveInFlight=false;
+    if(pendingCloudProgress){
+      clearTimeout(cloudSaveTimer);
+      cloudSaveTimer=setTimeout(()=>flushCloudProgress(),1500);
+    }
+  }
 }
 
 function populateLegacyBanks(){
@@ -1074,6 +1417,9 @@ async function importBank(){
     else bank=await importCsvAndImages();
 
     await put("banks",bank);
+    if(getCloudUser()){
+      try{await ensureCloudBank(bank)}catch(error){console.error("Falha ao registrar banco na nuvem",error)}
+    }
     toast("Banco importado com sucesso.");
     $("csvFile").value="";
     $("imageFolder").value="";
@@ -1165,6 +1511,24 @@ async function showSetup(id){
   exitQuizMode();
   selectedBank=await get("banks",id);
   if(!selectedBank)return;
+
+  // Em um computador novo, busca o progresso remoto antes de montar a tela.
+  if(getCloudUser()){
+    try{
+      setCloudStatus("Buscando progresso","syncing");
+      const local=await get("progress",id);
+      const remote=await pullProgress(selectedBank);
+      if(remote && (!local || String(remote.savedAt||"")>String(local.savedAt||""))){
+        await put("progress",remote);
+      }else if(local){
+        await pushProgress(selectedBank,local);
+      }
+      setCloudStatus("Nuvem ativa","online");
+    }catch(error){
+      console.error("Não foi possível buscar o progresso remoto",error);
+      setCloudStatus("Sync pendente","offline");
+    }
+  }
 
   $("homeScreen").classList.add("hidden");
   $("resultScreen").classList.add("hidden");
@@ -1498,9 +1862,16 @@ async function saveExit(){
   exitQuizMode();
   await saveProgress();
   stopTimer();
+  try{
+    await flushCloudProgress();
+    if(pendingCloudProgress)throw new Error("A sincronização ainda está pendente.");
+    toast("Progresso salvo neste dispositivo e na nuvem.");
+  }catch(error){
+    console.error(error);
+    toast("Salvo neste dispositivo. A sincronização com a nuvem está pendente.");
+  }
   $("quizScreen").classList.add("hidden");
   await showSetup(selectedBank.id);
-  toast("Progresso salvo.");
 }
 
 async function deleteProgress(){
@@ -1810,3 +2181,10 @@ function download(n,c,t){
   a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href),1000);
 }
+
+
+// Tenta concluir a gravação quando a página perde visibilidade.
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="hidden")flushCloudProgress();
+});
+window.addEventListener("pagehide",()=>{flushCloudProgress()});

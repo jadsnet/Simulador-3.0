@@ -1,0 +1,19 @@
+SIMULADOR ACADEMY V6
+
+Substitua todos os arquivos do projeto pelo conteúdo deste pacote.
+A pasta docs deve ser enviada junto para que as imagens do README apareçam.
+
+Novos recursos:
+- Flashcards
+- Perfil, XP, níveis e conquistas
+- Meta diária
+- Sequência de estudos
+- Heatmap de atividade
+- Recomendações
+- Busca global
+- PWA instalável
+
+Após publicar:
+1. Use Ctrl+Shift+R.
+2. Se necessário, remova o Service Worker antigo em DevTools > Application.
+3. Faça login novamente.

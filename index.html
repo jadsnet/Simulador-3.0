@@ -5,18 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#07111f">
   <meta name="description" content="Plataforma de simulados de certificação.">
-  <title>Simulador Academy V4.0 Cloud.1</title>
+  <title>Simulador Academy V6.0.1.1</title>
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=4.0.4">
+  <link rel="stylesheet" href="style.css?v=6.0.1">
   <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script type="module" src="app.js?v=4.0.4"></script>
+  <script type="module" src="app.js?v=6.0.1"></script>
 </head>
 <body>
 
   <section id="authScreen" class="auth-screen">
     <div class="auth-card">
-      <div class="auth-brand"><div class="brand-mark">S</div><div><strong>Simulador Academy</strong><small>V4.0 Cloud</small></div></div>
+      <div class="auth-brand"><div class="brand-mark">S</div><div><strong>Simulador Academy</strong><small>V6</small></div></div>
       <h1 id="authTitle">Entrar</h1>
       <p id="authSubtitle">Seu progresso será salvo localmente e no Supabase.</p>
       <label class="field"><span>E-mail</span><input id="authEmail" type="email" autocomplete="email" placeholder="voce@exemplo.com"></label>
@@ -41,6 +41,8 @@
         <button class="side-link" data-page="review" data-review-filter="all"><span>☆</span>Revisão inteligente</button>
         <button class="side-link" data-page="stats"><span>⌁</span>Estatísticas</button>
         <button class="side-link" data-page="import"><span>⇩</span>Importar banco</button>
+        <button class="side-link" data-page="flashcards"><span>▱</span>Flashcards</button>
+        <button class="side-link" data-page="profile"><span>♛</span>Perfil e metas</button>
         <button class="side-link" data-page="settings"><span>⚙</span>Configurações</button>
         <button id="sidebarTutorialBtn" class="side-link tutorial-link" type="button"><span>?</span>Guia de utilização</button>
       </nav>
@@ -49,7 +51,7 @@
     <main class="content-shell">
       <header class="topbar">
         <div><p class="eyebrow">VISÃO GERAL</p><h1>Bem-vindo de volta!</h1><p>Pronto para continuar seus estudos?</p></div>
-        <div class="top-actions"><label class="search"><span>⌕</span><input id="dashboardSearch" placeholder="Buscar banco..."></label><span id="cloudStatus" class="cloud-status offline">Local</span><button id="syncNowBtn" class="round-btn" type="button" title="Sincronizar agora">↻</button><button id="openTutorialBtn" class="help-tour-btn" type="button" title="Abrir guia de utilização">? <span>Guia de uso</span></button><button id="logoutBtn" class="avatar" type="button" title="Sair">JR</button></div>
+        <div class="top-actions"><label class="search"><span>⌕</span><input id="dashboardSearch" placeholder="Buscar banco..."></label><span id="cloudStatus" class="cloud-status offline">Local</span><button id="installAppBtn" class="round-btn hidden" type="button" title="Instalar aplicativo">⇩</button><button id="syncNowBtn" class="round-btn" type="button" title="Sincronizar agora">↻</button><button id="openTutorialBtn" class="help-tour-btn" type="button" title="Abrir guia de utilização">? <span>Guia de uso</span></button><button id="logoutBtn" class="avatar" type="button" title="Sair">JR</button></div>
       </header>
 
       <section id="homeScreen" class="screen">
