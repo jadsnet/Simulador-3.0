@@ -61,45 +61,56 @@ async function resolveCloudBank(bank,{create=true}={}){
   const stableId=stableBankId(bank);
   const columns="id,local_bank_id,name,file_name,question_count,updated_at";
 
-  // Formato novo: identidade estável compartilhada por todos os dispositivos.
-  let {data,error}=await supabase.from("question_banks").select(columns)
+  // Reúne tanto o registro estável quanto os registros legados/duplicados.
+  let {data:stableRow,error}=await supabase.from("question_banks").select(columns)
     .eq("user_id",user.id).eq("local_bank_id",stableId).maybeSingle();
   if(error)throw error;
-  if(data)return data;
 
-  // Compatibilidade: procura o registro criado pelas versões com ID aleatório.
-  ({data,error}=await supabase.from("question_banks").select(columns)
-    .eq("user_id",user.id).eq("local_bank_id",String(bank.id)).maybeSingle());
-  if(error)throw error;
+  const directResult=await supabase.from("question_banks").select(columns)
+    .eq("user_id",user.id).eq("local_bank_id",String(bank.id)).maybeSingle();
+  if(directResult.error)throw directResult.error;
 
-  if(!data){
-    const count=Array.isArray(bank.questions)?bank.questions.length:0;
-    let legacyQuery=supabase.from("question_banks").select(columns)
-      .eq("user_id",user.id).eq("question_count",count)
-      .order("updated_at",{ascending:false}).limit(20);
-    const legacy=await legacyQuery;
-    if(legacy.error)throw legacy.error;
-    const rows=legacy.data||[];
-    const fileName=String(bank.fileName||"").trim().toLowerCase();
-    const name=String(bank.name||"").trim().toLowerCase();
-    const compatible=rows.filter(r=>(fileName&&String(r.file_name||"").trim().toLowerCase()===fileName)
-      ||(name&&String(r.name||"").trim().toLowerCase()===name));
-    const candidates=compatible.length?compatible:(rows.length===1?rows:[]);
+  const count=Array.isArray(bank.questions)?bank.questions.length:0;
+  const legacy=await supabase.from("question_banks").select(columns)
+    .eq("user_id",user.id).eq("question_count",count)
+    .order("updated_at",{ascending:false}).limit(50);
+  if(legacy.error)throw legacy.error;
 
-    // Se versões antigas criaram registros duplicados, escolhe aquele que de
-    // fato contém o progresso mais recente, e não um banco vazio mais novo.
-    if(candidates.length){
-      const ids=candidates.map(r=>r.id);
-      const progressRows=await supabase.from("quiz_progress")
-        .select("bank_id,client_updated_at,updated_at").eq("user_id",user.id).in("bank_id",ids);
-      if(progressRows.error)throw progressRows.error;
-      const latest=new Map((progressRows.data||[]).map(p=>[p.bank_id,p.client_updated_at||p.updated_at||""]));
-      data=[...candidates].sort((a,b)=>String(latest.get(b.id)||"").localeCompare(String(latest.get(a.id)||"")))[0];
-    }
+  const fileName=String(bank.fileName||"").trim().toLowerCase();
+  const name=String(bank.name||"").trim().toLowerCase();
+  const rows=[stableRow,directResult.data,...(legacy.data||[])].filter(Boolean);
+  const unique=[...new Map(rows.map(r=>[r.id,r])).values()];
+  const compatible=unique.filter(r=>r.local_bank_id===stableId
+    ||r.local_bank_id===String(bank.id)
+    ||(fileName&&String(r.file_name||"").trim().toLowerCase()===fileName)
+    ||(name&&String(r.name||"").trim().toLowerCase()===name));
+  const candidates=compatible.length?compatible:(unique.length===1?unique:[]);
+
+  let data=null;
+  if(candidates.length){
+    const ids=candidates.map(r=>r.id);
+    const progressRows=await supabase.from("quiz_progress")
+      .select("bank_id,answers,current_index,client_updated_at,updated_at")
+      .eq("user_id",user.id).in("bank_id",ids);
+    if(progressRows.error)throw progressRows.error;
+    const progressByBank=new Map((progressRows.data||[]).map(p=>[p.bank_id,p]));
+    const score=row=>{
+      const p=progressByBank.get(row.id);
+      return {answered:p&&p.answers&&typeof p.answers==="object"?Object.keys(p.answers).length:0,
+        index:Number(p?.current_index)||0,date:String(p?.client_updated_at||p?.updated_at||"")};
+    };
+    data=[...candidates].sort((a,b)=>{
+      const sa=score(a),sb=score(b);
+      return sb.answered-sa.answered||sb.index-sa.index||sb.date.localeCompare(sa.date)
+        ||Number(b.local_bank_id===stableId)-Number(a.local_bank_id===stableId);
+    })[0];
   }
 
   if(data){
-    // Migra sem apagar o progresso ligado ao registro existente.
+    // Só migra o ID legado quando ainda não existe outro registro estável.
+    // Se houver duplicidade, mantém o vínculo do registro que contém respostas.
+    if(stableRow&&data.id!==stableRow.id)return data;
+    if(data.local_bank_id===stableId)return data;
     const migrated=await supabase.from("question_banks")
       .update({local_bank_id:stableId,name:bank.name||data.name,updated_at:new Date().toISOString()})
       .eq("id",data.id).eq("user_id",user.id).select(columns).single();

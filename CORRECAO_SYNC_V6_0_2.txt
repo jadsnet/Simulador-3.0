@@ -6,6 +6,8 @@ CORREÇÃO V6.0.2 — RECUPERAÇÃO DO PROGRESSO EM OUTRO COMPUTADOR
 - O registro antigo é migrado sem apagar o progresso associado no Supabase.
 - Corrigido o erro `pendingCloudProgress is not defined` ao usar Salvar e sair.
 - Corrigido o erro `cloudSaveInFlight is not defined` durante a sincronização.
+- Quando existem bancos duplicados, compara todos e seleciona o que contém mais respostas.
+- Um progresso local vazio não substitui outro progresso remoto com questões respondidas.
 - A versão continua compatível com IndexedDB, backup JSON e importação de progresso antigo.
 
 COMO RECUPERAR

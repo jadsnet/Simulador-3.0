@@ -677,7 +677,7 @@ async function syncAllNow(options={}){
       await ensureCloudBank(bank);
       const local=await get("progress",bank.id);
       const remote=await pullProgress(bank);
-      if(remote && (!local || String(remote.savedAt||"")>String(local.savedAt||""))){
+      if(remote && shouldUseRemoteProgress(local,remote)){
         await put("progress",remote);
       }else if(local){
         await pushProgress(bank,local);
@@ -692,6 +692,20 @@ async function syncAllNow(options={}){
     if(!options.silent)toast("Falha ao sincronizar: "+(e.message||"erro desconhecido"));
     throw e;
   }
+}
+
+function answeredCount(progress){
+  return progress?.answers&&typeof progress.answers==="object"?Object.keys(progress.answers).length:0;
+}
+
+function shouldUseRemoteProgress(local,remote){
+  if(!remote)return false;
+  if(!local)return true;
+  const remoteAnswered=answeredCount(remote),localAnswered=answeredCount(local);
+  if(remoteAnswered!==localAnswered)return remoteAnswered>localAnswered;
+  const remoteIndex=Number(remote.currentIndex)||0,localIndex=Number(local.currentIndex)||0;
+  if(remoteIndex!==localIndex)return remoteIndex>localIndex;
+  return String(remote.savedAt||"")>String(local.savedAt||"");
 }
 
 function queueCloudProgress(progress){
@@ -1518,7 +1532,7 @@ async function showSetup(id){
       setCloudStatus("Buscando progresso","syncing");
       const local=await get("progress",id);
       const remote=await pullProgress(selectedBank);
-      if(remote && (!local || String(remote.savedAt||"")>String(local.savedAt||""))){
+      if(remote && shouldUseRemoteProgress(local,remote)){
         await put("progress",remote);
       }else if(local){
         await pushProgress(selectedBank,local);
