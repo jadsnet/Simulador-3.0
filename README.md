@@ -142,6 +142,8 @@ Na versão **V6.0.2**, o mesmo banco passa a ser reconhecido pelo conteúdo das 
 
 Esta versão também corrige a falha do botão **Salvar e sair** causada pelas variáveis de fila de sincronização não declaradas.
 
+Na **V6.1.0**, a conta passa a sincronizar a biblioteca completa: bancos, questões, imagens, simulados em andamento e todos os resultados do histórico. Assim, um login em outro computador ou em navegação anônima restaura os dados sem exigir uma nova importação.
+
 ---
 
 ## 🛠️ Tecnologias

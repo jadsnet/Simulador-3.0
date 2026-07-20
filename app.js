@@ -1,5 +1,5 @@
 import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,pushHistory,ensureCloudBank} from "./cloud.js";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,pushHistory,ensureCloudBank,pullCloudState} from "./cloud.js";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 let onboardingStep=0,onboardingTarget=null;
@@ -682,6 +682,34 @@ async function syncAllNow(options={}){
       }else if(local){
         await pushProgress(bank,local);
       }
+    }
+
+    // Envia também os resultados antigos que ainda existiam apenas neste PC.
+    const localHistory=await getAll("history");
+    for(const item of localHistory){
+      const bank=banks.find(b=>b.id===item.bankId);
+      if(bank)await pushHistory(bank,item);
+    }
+
+    // O login restaura a biblioteca, os simulados em andamento e o histórico,
+    // mesmo quando o IndexedDB está vazio (outro PC ou janela anônima).
+    const cloudState=await pullCloudState();
+    const bankIdMap=new Map();
+    for(const remoteBank of cloudState.banks){
+      const existing=banks.find(local=>local.id===remoteBank.id
+        ||(String(local.name||"").trim().toLowerCase()===String(remoteBank.name||"").trim().toLowerCase()
+          &&(local.questions?.length||0)===(remoteBank.questions?.length||0)));
+      const localId=existing?.id||remoteBank.id;
+      bankIdMap.set(remoteBank.id,localId);
+      await put("banks",{...remoteBank,id:localId,createdAt:existing?.createdAt||remoteBank.createdAt});
+    }
+    for(const remote of cloudState.progress){
+      const normalized={...remote,bankId:bankIdMap.get(remote.bankId)||remote.bankId};
+      const local=await get("progress",normalized.bankId);
+      if(shouldUseRemoteProgress(local,normalized))await put("progress",normalized);
+    }
+    for(const item of cloudState.history){
+      await put("history",{...item,bankId:bankIdMap.get(item.bankId)||item.bankId});
     }
     await refreshHome();
     setCloudStatus("Sincronizado","online");

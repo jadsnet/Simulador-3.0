@@ -56,6 +56,14 @@ function stableBankId(bank){
   return `bank-${questions.length}-${(h1>>>0).toString(16).padStart(8,"0")}${(h2>>>0).toString(16).padStart(8,"0")}`;
 }
 
+function cloudBankSnapshot(bank){
+  return {
+    id:stableBankId(bank),name:bank.name||"Banco de questões",
+    fileName:bank.fileName||null,createdAt:bank.createdAt||new Date().toISOString(),
+    questions:Array.isArray(bank.questions)?bank.questions:[],images:bank.images||{}
+  };
+}
+
 async function resolveCloudBank(bank,{create=true}={}){
   const user=await requireUser();
   const stableId=stableBankId(bank);
@@ -145,7 +153,7 @@ export async function pushProgress(bank,progress){
     question_order:progress.order||[],
     answers:progress.answers||{},
     timer_seconds:Number(progress.timerSeconds)||0,
-    settings:progress.settings||{},
+    settings:{...(progress.settings||{}),__cloudBank:cloudBankSnapshot(bank)},
     favorites:progress.favorites||[],
     marked:progress.marked||[],
     notes:progress.notes||{},
@@ -190,9 +198,62 @@ export async function pushHistory(bank,h){
     correct_answers:h.correct||0,
     wrong_answers:Math.max(0,(h.total||0)-(h.correct||0)),
     score:h.score||0, elapsed_seconds:h.time||0,
-    answers:{reviewData:h.reviewData||[]}, settings:{},
+    answers:{reviewData:h.reviewData||[]}, settings:{__cloudBank:cloudBankSnapshot(bank)},
     finished_at:h.finishedAt||new Date().toISOString()
   };
   const {error}=await supabase.from("quiz_history").upsert(payload);
   if(error) throw error;
+}
+
+export async function pullCloudState(){
+  const user=await requireUser();
+  const [progressResult,historyResult]=await Promise.all([
+    supabase.from("quiz_progress").select("*").eq("user_id",user.id),
+    supabase.from("quiz_history").select("*").eq("user_id",user.id)
+      .order("finished_at",{ascending:false})
+  ]);
+  if(progressResult.error)throw progressResult.error;
+  if(historyResult.error)throw historyResult.error;
+
+  const banks=new Map();
+  const cloudBankIds=new Map();
+  const addSnapshot=(snapshot,cloudBankId)=>{
+    if(!snapshot||!Array.isArray(snapshot.questions)||!snapshot.questions.length)return null;
+    const bank={...snapshot,id:stableBankId(snapshot),images:snapshot.images||{}};
+    banks.set(bank.id,bank);
+    if(cloudBankId)cloudBankIds.set(cloudBankId,bank.id);
+    return bank.id;
+  };
+
+  for(const row of progressResult.data||[])addSnapshot(row.settings?.__cloudBank,row.bank_id);
+  for(const row of historyResult.data||[]){
+    let localId=addSnapshot(row.settings?.__cloudBank,row.bank_id);
+    if(!localId){
+      const reviewData=Array.isArray(row.answers?.reviewData)?row.answers.reviewData:[];
+      const questions=reviewData.map(item=>item?.q).filter(Boolean);
+      if(questions.length)localId=addSnapshot({name:row.bank_name||"Banco recuperado",questions,images:{}},row.bank_id);
+    }
+  }
+
+  const progress=(progressResult.data||[]).map(row=>{
+    const bankId=cloudBankIds.get(row.bank_id);
+    if(!bankId)return null;
+    const cleanSettings={...(row.settings||{})}; delete cleanSettings.__cloudBank;
+    return {bankId,currentIndex:Number(row.current_index)||0,order:row.question_order||[],
+      answers:row.answers||{},timerSeconds:Number(row.timer_seconds)||0,settings:cleanSettings,
+      favorites:row.favorites||[],marked:row.marked||[],notes:row.notes||{},
+      savedAt:row.client_updated_at||row.updated_at||new Date().toISOString()};
+  }).filter(Boolean);
+
+  const history=(historyResult.data||[]).map(row=>{
+    const reviewData=Array.isArray(row.answers?.reviewData)?row.answers.reviewData:[];
+    const total=Number(row.total_questions)||reviewData.length;
+    const answered=Number(row.answered_questions)||0;
+    return {id:row.id,bankId:cloudBankIds.get(row.bank_id)||null,
+      bankName:row.bank_name||"Banco de questões",finishedAt:row.finished_at||new Date().toISOString(),
+      score:Number(row.score)||0,correct:Number(row.correct_answers)||0,total,
+      unanswered:Math.max(0,total-answered),time:Number(row.elapsed_seconds)||0,reviewData};
+  });
+
+  return {banks:[...banks.values()],progress,history};
 }
