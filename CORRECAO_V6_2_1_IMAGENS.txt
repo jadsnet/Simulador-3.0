@@ -1,0 +1,12 @@
+CORREÇÃO V6.2.1 — IMAGENS LOCAIS E REIMPORTAÇÃO
+
+- Bancos baixados da nuvem sem imagens não apagam mais as imagens locais.
+- O diagnóstico mostra também quantas imagens foram encontradas no navegador.
+- Reimportar o mesmo CSV com a pasta de imagens atualiza o banco existente.
+- A reimportação preserva o ID do banco e todas as respostas já salvas.
+- Não cria uma cópia do banco quando o conteúdo das questões é igual.
+
+SE “IMAGENS ENCONTRADAS” MOSTRAR ZERO
+
+Importe novamente o mesmo CSV junto com a pasta de imagens, ou importe o pacote
+ZIP que contenha o CSV e as imagens. Depois clique em Sincronizar novamente.

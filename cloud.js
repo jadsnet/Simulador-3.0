@@ -11,7 +11,7 @@ let currentUser = null;
 const IMAGE_BUCKET="question-images";
 const imageManifestCache=new Map();
 let storageDisabledForSession=false;
-let storageReport={uploaded:0,downloaded:0,error:""};
+let storageReport={found:0,uploaded:0,downloaded:0,error:""};
 export function getCloudUser(){ return currentUser; }
 
 export async function initializeAuth(onChange){
@@ -89,10 +89,12 @@ function imageExtension(blob){
 
 async function uploadBankImages(bank){
   const stableId=stableBankId(bank);
-  if(imageManifestCache.has(stableId))return imageManifestCache.get(stableId);
+  const images=bank.images&&typeof bank.images==="object"?bank.images:{};
+  const localImageCount=Object.values(images).filter(value=>String(value||"").startsWith("data:")).length;
+  const cached=imageManifestCache.get(stableId);
+  if(cached&&Object.keys(cached).length>=localImageCount)return cached;
   if(storageDisabledForSession)return {};
   const user=await requireUser();
-  const images=bank.images&&typeof bank.images==="object"?bank.images:{};
   const manifest={};
   const uploadedByContent=new Map();
 
@@ -111,6 +113,7 @@ async function uploadBankImages(bank){
       }
       manifest[logicalName]=objectPath;
     }
+    storageReport.found=Math.max(storageReport.found,Object.keys(manifest).length);
     imageManifestCache.set(stableId,manifest);
     return manifest;
   }catch(error){
@@ -302,7 +305,7 @@ export async function pushHistory(bank,h){
 
 export async function pullCloudState(){
   const user=await requireUser();
-  storageReport={uploaded:storageReport.uploaded,downloaded:0,error:storageReport.error};
+  storageReport={found:storageReport.found,uploaded:storageReport.uploaded,downloaded:0,error:storageReport.error};
   const [progressResult,historyResult]=await Promise.all([
     supabase.from("quiz_progress").select("*").eq("user_id",user.id).limit(200),
     supabase.from("quiz_history").select("*").eq("user_id",user.id)
@@ -355,7 +358,7 @@ export async function pullCloudState(){
 
   return {banks:[...banks.values()],progress,history,diagnostics:{
     cloudBanks:banks.size,cloudProgress:progress.length,cloudHistory:history.length,
-    imagesUploaded:storageReport.uploaded,imagesDownloaded:storageReport.downloaded,
+    imagesFound:storageReport.found,imagesUploaded:storageReport.uploaded,imagesDownloaded:storageReport.downloaded,
     storageError:storageReport.error
   }};
 }

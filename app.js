@@ -155,6 +155,7 @@ function setupApplicationPages(){
         <div><span>Bancos na nuvem</span><strong id="syncDiagBanks">0</strong></div>
         <div><span>Em andamento</span><strong id="syncDiagProgress">0</strong></div>
         <div><span>Históricos</span><strong id="syncDiagHistory">0</strong></div>
+        <div><span>Imagens encontradas</span><strong id="syncDiagFound">0</strong></div>
         <div><span>Imagens enviadas</span><strong id="syncDiagUploaded">0</strong></div>
         <div><span>Imagens baixadas</span><strong id="syncDiagDownloaded">0</strong></div>
       </div>
@@ -710,6 +711,7 @@ function updateSyncDiagnostics(data={}){
   if(data.banks!==undefined)$("syncDiagBanks").textContent=data.banks;
   if(data.progress!==undefined)$("syncDiagProgress").textContent=data.progress;
   if(data.history!==undefined)$("syncDiagHistory").textContent=data.history;
+  if(data.found!==undefined)$("syncDiagFound").textContent=data.found;
   if(data.uploaded!==undefined)$("syncDiagUploaded").textContent=data.uploaded;
   if(data.downloaded!==undefined)$("syncDiagDownloaded").textContent=data.downloaded;
   $("syncDiagMessage").textContent=data.message||(state==="running"?"Sincronização em andamento...":"");
@@ -752,7 +754,8 @@ async function syncAllNow(options={}){
           &&(local.questions?.length||0)===(remoteBank.questions?.length||0)));
       const localId=existing?.id||remoteBank.id;
       bankIdMap.set(remoteBank.id,localId);
-      await put("banks",{...remoteBank,id:localId,createdAt:existing?.createdAt||remoteBank.createdAt});
+      const preservedImages={...(existing?.images||{}),...(remoteBank.images||{})};
+      await put("banks",{...remoteBank,id:localId,createdAt:existing?.createdAt||remoteBank.createdAt,images:preservedImages});
     }
     for(const remote of cloudState.progress){
       const normalized={...remote,bankId:bankIdMap.get(remote.bankId)||remote.bankId};
@@ -766,7 +769,7 @@ async function syncAllNow(options={}){
     const diag=cloudState.diagnostics||{};
     updateSyncDiagnostics({state:diag.storageError?"warning":"success",time:new Date().toISOString(),
       banks:diag.cloudBanks||0,progress:diag.cloudProgress||0,history:diag.cloudHistory||0,
-      uploaded:diag.imagesUploaded||0,downloaded:diag.imagesDownloaded||0,
+      found:diag.imagesFound||0,uploaded:diag.imagesUploaded||0,downloaded:diag.imagesDownloaded||0,
       message:diag.storageError?`Dados sincronizados. Storage de imagens: ${diag.storageError}`:"Conta sincronizada sem erros."});
     setCloudStatus("Sincronizado","online");
     if(!options.silent)toast("Sincronização concluída.");
@@ -1515,6 +1518,14 @@ async function importBank(){
     if($("zipFile").files[0])bank=await importZip($("zipFile").files[0]);
     else bank=await importCsvAndImages();
 
+    // Reimportar o mesmo banco serve para restaurar/adicionar imagens sem
+    // criar uma cópia e sem romper o vínculo com o progresso existente.
+    const currentBanks=await getAll("banks");
+    const existing=currentBanks.find(item=>sameBankContent(item,bank));
+    if(existing){
+      bank={...bank,id:existing.id,createdAt:existing.createdAt,
+        images:{...(existing.images||{}),...(bank.images||{})}};
+    }
     await put("banks",bank);
     if(getCloudUser()){
       try{await ensureCloudBank(bank)}catch(error){console.error("Falha ao registrar banco na nuvem",error)}
@@ -1529,6 +1540,14 @@ async function importBank(){
   }finally{
     showLoading(false);
   }
+}
+
+function sameBankContent(a,b){
+  const aq=Array.isArray(a?.questions)?a.questions:[];
+  const bq=Array.isArray(b?.questions)?b.questions:[];
+  if(!aq.length||aq.length!==bq.length)return false;
+  return aq.every((q,index)=>String(q.id||"")===String(bq[index]?.id||"")
+    &&String(q.pergunta||"").trim()===String(bq[index]?.pergunta||"").trim());
 }
 
 async function importCsvAndImages(){

@@ -146,6 +146,8 @@ Na **V6.1.1**, a conta sincroniza bancos, questões, simulados em andamento e to
 
 Na **V6.2.0**, as imagens passam a usar um bucket privado do Supabase Storage, sem ocupar os registros JSON do progresso. A página Configurações inclui um diagnóstico completo da sincronização. Execute `SUPABASE_STORAGE_SETUP.sql` uma vez antes de sincronizar imagens.
 
+Na **V6.2.1**, uma restauração sem imagens não apaga mais os arquivos locais. O mesmo CSV pode ser reimportado com sua pasta de imagens para completar o banco, preservando integralmente o progresso e o histórico.
+
 ---
 
 ## 🛠️ Tecnologias
