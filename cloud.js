@@ -60,7 +60,9 @@ function cloudBankSnapshot(bank){
   return {
     id:stableBankId(bank),name:bank.name||"Banco de questões",
     fileName:bank.fileName||null,createdAt:bank.createdAt||new Date().toISOString(),
-    questions:Array.isArray(bank.questions)?bank.questions:[],images:bank.images||{}
+    // Imagens Base64 podem ultrapassar o tempo limite do Postgres. Os dados
+    // das questões permanecem na nuvem; imagens continuam no cache local.
+    questions:Array.isArray(bank.questions)?bank.questions:[],images:{}
   };
 }
 
@@ -169,14 +171,19 @@ export async function pullProgress(bank){
   const user=await requireUser();
   const bankRow=await resolveCloudBank(bank,{create:false});
   if(!bankRow) return null;
-  const {data,error}=await supabase.from("quiz_progress").select("*")
+  // Não baixa aqui o snapshot completo do banco guardado em settings. Isso
+  // mantém a abertura de um simulado rápida mesmo após versões antigas terem
+  // gravado imagens Base64 muito grandes nesse campo.
+  const progressColumns="current_index,question_order,answers,timer_seconds,favorites,marked,notes,client_updated_at,updated_at";
+  const {data,error}=await supabase.from("quiz_progress").select(progressColumns)
     .eq("user_id",user.id).eq("bank_id",bankRow.id).maybeSingle();
   if(error) throw error;
   if(!data) return null;
   return {
     bankId:bank.id, currentIndex:data.current_index,
     order:data.question_order||[], answers:data.answers||{},
-    timerSeconds:data.timer_seconds||0, settings:data.settings||{},
+    timerSeconds:data.timer_seconds||0,
+    settings:{limit:(data.question_order||[]).length,timeLimit:0,shuffle:false,warn:true},
     favorites:data.favorites||[], marked:data.marked||[],
     notes:data.notes||{}, savedAt:data.client_updated_at||data.updated_at
   };
@@ -208,9 +215,9 @@ export async function pushHistory(bank,h){
 export async function pullCloudState(){
   const user=await requireUser();
   const [progressResult,historyResult]=await Promise.all([
-    supabase.from("quiz_progress").select("*").eq("user_id",user.id),
+    supabase.from("quiz_progress").select("*").eq("user_id",user.id).limit(200),
     supabase.from("quiz_history").select("*").eq("user_id",user.id)
-      .order("finished_at",{ascending:false})
+      .order("finished_at",{ascending:false}).limit(1000)
   ]);
   if(progressResult.error)throw progressResult.error;
   if(historyResult.error)throw historyResult.error;

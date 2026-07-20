@@ -142,7 +142,7 @@ Na versão **V6.0.2**, o mesmo banco passa a ser reconhecido pelo conteúdo das 
 
 Esta versão também corrige a falha do botão **Salvar e sair** causada pelas variáveis de fila de sincronização não declaradas.
 
-Na **V6.1.0**, a conta passa a sincronizar a biblioteca completa: bancos, questões, imagens, simulados em andamento e todos os resultados do histórico. Assim, um login em outro computador ou em navegação anônima restaura os dados sem exigir uma nova importação.
+Na **V6.1.1**, a conta sincroniza bancos, questões, simulados em andamento e todos os resultados do histórico. As imagens permanecem no cache local para evitar o limite de tamanho e o timeout `57014` do Supabase; o restante da conta é restaurado em outro computador ou em navegação anônima.
 
 ---
 

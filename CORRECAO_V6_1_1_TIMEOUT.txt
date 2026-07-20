@@ -1,0 +1,11 @@
+CORREÇÃO V6.1.1 — TIMEOUT DA SINCRONIZAÇÃO
+
+- Corrige o erro Supabase/Postgres 57014: statement timeout.
+- A consulta individual de progresso não baixa mais snapshots pesados.
+- Imagens Base64 deixam de ser gravadas dentro de quiz_progress.
+- Bancos e enunciados continuam sincronizados entre dispositivos.
+- Adicionado spinner discreto ao lado de Sincronizando e Salvando.
+- Consultas globais possuem limites explícitos de segurança.
+
+Ao instalar esta versão no computador original, clique em Sincronizar agora.
+A gravação leve substituirá o snapshot pesado criado pela V6.1.0.

@@ -677,11 +677,14 @@ async function syncAllNow(options={}){
       await ensureCloudBank(bank);
       const local=await get("progress",bank.id);
       const remote=await pullProgress(bank);
+      let winner=local;
       if(remote && shouldUseRemoteProgress(local,remote)){
         await put("progress",remote);
-      }else if(local){
-        await pushProgress(bank,local);
+        winner=remote;
       }
+      // Regrava o vencedor no formato leve da V6.1.1, removendo snapshots
+      // Base64 pesados deixados pela versão anterior.
+      if(winner)await pushProgress(bank,winner);
     }
 
     // Envia também os resultados antigos que ainda existiam apenas neste PC.
