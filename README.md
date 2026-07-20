@@ -148,6 +148,8 @@ Na **V6.2.0**, as imagens passam a usar um bucket privado do Supabase Storage, s
 
 Na **V6.2.1**, uma restauração sem imagens não apaga mais os arquivos locais. O mesmo CSV pode ser reimportado com sua pasta de imagens para completar o banco, preservando integralmente o progresso e o histórico.
 
+Na **V6.3.0**, a sincronização torna-se incremental: o sistema compara revisões leves, envia somente imagens ausentes em paralelo e evita qualquer sincronização completa após F5 quando não houve alterações.
+
 ---
 
 ## 🛠️ Tecnologias

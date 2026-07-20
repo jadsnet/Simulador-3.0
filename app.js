@@ -1,5 +1,5 @@
 import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,pushHistory,ensureCloudBank,pullCloudState} from "./cloud.js";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 let onboardingStep=0,onboardingTarget=null;
@@ -163,7 +163,7 @@ function setupApplicationPages(){
       <p id="syncDiagMessage" class="sync-diag-message">Clique em sincronizar para verificar sua conta.</p>
       <button id="syncDiagRetry" class="btn secondary" type="button">Sincronizar novamente</button>
     </div>`;
-  syncDiagnostics.querySelector("#syncDiagRetry").onclick=()=>syncAllNow();
+  syncDiagnostics.querySelector("#syncDiagRetry").onclick=()=>syncAllNow({force:true});
   settingsPage.appendChild(syncDiagnostics);
   if(backup)settingsPage.appendChild(backup);
 
@@ -649,7 +649,7 @@ function bindAuth(){
     catch(error){console.error("Falha ao sair",error);toast("Não foi possível sair. Tente novamente.")}
     finally{logoutBtn.disabled=false}
   };
-  if(syncBtn) syncBtn.onclick=syncAllNow;
+  if(syncBtn) syncBtn.onclick=()=>syncAllNow({force:true});
   if(legacyBtn) legacyBtn.onclick=importLegacyProgress;
 }
 
@@ -719,11 +719,50 @@ function updateSyncDiagnostics(data={}){
   $("syncDiagMessage").textContent=data.message||(state==="running"?"Sincronização em andamento...":"");
 }
 
+function syncStateKey(){
+  return `simulador-cloud-sync-v2:${getCloudUser()?.id||"anonymous"}`;
+}
+
+function readSyncState(){
+  try{return JSON.parse(localStorage.getItem(syncStateKey())||"{}")}
+  catch{return {}}
+}
+
+function writeSyncState(value){
+  localStorage.setItem(syncStateKey(),JSON.stringify({...readSyncState(),...value}));
+}
+
+function markCloudDirty(reason="alteração local"){
+  if(getCloudUser())writeSyncState({dirty:true,dirtyReason:reason});
+}
+
+function markProgressPushSynced(progress){
+  const state=readSyncState();
+  if(!state.revision)return;
+  try{
+    const revision=JSON.parse(state.revision);
+    if(Array.isArray(revision.progress))revision.progress[1]=progress.savedAt||new Date().toISOString();
+    writeSyncState({dirty:false,dirtyReason:"",revision:JSON.stringify(revision),syncedAt:new Date().toISOString()});
+  }catch{}
+}
+
 async function syncAllNow(options={}){
   if(!getCloudUser())return;
-  setCloudStatus("Sincronizando","syncing");
-  updateSyncDiagnostics({state:"running",message:"Enviando dados locais e consultando sua conta..."});
+  setCloudStatus("Verificando","syncing");
+  updateSyncDiagnostics({state:"running",message:"Verificando se existem alterações..."});
   try{
+    const beforeRevision=await getCloudRevision();
+    const previous=readSyncState();
+    if(!options.force&&!previous.dirty&&previous.revision===beforeRevision){
+      await refreshHome();
+      setCloudStatus("Sincronizado","online");
+      updateSyncDiagnostics({state:"success",time:previous.syncedAt||new Date().toISOString(),
+        ...(previous.diagnostics||{}),message:"Nenhuma alteração encontrada. Sincronização completa dispensada."});
+      return;
+    }
+
+    setCloudStatus("Sincronizando","syncing");
+    updateSyncDiagnostics({state:"running",message:"Alterações encontradas. Sincronizando sua conta..."});
     banks=await getAll("banks");
     for(const bank of banks){
       await ensureCloudBank(bank);
@@ -748,7 +787,8 @@ async function syncAllNow(options={}){
 
     // O login restaura a biblioteca, os simulados em andamento e o histórico,
     // mesmo quando o IndexedDB está vazio (outro PC ou janela anônima).
-    const cloudState=await pullCloudState();
+    const hasLocalImages=banks.some(bank=>bank.images&&Object.keys(bank.images).length>0);
+    const cloudState=await pullCloudState({downloadImages:!hasLocalImages});
     const bankIdMap=new Map();
     for(const remoteBank of cloudState.banks){
       const existing=banks.find(local=>local.id===remoteBank.id
@@ -769,10 +809,14 @@ async function syncAllNow(options={}){
     }
     await refreshHome();
     const diag=cloudState.diagnostics||{};
-    updateSyncDiagnostics({state:diag.storageError?"warning":"success",time:new Date().toISOString(),
-      banks:diag.cloudBanks||0,progress:diag.cloudProgress||0,history:diag.cloudHistory||0,
+    const syncedAt=new Date().toISOString();
+    const diagView={banks:diag.cloudBanks||0,progress:diag.cloudProgress||0,history:diag.cloudHistory||0,
       found:diag.imagesFound||0,uploaded:diag.imagesUploaded||0,downloaded:diag.imagesDownloaded||0,
-      skipped:diag.filesSkipped||0,
+      skipped:diag.filesSkipped||0};
+    const afterRevision=await getCloudRevision();
+    writeSyncState({dirty:false,dirtyReason:"",revision:afterRevision,syncedAt,diagnostics:diagView});
+    updateSyncDiagnostics({state:diag.storageError?"warning":"success",time:syncedAt,
+      ...diagView,
       message:diag.storageError?`Dados sincronizados. Storage de imagens: ${diag.storageError}`:"Conta sincronizada sem erros."});
     setCloudStatus("Sincronizado","online");
     if(!options.silent)toast("Sincronização concluída.");
@@ -813,6 +857,7 @@ async function flushCloudProgress(){
   setCloudStatus("Salvando","syncing");
   try{
     await pushProgress(selectedBank,progress);
+    markProgressPushSynced(progress);
     setCloudStatus("Salvo na nuvem","online");
   }catch(e){
     console.error("Falha ao salvar progresso na nuvem",e);
@@ -1433,6 +1478,7 @@ function renderBanks(){
     el.querySelector("[data-open]").onclick=()=>showSetup(bank.id);
     el.querySelector("[data-delete]").onclick=async()=>{
       if(confirm("Excluir este banco e seu progresso?")){
+        markCloudDirty("banco excluído");
         await del("banks",bank.id);
         await del("progress",bank.id);
         await refreshHome();
@@ -1530,6 +1576,7 @@ async function importBank(){
         images:{...(existing.images||{}),...(bank.images||{})}};
     }
     await put("banks",bank);
+    markCloudDirty(existing?"imagens ou banco atualizado":"banco importado");
     if(getCloudUser()){
       try{await ensureCloudBank(bank)}catch(error){console.error("Falha ao registrar banco na nuvem",error)}
     }
@@ -1977,6 +2024,7 @@ async function saveProgress(){
     savedAt:new Date().toISOString()
   };
   await put("progress",progressRecord);
+  markCloudDirty("progresso alterado");
   queueCloudProgress(progressRecord);
 }
 
@@ -1997,6 +2045,7 @@ async function saveExit(){
 }
 
 async function deleteProgress(){
+  markCloudDirty("progresso excluído");
   await del("progress",selectedBank.id);
   try{await deleteCloudProgress(selectedBank)}catch(e){console.error(e)}
   await showSetup(selectedBank.id);
@@ -2044,6 +2093,7 @@ async function finish(){
   };
 
   await put("history",historyRecord);
+  markCloudDirty("simulado finalizado");
   try{await pushHistory(selectedBank,historyRecord)}catch(e){console.error("Histórico pendente:",e)}
   await del("progress",selectedBank.id);
   try{await deleteCloudProgress(selectedBank)}catch(e){console.error(e)}

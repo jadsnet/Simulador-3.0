@@ -37,6 +37,21 @@ export async function signUp(email,password){
 }
 export async function signOut(){ await supabase.auth.signOut(); }
 
+export async function getCloudRevision(){
+  const user=await requireUser();
+  const [banksResult,progressResult,historyResult]=await Promise.all([
+    supabase.from("question_banks").select("updated_at",{count:"exact"}).eq("user_id",user.id).order("updated_at",{ascending:false}).limit(1),
+    supabase.from("quiz_progress").select("client_updated_at,updated_at",{count:"exact"}).eq("user_id",user.id).order("client_updated_at",{ascending:false}).limit(1),
+    supabase.from("quiz_history").select("finished_at",{count:"exact"}).eq("user_id",user.id).order("finished_at",{ascending:false}).limit(1)
+  ]);
+  for(const result of [banksResult,progressResult,historyResult])if(result.error)throw result.error;
+  return JSON.stringify({
+    banks:[banksResult.count||0,banksResult.data?.[0]?.updated_at||""],
+    progress:[progressResult.count||0,progressResult.data?.[0]?.client_updated_at||progressResult.data?.[0]?.updated_at||""],
+    history:[historyResult.count||0,historyResult.data?.[0]?.finished_at||""]
+  });
+}
+
 async function requireUser(){
   const {data:{user}}=await supabase.auth.getUser();
   if(!user) throw new Error("Usuário não autenticado.");
@@ -87,6 +102,17 @@ function imageExtension(blob){
   return ({"image/png":"png","image/jpeg":"jpg","image/gif":"gif","image/webp":"webp","image/svg+xml":"svg"})[blob.type]||"bin";
 }
 
+async function runPool(items,limit,task){
+  let next=0;
+  async function worker(){
+    while(next<items.length){
+      const index=next++;
+      await task(items[index],index);
+    }
+  }
+  await Promise.all(Array.from({length:Math.min(limit,items.length)},()=>worker()));
+}
+
 async function uploadBankImages(bank){
   const stableId=stableBankId(bank);
   const images=bank.images&&typeof bank.images==="object"?bank.images:{};
@@ -96,7 +122,7 @@ async function uploadBankImages(bank){
   if(storageDisabledForSession)return {};
   const user=await requireUser();
   const manifest={};
-  const uploadedByContent=new Map();
+  const uniqueImages=new Map();
   const supportedMimeTypes=new Set(["image/png","image/jpeg","image/gif","image/webp","image/svg+xml"]);
 
   try{
@@ -108,18 +134,26 @@ async function uploadBankImages(bank){
         continue;
       }
       const contentKey=hashString(String(value));
-      let objectPath=uploadedByContent.get(contentKey);
-      if(!objectPath){
-        storageReport.found=Math.max(storageReport.found,uploadedByContent.size+1);
-        objectPath=`${user.id}/${stableId}/${contentKey}.${imageExtension(blob)}`;
-        const {error}=await supabase.storage.from(IMAGE_BUCKET).upload(objectPath,blob,{upsert:true,contentType:blob.type,cacheControl:"31536000"});
-        if(error)throw error;
-        uploadedByContent.set(contentKey,objectPath);
-        storageReport.uploaded++;
-      }
+      const fileName=`${contentKey}.${imageExtension(blob)}`;
+      const objectPath=`${user.id}/${stableId}/${fileName}`;
+      if(!uniqueImages.has(contentKey))uniqueImages.set(contentKey,{fileName,objectPath,blob});
       manifest[logicalName]=objectPath;
     }
-    storageReport.found=Math.max(storageReport.found,uploadedByContent.size);
+
+    storageReport.found=Math.max(storageReport.found,uniqueImages.size);
+    if(uniqueImages.size){
+      const folder=`${user.id}/${stableId}`;
+      const listed=await supabase.storage.from(IMAGE_BUCKET).list(folder,{limit:1000,sortBy:{column:"name",order:"asc"}});
+      if(listed.error)throw listed.error;
+      const existingFiles=new Set((listed.data||[]).map(item=>item.name));
+      const missing=[...uniqueImages.values()].filter(item=>!existingFiles.has(item.fileName));
+      await runPool(missing,6,async item=>{
+        const {error}=await supabase.storage.from(IMAGE_BUCKET).upload(item.objectPath,item.blob,{upsert:false,contentType:item.blob.type,cacheControl:"31536000"});
+        const conflict=error&&(String(error.statusCode||error.status||"")==="409"||/already exists|duplicate/i.test(error.message||""));
+        if(error&&!conflict)throw error;
+        if(!error)storageReport.uploaded++;
+      });
+    }
     imageManifestCache.set(stableId,manifest);
     return manifest;
   }catch(error){
@@ -135,16 +169,16 @@ async function downloadBankImages(manifest){
   const images={};
   const downloadedByPath=new Map();
   try{
-    for(const [logicalName,objectPath] of Object.entries(manifest)){
-      let dataUrl=downloadedByPath.get(objectPath);
-      if(!dataUrl){
+    const uniquePaths=[...new Set(Object.values(manifest))];
+    await runPool(uniquePaths,6,async objectPath=>{
         const {data,error}=await supabase.storage.from(IMAGE_BUCKET).download(objectPath);
         if(error)throw error;
-        dataUrl=await blobToDataUrl(data);
+        const dataUrl=await blobToDataUrl(data);
         downloadedByPath.set(objectPath,dataUrl);
         storageReport.downloaded++;
-      }
-      images[logicalName]=dataUrl;
+    });
+    for(const [logicalName,objectPath] of Object.entries(manifest)){
+      if(downloadedByPath.has(objectPath))images[logicalName]=downloadedByPath.get(objectPath);
     }
     return images;
   }catch(error){
@@ -309,7 +343,7 @@ export async function pushHistory(bank,h){
   if(error) throw error;
 }
 
-export async function pullCloudState(){
+export async function pullCloudState(options={}){
   const user=await requireUser();
   storageReport={found:storageReport.found,uploaded:storageReport.uploaded,downloaded:0,skipped:storageReport.skipped,error:storageReport.error};
   const [progressResult,historyResult]=await Promise.all([
@@ -324,7 +358,7 @@ export async function pullCloudState(){
   const cloudBankIds=new Map();
   const addSnapshot=async(snapshot,cloudBankId)=>{
     if(!snapshot||!Array.isArray(snapshot.questions)||!snapshot.questions.length)return null;
-    const downloadedImages=await downloadBankImages(snapshot.cloudImages||{});
+    const downloadedImages=options.downloadImages===false?{}:await downloadBankImages(snapshot.cloudImages||{});
     const bank={...snapshot,id:stableBankId(snapshot),images:{...(snapshot.images||{}),...downloadedImages}};
     delete bank.cloudImages;
     banks.set(bank.id,bank);
