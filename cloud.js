@@ -11,7 +11,7 @@ let currentUser = null;
 const IMAGE_BUCKET="question-images";
 const imageManifestCache=new Map();
 let storageDisabledForSession=false;
-let storageReport={found:0,uploaded:0,downloaded:0,error:""};
+let storageReport={found:0,uploaded:0,downloaded:0,skipped:0,error:""};
 export function getCloudUser(){ return currentUser; }
 
 export async function initializeAuth(onChange){
@@ -97,14 +97,20 @@ async function uploadBankImages(bank){
   const user=await requireUser();
   const manifest={};
   const uploadedByContent=new Map();
+  const supportedMimeTypes=new Set(["image/png","image/jpeg","image/gif","image/webp","image/svg+xml"]);
 
   try{
     for(const [logicalName,value] of Object.entries(images)){
       if(!String(value||"").startsWith("data:"))continue;
+      const blob=dataUrlToBlob(value);
+      if(!supportedMimeTypes.has(blob.type)){
+        storageReport.skipped++;
+        continue;
+      }
       const contentKey=hashString(String(value));
       let objectPath=uploadedByContent.get(contentKey);
       if(!objectPath){
-        const blob=dataUrlToBlob(value);
+        storageReport.found=Math.max(storageReport.found,uploadedByContent.size+1);
         objectPath=`${user.id}/${stableId}/${contentKey}.${imageExtension(blob)}`;
         const {error}=await supabase.storage.from(IMAGE_BUCKET).upload(objectPath,blob,{upsert:true,contentType:blob.type,cacheControl:"31536000"});
         if(error)throw error;
@@ -113,7 +119,7 @@ async function uploadBankImages(bank){
       }
       manifest[logicalName]=objectPath;
     }
-    storageReport.found=Math.max(storageReport.found,Object.keys(manifest).length);
+    storageReport.found=Math.max(storageReport.found,uploadedByContent.size);
     imageManifestCache.set(stableId,manifest);
     return manifest;
   }catch(error){
@@ -305,7 +311,7 @@ export async function pushHistory(bank,h){
 
 export async function pullCloudState(){
   const user=await requireUser();
-  storageReport={found:storageReport.found,uploaded:storageReport.uploaded,downloaded:0,error:storageReport.error};
+  storageReport={found:storageReport.found,uploaded:storageReport.uploaded,downloaded:0,skipped:storageReport.skipped,error:storageReport.error};
   const [progressResult,historyResult]=await Promise.all([
     supabase.from("quiz_progress").select("*").eq("user_id",user.id).limit(200),
     supabase.from("quiz_history").select("*").eq("user_id",user.id)
@@ -359,6 +365,7 @@ export async function pullCloudState(){
   return {banks:[...banks.values()],progress,history,diagnostics:{
     cloudBanks:banks.size,cloudProgress:progress.length,cloudHistory:history.length,
     imagesFound:storageReport.found,imagesUploaded:storageReport.uploaded,imagesDownloaded:storageReport.downloaded,
+    filesSkipped:storageReport.skipped,
     storageError:storageReport.error
   }};
 }

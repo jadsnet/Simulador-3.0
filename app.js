@@ -158,6 +158,7 @@ function setupApplicationPages(){
         <div><span>Imagens encontradas</span><strong id="syncDiagFound">0</strong></div>
         <div><span>Imagens enviadas</span><strong id="syncDiagUploaded">0</strong></div>
         <div><span>Imagens baixadas</span><strong id="syncDiagDownloaded">0</strong></div>
+        <div><span>Arquivos ignorados</span><strong id="syncDiagSkipped">0</strong></div>
       </div>
       <p id="syncDiagMessage" class="sync-diag-message">Clique em sincronizar para verificar sua conta.</p>
       <button id="syncDiagRetry" class="btn secondary" type="button">Sincronizar novamente</button>
@@ -714,6 +715,7 @@ function updateSyncDiagnostics(data={}){
   if(data.found!==undefined)$("syncDiagFound").textContent=data.found;
   if(data.uploaded!==undefined)$("syncDiagUploaded").textContent=data.uploaded;
   if(data.downloaded!==undefined)$("syncDiagDownloaded").textContent=data.downloaded;
+  if(data.skipped!==undefined)$("syncDiagSkipped").textContent=data.skipped;
   $("syncDiagMessage").textContent=data.message||(state==="running"?"Sincronização em andamento...":"");
 }
 
@@ -770,6 +772,7 @@ async function syncAllNow(options={}){
     updateSyncDiagnostics({state:diag.storageError?"warning":"success",time:new Date().toISOString(),
       banks:diag.cloudBanks||0,progress:diag.cloudProgress||0,history:diag.cloudHistory||0,
       found:diag.imagesFound||0,uploaded:diag.imagesUploaded||0,downloaded:diag.imagesDownloaded||0,
+      skipped:diag.filesSkipped||0,
       message:diag.storageError?`Dados sincronizados. Storage de imagens: ${diag.storageError}`:"Conta sincronizada sem erros."});
     setCloudStatus("Sincronizado","online");
     if(!options.silent)toast("Sincronização concluída.");
@@ -1558,6 +1561,7 @@ async function importCsvAndImages(){
   const images={};
 
   for(const f of $("imageFolder").files){
+    if(!/\.(png|jpe?g|gif|webp|svg)$/i.test(f.name))continue;
     images[normPath(f.webkitRelativePath||f.name)]=await fileToDataURL(f);
     images[normPath(f.name)]=images[normPath(f.webkitRelativePath||f.name)];
   }

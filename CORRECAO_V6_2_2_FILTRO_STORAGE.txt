@@ -1,0 +1,8 @@
+CORREÇÃO V6.2.2 — FILTRO DE ARQUIVOS DO STORAGE
+
+- PDFs e outros arquivos não visuais são ignorados ao selecionar uma pasta.
+- O upload aceita somente PNG, JPG/JPEG, GIF, WEBP e SVG.
+- Um arquivo incompatível não interrompe mais o restante dos uploads.
+- Corrigido o contador “Imagens encontradas”.
+- Adicionado o contador “Arquivos ignorados” ao diagnóstico.
+- As 378 imagens já enviadas permanecem no Storage e não precisam ser removidas.
