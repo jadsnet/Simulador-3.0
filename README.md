@@ -144,6 +144,8 @@ Esta versão também corrige a falha do botão **Salvar e sair** causada pelas v
 
 Na **V6.1.1**, a conta sincroniza bancos, questões, simulados em andamento e todos os resultados do histórico. As imagens permanecem no cache local para evitar o limite de tamanho e o timeout `57014` do Supabase; o restante da conta é restaurado em outro computador ou em navegação anônima.
 
+Na **V6.2.0**, as imagens passam a usar um bucket privado do Supabase Storage, sem ocupar os registros JSON do progresso. A página Configurações inclui um diagnóstico completo da sincronização. Execute `SUPABASE_STORAGE_SETUP.sql` uma vez antes de sincronizar imagens.
+
 ---
 
 ## 🛠️ Tecnologias

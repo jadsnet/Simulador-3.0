@@ -8,6 +8,10 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
 });
 
 let currentUser = null;
+const IMAGE_BUCKET="question-images";
+const imageManifestCache=new Map();
+let storageDisabledForSession=false;
+let storageReport={uploaded:0,downloaded:0,error:""};
 export function getCloudUser(){ return currentUser; }
 
 export async function initializeAuth(onChange){
@@ -56,13 +60,97 @@ function stableBankId(bank){
   return `bank-${questions.length}-${(h1>>>0).toString(16).padStart(8,"0")}${(h2>>>0).toString(16).padStart(8,"0")}`;
 }
 
-function cloudBankSnapshot(bank){
+function hashString(value){
+  let hash=0x811c9dc5;
+  for(let i=0;i<value.length;i++)hash=Math.imul(hash^value.charCodeAt(i),0x01000193);
+  return (hash>>>0).toString(16).padStart(8,"0");
+}
+
+function dataUrlToBlob(dataUrl){
+  const [header,body]=String(dataUrl).split(",",2);
+  const mime=(header.match(/^data:([^;]+)/)||[])[1]||"application/octet-stream";
+  const bytes=header.includes(";base64")?atob(body):decodeURIComponent(body);
+  const array=new Uint8Array(bytes.length);
+  for(let i=0;i<bytes.length;i++)array[i]=bytes.charCodeAt(i);
+  return new Blob([array],{type:mime});
+}
+
+function blobToDataUrl(blob){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result); reader.onerror=()=>reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+function imageExtension(blob){
+  return ({"image/png":"png","image/jpeg":"jpg","image/gif":"gif","image/webp":"webp","image/svg+xml":"svg"})[blob.type]||"bin";
+}
+
+async function uploadBankImages(bank){
+  const stableId=stableBankId(bank);
+  if(imageManifestCache.has(stableId))return imageManifestCache.get(stableId);
+  if(storageDisabledForSession)return {};
+  const user=await requireUser();
+  const images=bank.images&&typeof bank.images==="object"?bank.images:{};
+  const manifest={};
+  const uploadedByContent=new Map();
+
+  try{
+    for(const [logicalName,value] of Object.entries(images)){
+      if(!String(value||"").startsWith("data:"))continue;
+      const contentKey=hashString(String(value));
+      let objectPath=uploadedByContent.get(contentKey);
+      if(!objectPath){
+        const blob=dataUrlToBlob(value);
+        objectPath=`${user.id}/${stableId}/${contentKey}.${imageExtension(blob)}`;
+        const {error}=await supabase.storage.from(IMAGE_BUCKET).upload(objectPath,blob,{upsert:true,contentType:blob.type,cacheControl:"31536000"});
+        if(error)throw error;
+        uploadedByContent.set(contentKey,objectPath);
+        storageReport.uploaded++;
+      }
+      manifest[logicalName]=objectPath;
+    }
+    imageManifestCache.set(stableId,manifest);
+    return manifest;
+  }catch(error){
+    storageDisabledForSession=true;
+    storageReport.error=error.message||"Storage indisponível";
+    console.warn("Imagens não foram enviadas ao Storage",error);
+    return {};
+  }
+}
+
+async function downloadBankImages(manifest){
+  if(!manifest||typeof manifest!=="object"||storageDisabledForSession)return {};
+  const images={};
+  const downloadedByPath=new Map();
+  try{
+    for(const [logicalName,objectPath] of Object.entries(manifest)){
+      let dataUrl=downloadedByPath.get(objectPath);
+      if(!dataUrl){
+        const {data,error}=await supabase.storage.from(IMAGE_BUCKET).download(objectPath);
+        if(error)throw error;
+        dataUrl=await blobToDataUrl(data);
+        downloadedByPath.set(objectPath,dataUrl);
+        storageReport.downloaded++;
+      }
+      images[logicalName]=dataUrl;
+    }
+    return images;
+  }catch(error){
+    storageReport.error=error.message||"Não foi possível baixar as imagens";
+    console.warn("Imagens não foram baixadas do Storage",error);
+    return {};
+  }
+}
+
+async function cloudBankSnapshot(bank){
+  const cloudImages=await uploadBankImages(bank);
   return {
     id:stableBankId(bank),name:bank.name||"Banco de questões",
     fileName:bank.fileName||null,createdAt:bank.createdAt||new Date().toISOString(),
-    // Imagens Base64 podem ultrapassar o tempo limite do Postgres. Os dados
-    // das questões permanecem na nuvem; imagens continuam no cache local.
-    questions:Array.isArray(bank.questions)?bank.questions:[],images:{}
+    questions:Array.isArray(bank.questions)?bank.questions:[],images:{},cloudImages
   };
 }
 
@@ -155,7 +243,7 @@ export async function pushProgress(bank,progress){
     question_order:progress.order||[],
     answers:progress.answers||{},
     timer_seconds:Number(progress.timerSeconds)||0,
-    settings:{...(progress.settings||{}),__cloudBank:cloudBankSnapshot(bank)},
+    settings:{...(progress.settings||{}),__cloudBank:await cloudBankSnapshot(bank)},
     favorites:progress.favorites||[],
     marked:progress.marked||[],
     notes:progress.notes||{},
@@ -205,7 +293,7 @@ export async function pushHistory(bank,h){
     correct_answers:h.correct||0,
     wrong_answers:Math.max(0,(h.total||0)-(h.correct||0)),
     score:h.score||0, elapsed_seconds:h.time||0,
-    answers:{reviewData:h.reviewData||[]}, settings:{__cloudBank:cloudBankSnapshot(bank)},
+    answers:{reviewData:h.reviewData||[]}, settings:{__cloudBank:await cloudBankSnapshot(bank)},
     finished_at:h.finishedAt||new Date().toISOString()
   };
   const {error}=await supabase.from("quiz_history").upsert(payload);
@@ -214,6 +302,7 @@ export async function pushHistory(bank,h){
 
 export async function pullCloudState(){
   const user=await requireUser();
+  storageReport={uploaded:storageReport.uploaded,downloaded:0,error:storageReport.error};
   const [progressResult,historyResult]=await Promise.all([
     supabase.from("quiz_progress").select("*").eq("user_id",user.id).limit(200),
     supabase.from("quiz_history").select("*").eq("user_id",user.id)
@@ -224,21 +313,23 @@ export async function pullCloudState(){
 
   const banks=new Map();
   const cloudBankIds=new Map();
-  const addSnapshot=(snapshot,cloudBankId)=>{
+  const addSnapshot=async(snapshot,cloudBankId)=>{
     if(!snapshot||!Array.isArray(snapshot.questions)||!snapshot.questions.length)return null;
-    const bank={...snapshot,id:stableBankId(snapshot),images:snapshot.images||{}};
+    const downloadedImages=await downloadBankImages(snapshot.cloudImages||{});
+    const bank={...snapshot,id:stableBankId(snapshot),images:{...(snapshot.images||{}),...downloadedImages}};
+    delete bank.cloudImages;
     banks.set(bank.id,bank);
     if(cloudBankId)cloudBankIds.set(cloudBankId,bank.id);
     return bank.id;
   };
 
-  for(const row of progressResult.data||[])addSnapshot(row.settings?.__cloudBank,row.bank_id);
+  for(const row of progressResult.data||[])await addSnapshot(row.settings?.__cloudBank,row.bank_id);
   for(const row of historyResult.data||[]){
-    let localId=addSnapshot(row.settings?.__cloudBank,row.bank_id);
+    let localId=await addSnapshot(row.settings?.__cloudBank,row.bank_id);
     if(!localId){
       const reviewData=Array.isArray(row.answers?.reviewData)?row.answers.reviewData:[];
       const questions=reviewData.map(item=>item?.q).filter(Boolean);
-      if(questions.length)localId=addSnapshot({name:row.bank_name||"Banco recuperado",questions,images:{}},row.bank_id);
+      if(questions.length)localId=await addSnapshot({name:row.bank_name||"Banco recuperado",questions,images:{}},row.bank_id);
     }
   }
 
@@ -262,5 +353,9 @@ export async function pullCloudState(){
       unanswered:Math.max(0,total-answered),time:Number(row.elapsed_seconds)||0,reviewData};
   });
 
-  return {banks:[...banks.values()],progress,history};
+  return {banks:[...banks.values()],progress,history,diagnostics:{
+    cloudBanks:banks.size,cloudProgress:progress.length,cloudHistory:history.length,
+    imagesUploaded:storageReport.uploaded,imagesDownloaded:storageReport.downloaded,
+    storageError:storageReport.error
+  }};
 }

@@ -144,6 +144,25 @@ function setupApplicationPages(){
     </article>`;
   statsPage.appendChild(analytics);
 
+  const syncDiagnostics=document.createElement("article");
+  syncDiagnostics.id="syncDiagnostics";
+  syncDiagnostics.className="panel sync-diagnostics-panel";
+  syncDiagnostics.innerHTML=`
+    <div class="panel-title"><div><p>NUVEM</p><h2>Diagnóstico da sincronização</h2></div><span id="syncDiagBadge" class="sync-diag-badge">Aguardando</span></div>
+    <div class="panel-body">
+      <div class="sync-diag-grid">
+        <div><span>Última sincronização</span><strong id="syncDiagTime">Ainda não executada</strong></div>
+        <div><span>Bancos na nuvem</span><strong id="syncDiagBanks">0</strong></div>
+        <div><span>Em andamento</span><strong id="syncDiagProgress">0</strong></div>
+        <div><span>Históricos</span><strong id="syncDiagHistory">0</strong></div>
+        <div><span>Imagens enviadas</span><strong id="syncDiagUploaded">0</strong></div>
+        <div><span>Imagens baixadas</span><strong id="syncDiagDownloaded">0</strong></div>
+      </div>
+      <p id="syncDiagMessage" class="sync-diag-message">Clique em sincronizar para verificar sua conta.</p>
+      <button id="syncDiagRetry" class="btn secondary" type="button">Sincronizar novamente</button>
+    </div>`;
+  syncDiagnostics.querySelector("#syncDiagRetry").onclick=()=>syncAllNow();
+  settingsPage.appendChild(syncDiagnostics);
   if(backup)settingsPage.appendChild(backup);
 
   root.innerHTML="";
@@ -622,7 +641,12 @@ function bindAuth(){
     $("authToggleBtn").textContent=authMode==="signin"?"Criar uma conta":"Já tenho uma conta";
     $("authMessage").textContent="";
   };
-  if(logoutBtn) logoutBtn.onclick=()=>signOut();
+  if(logoutBtn) logoutBtn.onclick=async()=>{
+    logoutBtn.disabled=true;
+    try{await signOut()}
+    catch(error){console.error("Falha ao sair",error);toast("Não foi possível sair. Tente novamente.")}
+    finally{logoutBtn.disabled=false}
+  };
   if(syncBtn) syncBtn.onclick=syncAllNow;
   if(legacyBtn) legacyBtn.onclick=importLegacyProgress;
 }
@@ -648,7 +672,16 @@ async function submitAuth(){
 async function handleAuthChange(user){
   $("authScreen").classList.toggle("hidden",!!user);
   document.querySelector(".app-layout").classList.toggle("hidden",!user);
-  if(!user)return;
+  if(!user){
+    authMode="signin";
+    $("authTitle").textContent="Entrar";
+    $("authSubmitBtn").textContent="Entrar";
+    $("authSubmitBtn").disabled=false;
+    $("authToggleBtn").textContent="Criar uma conta";
+    $("authMessage").textContent="";
+    $("authPassword").value="";
+    return;
+  }
   $("logoutBtn").textContent=(user.email||"U").slice(0,2).toUpperCase();
   setCloudStatus("Sincronizando","syncing");
   try{
@@ -668,9 +701,24 @@ function setCloudStatus(text,state){
   el.textContent=text; el.className="cloud-status "+state;
 }
 
+function updateSyncDiagnostics(data={}){
+  const badge=$("syncDiagBadge"); if(!badge)return;
+  const state=data.state||"idle";
+  badge.textContent=state==="running"?"Sincronizando":state==="success"?"Saudável":"Atenção";
+  badge.className="sync-diag-badge "+state;
+  if(data.time)$("syncDiagTime").textContent=new Date(data.time).toLocaleString("pt-BR");
+  if(data.banks!==undefined)$("syncDiagBanks").textContent=data.banks;
+  if(data.progress!==undefined)$("syncDiagProgress").textContent=data.progress;
+  if(data.history!==undefined)$("syncDiagHistory").textContent=data.history;
+  if(data.uploaded!==undefined)$("syncDiagUploaded").textContent=data.uploaded;
+  if(data.downloaded!==undefined)$("syncDiagDownloaded").textContent=data.downloaded;
+  $("syncDiagMessage").textContent=data.message||(state==="running"?"Sincronização em andamento...":"");
+}
+
 async function syncAllNow(options={}){
   if(!getCloudUser())return;
   setCloudStatus("Sincronizando","syncing");
+  updateSyncDiagnostics({state:"running",message:"Enviando dados locais e consultando sua conta..."});
   try{
     banks=await getAll("banks");
     for(const bank of banks){
@@ -715,10 +763,16 @@ async function syncAllNow(options={}){
       await put("history",{...item,bankId:bankIdMap.get(item.bankId)||item.bankId});
     }
     await refreshHome();
+    const diag=cloudState.diagnostics||{};
+    updateSyncDiagnostics({state:diag.storageError?"warning":"success",time:new Date().toISOString(),
+      banks:diag.cloudBanks||0,progress:diag.cloudProgress||0,history:diag.cloudHistory||0,
+      uploaded:diag.imagesUploaded||0,downloaded:diag.imagesDownloaded||0,
+      message:diag.storageError?`Dados sincronizados. Storage de imagens: ${diag.storageError}`:"Conta sincronizada sem erros."});
     setCloudStatus("Sincronizado","online");
     if(!options.silent)toast("Sincronização concluída.");
   }catch(e){
     setCloudStatus("Erro de sync","error");
+    updateSyncDiagnostics({state:"error",time:new Date().toISOString(),message:e.message||"Erro desconhecido na sincronização."});
     console.error(e);
     if(!options.silent)toast("Falha ao sincronizar: "+(e.message||"erro desconhecido"));
     throw e;
