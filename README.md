@@ -150,6 +150,8 @@ Na **V6.2.1**, uma restauração sem imagens não apaga mais os arquivos locais.
 
 Na **V6.3.0**, a sincronização torna-se incremental: o sistema compara revisões leves, envia somente imagens ausentes em paralelo e evita qualquer sincronização completa após F5 quando não houve alterações.
 
+Na **V6.3.1**, cada dispositivo executa uma migração única para validar e baixar o manifesto de imagens. As próximas atualizações sem alterações continuam usando somente a verificação incremental.
+
 ---
 
 ## 🛠️ Tecnologias

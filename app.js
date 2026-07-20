@@ -720,7 +720,7 @@ function updateSyncDiagnostics(data={}){
 }
 
 function syncStateKey(){
-  return `simulador-cloud-sync-v2:${getCloudUser()?.id||"anonymous"}`;
+  return `simulador-cloud-sync-v3:${getCloudUser()?.id||"anonymous"}`;
 }
 
 function readSyncState(){
@@ -787,8 +787,9 @@ async function syncAllNow(options={}){
 
     // O login restaura a biblioteca, os simulados em andamento e o histórico,
     // mesmo quando o IndexedDB está vazio (outro PC ou janela anônima).
-    const hasLocalImages=banks.some(bank=>bank.images&&Object.keys(bank.images).length>0);
-    const cloudState=await pullCloudState({downloadImages:!hasLocalImages});
+    // Em uma sincronização completa, valida e baixa o manifesto de imagens.
+    // A revisão incremental impede que esta etapa se repita após cada F5.
+    const cloudState=await pullCloudState({downloadImages:true});
     const bankIdMap=new Map();
     for(const remoteBank of cloudState.banks){
       const existing=banks.find(local=>local.id===remoteBank.id

@@ -168,24 +168,27 @@ async function downloadBankImages(manifest){
   if(!manifest||typeof manifest!=="object"||storageDisabledForSession)return {};
   const images={};
   const downloadedByPath=new Map();
-  try{
-    const uniquePaths=[...new Set(Object.values(manifest))];
-    await runPool(uniquePaths,6,async objectPath=>{
+  const uniquePaths=[...new Set(Object.values(manifest))];
+  let firstError=null;
+  await runPool(uniquePaths,6,async objectPath=>{
+    try{
         const {data,error}=await supabase.storage.from(IMAGE_BUCKET).download(objectPath);
         if(error)throw error;
         const dataUrl=await blobToDataUrl(data);
         downloadedByPath.set(objectPath,dataUrl);
         storageReport.downloaded++;
-    });
-    for(const [logicalName,objectPath] of Object.entries(manifest)){
-      if(downloadedByPath.has(objectPath))images[logicalName]=downloadedByPath.get(objectPath);
+    }catch(error){
+      firstError=firstError||error;
     }
-    return images;
-  }catch(error){
-    storageReport.error=error.message||"Não foi possível baixar as imagens";
-    console.warn("Imagens não foram baixadas do Storage",error);
-    return {};
+  });
+  for(const [logicalName,objectPath] of Object.entries(manifest)){
+    if(downloadedByPath.has(objectPath))images[logicalName]=downloadedByPath.get(objectPath);
   }
+  if(firstError){
+    storageReport.error=`${downloadedByPath.size}/${uniquePaths.length} imagens baixadas. ${firstError.message||"Falha em um arquivo"}`;
+    console.warn("Algumas imagens não foram baixadas do Storage",firstError);
+  }
+  return images;
 }
 
 async function cloudBankSnapshot(bank){
@@ -358,8 +361,18 @@ export async function pullCloudState(options={}){
   const cloudBankIds=new Map();
   const addSnapshot=async(snapshot,cloudBankId)=>{
     if(!snapshot||!Array.isArray(snapshot.questions)||!snapshot.questions.length)return null;
+    const snapshotId=stableBankId(snapshot);
+    if(banks.has(snapshotId)){
+      const existing=banks.get(snapshotId);
+      if(options.downloadImages!==false&&snapshot.cloudImages&&Object.keys(snapshot.cloudImages).length){
+        const missing=Object.keys(snapshot.cloudImages).some(key=>!existing.images?.[key]);
+        if(missing)existing.images={...(existing.images||{}),...await downloadBankImages(snapshot.cloudImages)};
+      }
+      if(cloudBankId)cloudBankIds.set(cloudBankId,snapshotId);
+      return snapshotId;
+    }
     const downloadedImages=options.downloadImages===false?{}:await downloadBankImages(snapshot.cloudImages||{});
-    const bank={...snapshot,id:stableBankId(snapshot),images:{...(snapshot.images||{}),...downloadedImages}};
+    const bank={...snapshot,id:snapshotId,images:{...(snapshot.images||{}),...downloadedImages}};
     delete bank.cloudImages;
     banks.set(bank.id,bank);
     if(cloudBankId)cloudBankIds.set(cloudBankId,bank.id);
