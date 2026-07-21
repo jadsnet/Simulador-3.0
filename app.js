@@ -8,8 +8,8 @@ const onboardingSteps=[
   {selector:"#banks",icon:"▤",title:"Bancos de questões",text:"Abra um banco já importado para iniciar ou continuar um simulado.",placement:"right"},
   {selector:"#import",icon:"⇩",title:"Importar conteúdo",text:"Importe CSV, pasta de imagens ou um pacote ZIP completo.",placement:"top"},
   {selector:"#continueStudy",icon:"▶",title:"Continuar simulado",text:"Continue exatamente de onde você parou.",placement:"bottom"},
-  {selector:"#studyInsights",icon:"☆",title:"Estudo inteligente",text:"Consulte favoritas, marcações, anotações e erros.",placement:"top"},
-  {selector:"#history",icon:"◷",title:"Histórico",text:"Abra resultados anteriores e revise suas respostas.",placement:"top"}
+  {selector:'.side-link[data-page="review"]',icon:"☆",title:"Estudo inteligente",text:"Consulte favoritas, marcações, anotações e erros.",placement:"right"},
+  {selector:'.side-link[data-page="history"]',icon:"◷",title:"Histórico",text:"Abra resultados anteriores e revise suas respostas.",placement:"right"}
 ];
 let banks=[],selectedBank=null,questions=[],answers={},currentIndex=0,timerSeconds=0,timerHandle=null,settings={},favorites=new Set(),marked=new Set(),notes={},reviewData=[];
 let authMode="signin",cloudSaveTimer=null,pendingCloudProgress=null,cloudSaveInFlight=false;
