@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/assets/readme-banner.png" alt="Simulador Academy" width="100%">
+  <img src="docs/banner.png" alt="Simulador Academy" width="100%">
 </p>
 
 <h1 align="center">🎓 Simulador Academy</h1>
@@ -60,7 +60,7 @@ A aplicação funciona online e offline, aceita questões com texto e imagens, p
 
 A página inicial concentra o que é necessário para continuar estudando: simulado em andamento, banco de questões disponível e área de importação. O botão **Continuar** restaura questão atual, respostas, tempo, favoritas, marcações e anotações.
 
-![Tela inicial](docs/screenshots/01-inicio.png)
+![Tela inicial](docs/screenshots/inicio.png)
 
 ### 📚 Biblioteca e importação
 
@@ -72,19 +72,19 @@ Os bancos podem ser adicionados de três formas:
 
 Ao reimportar o mesmo banco, as imagens são incorporadas sem apagar o progresso existente.
 
-![Biblioteca e importação](docs/screenshots/02-biblioteca-importacao.png)
+![Biblioteca e importação](docs/screenshots/inicio-biblioteca-importacao.png)
 
 ### 🕘 Histórico
 
 Apresenta todos os simulados finalizados com aproveitamento, quantidade de acertos, total de questões e data. Em **Ver detalhes**, o usuário acessa respostas, correções, feedbacks e imagens preservadas.
 
-![Histórico de resultados](docs/screenshots/03-historico.png)
+![Histórico de resultados](docs/screenshots/historico.png)
 
 ### 🧠 Revisão inteligente
 
 Reúne questões erradas, corretas, favoritas, marcadas e anotadas. Os filtros permitem montar rapidamente uma sessão de revisão focada nos pontos de maior dificuldade.
 
-![Revisão inteligente](docs/screenshots/04-revisao-inteligente.png)
+![Revisão inteligente](docs/screenshots/revisao-inteligente.png)
 
 ### 📊 Estatísticas
 
@@ -100,31 +100,31 @@ O painel analítico apresenta:
 - desempenho por categoria;
 - tempo médio por questão.
 
-![Painel de estatísticas](docs/screenshots/05-estatisticas.png)
+![Painel de estatísticas](docs/screenshots/estatisticas.png)
 
 ### 🃏 Flashcards
 
 As questões erradas são convertidas em cartões de memorização. É possível filtrar por categoria, embaralhar, revelar a resposta e navegar entre os cartões.
 
-![Flashcards](docs/screenshots/06-flashcards.png)
+![Flashcards](docs/screenshots/flashcards.png)
 
 ### 👤 Perfil e metas
 
 O perfil exibe nível, XP, meta diária, progresso do dia e sequência de estudos. O calendário de atividade oferece uma visão compacta da regularidade do usuário.
 
-![Perfil, metas e calendário](docs/screenshots/07-perfil-metas-calendario.png)
+![Perfil, metas e calendário](docs/screenshots/perfil-metas-calendario.png)
 
 ### 🏆 Conquistas e recomendações
 
 Marcos são desbloqueados conforme o estudante avança. As recomendações identificam automaticamente categorias com menor aproveitamento e oferecem acesso direto à revisão.
 
-![Conquistas e recomendações](docs/screenshots/08-conquistas-recomendacoes.png)
+![Conquistas e recomendações](docs/screenshots/conquistas-recomendacoes.png)
 
 ### ⚙️ Configurações e recuperação
 
 A área de configurações localiza progressos existentes no navegador, permite continuar sessões antigas, restaurar backups e importar o formato legado do `localStorage`.
 
-![Configurações](docs/screenshots/09-configuracoes.png)
+![Configurações](docs/screenshots/configuracoes.png)
 
 ### ☁️ Diagnóstico da sincronização
 
@@ -132,13 +132,13 @@ O diagnóstico informa última sincronização, bancos, simulados em andamento, 
 
 O catálogo visual é protegido por um `manifest.json` canônico no Storage, impedindo que um computador com dados parciais substitua o conjunto completo de imagens.
 
-![Diagnóstico da sincronização](docs/screenshots/10-diagnostico-sincronizacao.png)
+![Diagnóstico da sincronização](docs/screenshots/diagnostico-sincronizacao.png)
 
 ### 🧭 Guia interativo
 
 Na primeira utilização, um tutorial em etapas apresenta as áreas essenciais da plataforma. Ele também pode ser reaberto pelo botão **Guia de uso**.
 
-![Guia interativo](docs/screenshots/11-guia-interativo.png)
+![Guia interativo](docs/screenshots/guia-interativo.png)
 
 ---
 
@@ -241,8 +241,7 @@ Simulador-3.0-main/
 ├── manifest.webmanifest
 ├── README.md
 ├── docs/
-│   ├── assets/
-│   │   └── readme-banner.png
+│   ├── banner.png
 │   └── screenshots/          # 11 capturas utilizadas neste README
 ├── examples/
 │   └── modelo-questoes.csv
