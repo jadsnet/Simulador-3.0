@@ -156,6 +156,7 @@ function setupApplicationPages(){
         <div><span>Em andamento</span><strong id="syncDiagProgress">0</strong></div>
         <div><span>Históricos</span><strong id="syncDiagHistory">0</strong></div>
         <div><span>Imagens encontradas</span><strong id="syncDiagFound">0</strong></div>
+        <div><span>Catálogo na nuvem</span><strong id="syncDiagCatalog">0</strong></div>
         <div><span>Imagens enviadas</span><strong id="syncDiagUploaded">0</strong></div>
         <div><span>Imagens baixadas</span><strong id="syncDiagDownloaded">0</strong></div>
         <div><span>Arquivos ignorados</span><strong id="syncDiagSkipped">0</strong></div>
@@ -713,6 +714,7 @@ function updateSyncDiagnostics(data={}){
   if(data.progress!==undefined)$("syncDiagProgress").textContent=data.progress;
   if(data.history!==undefined)$("syncDiagHistory").textContent=data.history;
   if(data.found!==undefined)$("syncDiagFound").textContent=data.found;
+  if(data.catalog!==undefined)$("syncDiagCatalog").textContent=data.catalog;
   if(data.uploaded!==undefined)$("syncDiagUploaded").textContent=data.uploaded;
   if(data.downloaded!==undefined)$("syncDiagDownloaded").textContent=data.downloaded;
   if(data.skipped!==undefined)$("syncDiagSkipped").textContent=data.skipped;
@@ -720,7 +722,7 @@ function updateSyncDiagnostics(data={}){
 }
 
 function syncStateKey(){
-  return `simulador-cloud-sync-v4:${getCloudUser()?.id||"anonymous"}`;
+  return `simulador-cloud-sync-v5:${getCloudUser()?.id||"anonymous"}`;
 }
 
 function readSyncState(){
@@ -823,7 +825,7 @@ async function syncAllNow(options={}){
     const syncedAt=new Date().toISOString();
     const diagView={banks:diag.cloudBanks||0,progress:diag.cloudProgress||0,history:diag.cloudHistory||0,
       found:diag.imagesFound||0,uploaded:diag.imagesUploaded||0,downloaded:diag.imagesDownloaded||0,
-      skipped:diag.filesSkipped||0};
+      catalog:diag.manifestEntries||0,skipped:diag.filesSkipped||0};
     const afterRevision=await getCloudRevision();
     writeSyncState({dirty:false,dirtyReason:"",revision:afterRevision,syncedAt,diagnostics:diagView});
     updateSyncDiagnostics({state:diag.storageError?"warning":"success",time:syncedAt,

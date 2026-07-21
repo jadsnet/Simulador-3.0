@@ -10,8 +10,9 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
 let currentUser = null;
 const IMAGE_BUCKET="question-images";
 const imageManifestCache=new Map();
+const storageManifestCache=new Map();
 let storageDisabledForSession=false;
-let storageReport={found:0,uploaded:0,downloaded:0,skipped:0,error:""};
+let storageReport={found:0,catalog:0,uploaded:0,downloaded:0,skipped:0,error:""};
 export function getCloudUser(){ return currentUser; }
 
 export async function initializeAuth(onChange){
@@ -113,6 +114,35 @@ async function runPool(items,limit,task){
   await Promise.all(Array.from({length:Math.min(limit,items.length)},()=>worker()));
 }
 
+async function readStorageManifest(userId,stableId){
+  const cacheKey=`${userId}/${stableId}`;
+  if(storageManifestCache.has(cacheKey))return storageManifestCache.get(cacheKey);
+  const objectPath=`${cacheKey}/manifest.json`;
+  const {data,error}=await supabase.storage.from(IMAGE_BUCKET).download(objectPath);
+  if(error){
+    if(/not found|does not exist|404/i.test(`${error.message||""} ${error.statusCode||error.status||""}`)){
+      storageManifestCache.set(cacheKey,{}); return {};
+    }
+    throw error;
+  }
+  try{
+    const manifest=JSON.parse(await data.text());
+    const clean=manifest&&typeof manifest==="object"?manifest:{};
+    storageReport.catalog=Math.max(storageReport.catalog,Object.keys(clean).length);
+    storageManifestCache.set(cacheKey,clean); return clean;
+  }catch{return {}}
+}
+
+async function writeStorageManifest(userId,stableId,manifest){
+  const cacheKey=`${userId}/${stableId}`;
+  const objectPath=`${cacheKey}/manifest.json`;
+  const blob=new Blob([JSON.stringify(manifest)],{type:"application/json"});
+  const {error}=await supabase.storage.from(IMAGE_BUCKET).upload(objectPath,blob,{upsert:true,contentType:"application/json",cacheControl:"60"});
+  if(error)throw error;
+  storageManifestCache.set(cacheKey,manifest);
+  storageReport.catalog=Math.max(storageReport.catalog,Object.keys(manifest).length);
+}
+
 async function uploadBankImages(bank){
   const stableId=stableBankId(bank);
   const images=bank.images&&typeof bank.images==="object"?bank.images:{};
@@ -121,11 +151,12 @@ async function uploadBankImages(bank){
   if(cached&&Object.keys(cached).length>=localImageCount)return cached;
   if(storageDisabledForSession)return {};
   const user=await requireUser();
-  const manifest={};
+  let manifest={};
   const uniqueImages=new Map();
   const supportedMimeTypes=new Set(["image/png","image/jpeg","image/gif","image/webp","image/svg+xml"]);
 
   try{
+    manifest={...await readStorageManifest(user.id,stableId)};
     for(const [logicalName,value] of Object.entries(images)){
       if(!String(value||"").startsWith("data:"))continue;
       const blob=dataUrlToBlob(value);
@@ -154,6 +185,7 @@ async function uploadBankImages(bank){
         if(!error)storageReport.uploaded++;
       });
     }
+    await writeStorageManifest(user.id,stableId,manifest);
     imageManifestCache.set(stableId,manifest);
     return manifest;
   }catch(error){
@@ -348,7 +380,7 @@ export async function pushHistory(bank,h){
 
 export async function pullCloudState(options={}){
   const user=await requireUser();
-  storageReport={found:storageReport.found,uploaded:storageReport.uploaded,downloaded:0,skipped:storageReport.skipped,error:storageReport.error};
+  storageReport={found:storageReport.found,catalog:storageReport.catalog,uploaded:storageReport.uploaded,downloaded:0,skipped:storageReport.skipped,error:storageReport.error};
   const [progressResult,historyResult]=await Promise.all([
     supabase.from("quiz_progress").select("*").eq("user_id",user.id).limit(200),
     supabase.from("quiz_history").select("*").eq("user_id",user.id)
@@ -362,16 +394,20 @@ export async function pullCloudState(options={}){
   const addSnapshot=async(snapshot,cloudBankId)=>{
     if(!snapshot||!Array.isArray(snapshot.questions)||!snapshot.questions.length)return null;
     const snapshotId=stableBankId(snapshot);
+    let canonicalManifest={};
+    try{canonicalManifest=await readStorageManifest(user.id,snapshotId)}
+    catch(error){storageReport.error=error.message||"Não foi possível ler o manifesto de imagens"}
+    const effectiveManifest={...(snapshot.cloudImages||{}),...canonicalManifest};
     if(banks.has(snapshotId)){
       const existing=banks.get(snapshotId);
-      if(options.downloadImages!==false&&snapshot.cloudImages&&Object.keys(snapshot.cloudImages).length){
-        const missing=Object.keys(snapshot.cloudImages).some(key=>!existing.images?.[key]);
-        if(missing)existing.images={...(existing.images||{}),...await downloadBankImages(snapshot.cloudImages)};
+      if(options.downloadImages!==false&&Object.keys(effectiveManifest).length){
+        const missing=Object.keys(effectiveManifest).some(key=>!existing.images?.[key]);
+        if(missing)existing.images={...(existing.images||{}),...await downloadBankImages(effectiveManifest)};
       }
       if(cloudBankId)cloudBankIds.set(cloudBankId,snapshotId);
       return snapshotId;
     }
-    const downloadedImages=options.downloadImages===false?{}:await downloadBankImages(snapshot.cloudImages||{});
+    const downloadedImages=options.downloadImages===false?{}:await downloadBankImages(effectiveManifest);
     const bank={...snapshot,id:snapshotId,images:{...(snapshot.images||{}),...downloadedImages}};
     delete bank.cloudImages;
     banks.set(bank.id,bank);
@@ -411,7 +447,8 @@ export async function pullCloudState(options={}){
 
   return {banks:[...banks.values()],progress,history,diagnostics:{
     cloudBanks:banks.size,cloudProgress:progress.length,cloudHistory:history.length,
-    imagesFound:storageReport.found,imagesUploaded:storageReport.uploaded,imagesDownloaded:storageReport.downloaded,
+    imagesFound:storageReport.found,manifestEntries:storageReport.catalog,
+    imagesUploaded:storageReport.uploaded,imagesDownloaded:storageReport.downloaded,
     filesSkipped:storageReport.skipped,
     storageError:storageReport.error
   }};

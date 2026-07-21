@@ -154,6 +154,8 @@ Na **V6.3.1**, cada dispositivo executa uma migração única para validar e bai
 
 Na **V6.3.2**, imagens já baixadas são associadas a todas as cópias compatíveis do banco, e o resolvedor aceita diferentes formatos de caminho e nome de arquivo.
 
+Na **V6.4.0**, um `manifest.json` independente no Storage passa a ser a fonte canônica do catálogo de imagens, impedindo que um computador com dados parciais substitua o catálogo completo.
+
 ---
 
 ## 🛠️ Tecnologias

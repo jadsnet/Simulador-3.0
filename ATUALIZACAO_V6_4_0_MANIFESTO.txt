@@ -1,0 +1,17 @@
+ATUALIZAÇÃO V6.4.0 — MANIFESTO CANÔNICO DE IMAGENS
+
+- O catálogo de imagens deixa de depender de quiz_progress.
+- Cada banco possui um manifest.json independente dentro do Supabase Storage.
+- Um computador com catálogo parcial nunca mais reduz o catálogo completo.
+- Manifestos locais e remotos são sempre combinados.
+- O outro computador consulta o manifesto canônico antes de abrir o banco.
+- Novo indicador “Catálogo na nuvem” no diagnóstico.
+- A revisão local V5 força uma migração completa após instalar esta versão.
+
+CONFIGURAÇÃO OBRIGATÓRIA
+
+Execute uma vez o arquivo SUPABASE_STORAGE_V6_4_MIGRATION.sql no SQL Editor.
+Ele somente adiciona application/json aos formatos permitidos no bucket.
+
+Depois, sincronize primeiro o computador original que possui todas as imagens.
+O manifest.json será criado. Em seguida, sincronize o outro computador.

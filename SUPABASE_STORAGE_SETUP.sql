@@ -7,7 +7,7 @@ values (
   'question-images',
   false,
   10485760,
-  array['image/png','image/jpeg','image/gif','image/webp','image/svg+xml']
+  array['image/png','image/jpeg','image/gif','image/webp','image/svg+xml','application/json']
 )
 on conflict (id) do update set
   public = excluded.public,
@@ -35,4 +35,3 @@ with check (bucket_id = 'question-images' and (storage.foldername(name))[1] = au
 create policy "question_images_delete_own"
 on storage.objects for delete to authenticated
 using (bucket_id = 'question-images' and (storage.foldername(name))[1] = auth.uid()::text);
-
