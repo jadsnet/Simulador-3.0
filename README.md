@@ -152,6 +152,8 @@ Na **V6.3.0**, a sincronização torna-se incremental: o sistema compara revisõ
 
 Na **V6.3.1**, cada dispositivo executa uma migração única para validar e baixar o manifesto de imagens. As próximas atualizações sem alterações continuam usando somente a verificação incremental.
 
+Na **V6.3.2**, imagens já baixadas são associadas a todas as cópias compatíveis do banco, e o resolvedor aceita diferentes formatos de caminho e nome de arquivo.
+
 ---
 
 ## 🛠️ Tecnologias

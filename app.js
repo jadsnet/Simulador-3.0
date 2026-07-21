@@ -720,7 +720,7 @@ function updateSyncDiagnostics(data={}){
 }
 
 function syncStateKey(){
-  return `simulador-cloud-sync-v3:${getCloudUser()?.id||"anonymous"}`;
+  return `simulador-cloud-sync-v4:${getCloudUser()?.id||"anonymous"}`;
 }
 
 function readSyncState(){
@@ -792,13 +792,23 @@ async function syncAllNow(options={}){
     const cloudState=await pullCloudState({downloadImages:true});
     const bankIdMap=new Map();
     for(const remoteBank of cloudState.banks){
-      const existing=banks.find(local=>local.id===remoteBank.id
+      const matches=banks.filter(local=>local.id===remoteBank.id
         ||(String(local.name||"").trim().toLowerCase()===String(remoteBank.name||"").trim().toLowerCase()
           &&(local.questions?.length||0)===(remoteBank.questions?.length||0)));
+      const existing=matches.find(local=>local.id===remoteBank.id)||matches[0];
       const localId=existing?.id||remoteBank.id;
       bankIdMap.set(remoteBank.id,localId);
-      const preservedImages={...(existing?.images||{}),...(remoteBank.images||{})};
-      await put("banks",{...remoteBank,id:localId,createdAt:existing?.createdAt||remoteBank.createdAt,images:preservedImages});
+      if(matches.length){
+        // Versões antigas podiam criar mais de uma cópia local. Atualiza todas
+        // para que qualquer progresso aberto encontre as imagens baixadas.
+        for(const match of matches){
+          const preservedImages={...(match.images||{}),...(remoteBank.images||{})};
+          match.images=preservedImages;
+          await put("banks",{...remoteBank,id:match.id,createdAt:match.createdAt||remoteBank.createdAt,images:preservedImages});
+        }
+      }else{
+        await put("banks",remoteBank);
+      }
     }
     for(const remote of cloudState.progress){
       const normalized={...remote,bankId:bankIdMap.get(remote.bankId)||remote.bankId};
@@ -1846,8 +1856,28 @@ function renderImage(wrapId,imgId,name){
 
 function resolveImage(name){
   if(!name)return"";
-  const n=normPath(name);
-  return selectedBank.images[n]||selectedBank.images[n.split("/").pop()]||"";
+  const images=selectedBank?.images||{};
+  const variants=imagePathVariants(name);
+  for(const key of variants)if(images[key])return images[key];
+
+  // Compatibilidade com ZIPs/pastas que acrescentaram diretórios ao nome.
+  const wantedBase=[...variants].map(v=>v.split("/").pop()).find(Boolean);
+  for(const [storedName,url] of Object.entries(images)){
+    const storedVariants=imagePathVariants(storedName);
+    if([...storedVariants].some(key=>variants.has(key)||key.split("/").pop()===wantedBase))return url;
+  }
+  return"";
+}
+
+function imagePathVariants(value){
+  let raw=String(value||"").trim().replace(/^['"\[]+|['"\]]+$/g,"");
+  try{raw=decodeURIComponent(raw)}catch{}
+  raw=raw.split(/[?#]/)[0];
+  const normalized=normPath(raw).normalize("NFC");
+  const variants=new Set([normalized,normalized.split("/").pop()]);
+  variants.add(normalized.replace(/^images?\//,""));
+  variants.add(normalized.replace(/^.*?\/(images?\/)/,"$1"));
+  return new Set([...variants].filter(Boolean));
 }
 
 function renderNavigator(){

@@ -1,0 +1,13 @@
+CORREÇÃO V6.3.2 — ASSOCIAÇÃO DAS IMAGENS BAIXADAS
+
+- Corrige imagens baixadas que ficavam associadas a outra cópia local do banco.
+- Quando existem bancos duplicados, todas as cópias compatíveis recebem as imagens.
+- Reconhece caminho completo e somente o nome do arquivo.
+- Reconhece barras do Windows e barras de URL.
+- Reconhece nomes codificados em URL, aspas, colchetes e diferenças de caixa.
+- Remove query string e fragmentos antes de procurar a imagem.
+- Não duplica os Base64 no IndexedDB para criar apelidos de nomes.
+- A revisão local V4 força uma única correção em cada computador.
+
+O diagnóstico mostrado pelo usuário confirmou 217 imagens baixadas. Esta versão
+corrige o vínculo entre esses arquivos e o banco usado pelo progresso continuado.
