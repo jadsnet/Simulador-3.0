@@ -2,253 +2,298 @@
   <img src="docs/banner.png" alt="Simulador Academy" width="100%">
 </p>
 
+<h1 align="center">🎓 Simulador Academy</h1>
+
 <p align="center">
-  <strong>Plataforma completa para simulados, revisão inteligente e acompanhamento de desempenho.</strong>
+  <strong>Plataforma web completa para simulados, revisão inteligente, memorização e acompanhamento de desempenho.</strong>
 </p>
 
 <p align="center">
-  <img alt="Versão" src="https://img.shields.io/badge/versão-V6-2F7DF4">
-  <img alt="PWA" src="https://img.shields.io/badge/PWA-ready-39D98A">
-  <img alt="Cloud" src="https://img.shields.io/badge/Supabase-cloud-3ECF8E">
-  <img alt="Offline" src="https://img.shields.io/badge/IndexedDB-offline-F1B84B">
-  <img alt="GitHub Pages" src="https://img.shields.io/badge/GitHub%20Pages-compatible-9B6DF4">
+  <img alt="Versão" src="https://img.shields.io/badge/versão-V6.4.1-2F7DF4">
+  <img alt="Status" src="https://img.shields.io/badge/status-estável-22C55E">
+  <img alt="PWA" src="https://img.shields.io/badge/PWA-ready-8B5CF6">
+  <img alt="Supabase" src="https://img.shields.io/badge/Supabase-cloud-3ECF8E">
+  <img alt="IndexedDB" src="https://img.shields.io/badge/IndexedDB-offline-F59E0B">
+  <img alt="GitHub Pages" src="https://img.shields.io/badge/GitHub%20Pages-compatible-111827">
+</p>
+
+<p align="center">
+  <a href="#-visão-geral">Visão geral</a> •
+  <a href="#-menus-e-telas">Telas</a> •
+  <a href="#-formato-do-csv">CSV</a> •
+  <a href="#-arquitetura-e-sincronização">Arquitetura</a> •
+  <a href="#-instalação">Instalação</a>
 </p>
 
 ---
 
-## ✨ Visão geral
+## 🚀 Visão geral
 
-O **Simulador Academy** é uma aplicação web para preparação de certificações e avaliações técnicas.  
-Ela combina execução de simulados, revisão de erros, análise de desempenho, sincronização em nuvem e funcionamento offline.
+O **Simulador Academy** foi desenvolvido para transformar bancos de questões em uma experiência de estudo moderna, organizada e acessível diretamente pelo navegador.
 
-### Principais recursos
+A aplicação funciona online e offline, aceita questões com texto e imagens, preserva o progresso automaticamente e sincroniza bancos, respostas, histórico e arquivos entre computadores usando a mesma conta.
 
-- 🔐 Login por e-mail e senha com Supabase
-- ☁️ Sincronização do progresso em nuvem
-- 💾 Cache offline com IndexedDB
-- 📦 Importação por CSV, pasta de imagens ou ZIP
-- ▶️ Continuação automática do simulado
-- ⭐ Favoritos, marcações e anotações
-- 🧠 Revisão inteligente por erros, acertos e categorias
-- 📈 Curva de aprendizado e dashboard analítico
-- 🗂️ Histórico detalhado
-- 🃏 Flashcards automáticos a partir das questões erradas
-- 🎯 Meta diária, XP, níveis e conquistas
-- 🔥 Sequência de estudos
-- 🔎 Busca global e filtros avançados
-- 📱 Aplicação instalável como PWA
+### Recursos principais
+
+- 🔐 Autenticação por e-mail e senha
+- ☁️ Sincronização incremental entre computadores
+- 🖼️ Imagens privadas no Supabase Storage
+- 💾 Cópia offline no IndexedDB
+- 📚 Importação por CSV, pasta de imagens ou ZIP
+- ▶️ Continuação exata do simulado em andamento
+- ✅ Questões de resposta única e múltipla
+- ⭐ Favoritas, marcações e anotações
+- 🧠 Revisão inteligente de erros e acertos
+- 📊 Estatísticas, categorias e curva de aprendizado
+- 🃏 Flashcards gerados a partir dos erros
+- 🎯 Metas diárias, XP, níveis e conquistas
+- 🔥 Sequência e calendário de estudos
+- 🔍 Pesquisa global por questão, resposta ou categoria
+- 📦 Backup e recuperação de versões anteriores
+- 📱 PWA instalável no computador ou celular
 
 ---
 
-## 🖥️ Telas do sistema
+## 🧭 Menus e telas
 
-### 🔐 Login
+### 🏠 Início
 
-<p align="center">
-  <img src="docs/screens/login.png" alt="Tela de login" width="620">
-</p>
+A página inicial concentra o que é necessário para continuar estudando: simulado em andamento, banco de questões disponível e área de importação. O botão **Continuar** restaura questão atual, respostas, tempo, favoritas, marcações e anotações.
 
-### 🏠 Início, bancos e importação
+![Tela inicial](docs/screenshots/inicio.png)
 
-<p align="center">
-  <img src="docs/screens/inicio.png" alt="Tela inicial" width="100%">
-</p>
+### 📚 Biblioteca e importação
 
-### 📝 Simulado
+Os bancos podem ser adicionados de três formas:
 
-<p align="center">
-  <img src="docs/screens/simulado.png" alt="Tela do simulado" width="760">
-</p>
+1. CSV;
+2. CSV acompanhado de uma pasta de imagens;
+3. pacote ZIP contendo o CSV e os arquivos visuais.
 
-### ✅ Resultado
+Ao reimportar o mesmo banco, as imagens são incorporadas sem apagar o progresso existente.
 
-<p align="center">
-  <img src="docs/screens/resultado.png" alt="Tela de resultado" width="100%">
-</p>
+![Biblioteca e importação](docs/screenshots/inicio-biblioteca-importacao.png)
 
-### 📜 Histórico
+### 🕘 Histórico
 
-<p align="center">
-  <img src="docs/screens/historico.png" alt="Histórico" width="100%">
-</p>
+Apresenta todos os simulados finalizados com aproveitamento, quantidade de acertos, total de questões e data. Em **Ver detalhes**, o usuário acessa respostas, correções, feedbacks e imagens preservadas.
+
+![Histórico de resultados](docs/screenshots/historico.png)
 
 ### 🧠 Revisão inteligente
 
-<p align="center">
-  <img src="docs/screens/revisao-inteligente.png" alt="Revisão inteligente" width="100%">
-</p>
+Reúne questões erradas, corretas, favoritas, marcadas e anotadas. Os filtros permitem montar rapidamente uma sessão de revisão focada nos pontos de maior dificuldade.
 
-### 📊 Estatísticas e curva de aprendizado
+![Revisão inteligente](docs/screenshots/revisao-inteligente.png)
 
-<p align="center">
-  <img src="docs/screens/estatisticas.png" alt="Dashboard analítico" width="100%">
-</p>
+### 📊 Estatísticas
 
-### 🧭 Guia de utilização
+O painel analítico apresenta:
 
-<p align="center">
-  <img src="docs/screens/guia-utilizacao.png" alt="Guia de utilização" width="720">
-</p>
+- simulados realizados;
+- questões respondidas;
+- taxa de acertos;
+- tempo total de estudo;
+- evolução do desempenho;
+- acertos e erros;
+- atividade por simulado;
+- desempenho por categoria;
+- tempo médio por questão.
 
----
-
-## 🆕 Recursos da V6
+![Painel de estatísticas](docs/screenshots/estatisticas.png)
 
 ### 🃏 Flashcards
 
-As questões erradas são convertidas automaticamente em cartões de revisão.  
-É possível filtrar por categoria, embaralhar os cartões e revelar a resposta sob demanda.
+As questões erradas são convertidas em cartões de memorização. É possível filtrar por categoria, embaralhar, revelar a resposta e navegar entre os cartões.
 
-### 🎯 Perfil e metas
+![Flashcards](docs/screenshots/flashcards.png)
 
-- Meta diária configurável
-- XP e níveis
-- Sequência de estudos
-- Calendário de atividade
-- Conquistas desbloqueáveis
-- Recomendações baseadas nas categorias com menor taxa de acerto
+### 👤 Perfil e metas
 
-### 🔎 Busca global
+O perfil exibe nível, XP, meta diária, progresso do dia e sequência de estudos. O calendário de atividade oferece uma visão compacta da regularidade do usuário.
 
-Pesquisa em:
+![Perfil, metas e calendário](docs/screenshots/perfil-metas-calendario.png)
 
-- enunciados;
-- alternativas;
-- feedbacks;
-- categorias;
-- respostas corretas.
+### 🏆 Conquistas e recomendações
 
-Filtros disponíveis:
+Marcos são desbloqueados conforme o estudante avança. As recomendações identificam automaticamente categorias com menor aproveitamento e oferecem acesso direto à revisão.
 
-- erros;
-- favoritas;
-- questões com imagens.
+![Conquistas e recomendações](docs/screenshots/conquistas-recomendacoes.png)
 
-### 📱 PWA
+### ⚙️ Configurações e recuperação
 
-A aplicação pode ser instalada no computador ou celular e continua funcionando offline com os dados locais disponíveis.
+A área de configurações localiza progressos existentes no navegador, permite continuar sessões antigas, restaurar backups e importar o formato legado do `localStorage`.
 
----
+![Configurações](docs/screenshots/configuracoes.png)
 
-## 🏗️ Arquitetura
+### ☁️ Diagnóstico da sincronização
 
-<p align="center">
-  <img src="docs/arquitetura.png" alt="Arquitetura do sistema" width="100%">
-</p>
+O diagnóstico informa última sincronização, bancos, simulados em andamento, históricos, imagens locais, catálogo na nuvem, uploads, downloads e arquivos ignorados.
 
-O progresso é salvo primeiro no **IndexedDB**. Quando há conexão e o usuário está autenticado, os dados são sincronizados com o **Supabase**.
+O catálogo visual é protegido por um `manifest.json` canônico no Storage, impedindo que um computador com dados parciais substitua o conjunto completo de imagens.
 
-Na versão **V6.0.2**, o mesmo banco passa a ser reconhecido pelo conteúdo das questões, mesmo quando é importado novamente em outro computador. Registros criados pelas versões anteriores são identificados e migrados automaticamente, preservando as respostas já sincronizadas.
+![Diagnóstico da sincronização](docs/screenshots/diagnostico-sincronizacao.png)
 
-Esta versão também corrige a falha do botão **Salvar e sair** causada pelas variáveis de fila de sincronização não declaradas.
+### 🧭 Guia interativo
 
-Na **V6.1.1**, a conta sincroniza bancos, questões, simulados em andamento e todos os resultados do histórico. As imagens permanecem no cache local para evitar o limite de tamanho e o timeout `57014` do Supabase; o restante da conta é restaurado em outro computador ou em navegação anônima.
+Na primeira utilização, um tutorial em etapas apresenta as áreas essenciais da plataforma. Ele também pode ser reaberto pelo botão **Guia de uso**.
 
-Na **V6.2.0**, as imagens passam a usar um bucket privado do Supabase Storage, sem ocupar os registros JSON do progresso. A página Configurações inclui um diagnóstico completo da sincronização. Execute `SUPABASE_STORAGE_SETUP.sql` uma vez antes de sincronizar imagens.
-
-Na **V6.2.1**, uma restauração sem imagens não apaga mais os arquivos locais. O mesmo CSV pode ser reimportado com sua pasta de imagens para completar o banco, preservando integralmente o progresso e o histórico.
-
-Na **V6.3.0**, a sincronização torna-se incremental: o sistema compara revisões leves, envia somente imagens ausentes em paralelo e evita qualquer sincronização completa após F5 quando não houve alterações.
-
-Na **V6.3.1**, cada dispositivo executa uma migração única para validar e baixar o manifesto de imagens. As próximas atualizações sem alterações continuam usando somente a verificação incremental.
-
-Na **V6.3.2**, imagens já baixadas são associadas a todas as cópias compatíveis do banco, e o resolvedor aceita diferentes formatos de caminho e nome de arquivo.
-
-Na **V6.4.0**, um `manifest.json` independente no Storage passa a ser a fonte canônica do catálogo de imagens, impedindo que um computador com dados parciais substitua o catálogo completo.
+![Guia interativo](docs/screenshots/guia-interativo.png)
 
 ---
 
-## 🛠️ Tecnologias
+## 📝 Execução do simulado
 
-| Tecnologia | Uso |
-|---|---|
-| HTML5 | Estrutura da aplicação |
-| CSS3 | Interface, responsividade e dashboard |
-| JavaScript ES Modules | Regras de negócio e componentes |
-| IndexedDB | Persistência local e funcionamento offline |
-| Supabase Auth | Login por e-mail e senha |
-| Supabase PostgreSQL | Progresso, histórico e metadados |
-| Service Worker | Cache e PWA |
-| Papa Parse | Leitura de CSV |
-| JSZip | Importação de pacotes ZIP |
-| GitHub Pages | Hospedagem estática |
+Durante a prova, a interface entra em modo de foco e apresenta somente os elementos necessários:
 
----
+- questão atual e total;
+- quantidade respondida;
+- cronômetro;
+- barra de progresso;
+- alternativas com texto ou imagem;
+- anterior, próxima e mapa;
+- favorita, revisar depois e anotações;
+- salvar e sair.
 
-## 📁 Estrutura
-
-```text
-/
-├── index.html
-├── app.js
-├── cloud.js
-├── db.js
-├── style.css
-├── service-worker.js
-├── manifest.webmanifest
-├── README.md
-└── docs/
-    ├── banner.png
-    ├── arquitetura.png
-    └── screens/
-```
+O salvamento ocorre primeiro no IndexedDB e depois na nuvem. Se a conexão cair, a cópia local permanece disponível e a sincronização é retomada posteriormente.
 
 ---
 
-## 🚀 Publicação no GitHub Pages
+## 📄 Formato do CSV
 
-1. Envie todos os arquivos para a raiz do repositório.
-2. Abra **Settings → Pages**.
-3. Selecione a branch principal e a pasta raiz.
-4. Aguarde a publicação.
-5. Atualize o navegador com `Ctrl + Shift + R`.
-
----
-
-## 📦 Formato do CSV
+O arquivo utiliza `;` como separador e contém exatamente 17 colunas:
 
 ```csv
 id;categoria;tipo;pergunta;imagem_pergunta;alt_a;img_a;alt_b;img_b;alt_c;img_c;alt_d;img_d;alt_e;img_e;correta;feedback
 ```
 
-Tipos aceitos:
+| Campo | Descrição |
+|---|---|
+| `id` | Identificador único da questão |
+| `categoria` | Assunto ou domínio |
+| `tipo` | `single`, `multiple` ou `dragdrop` |
+| `pergunta` | Enunciado |
+| `imagem_pergunta` | Arquivo visual do enunciado |
+| `alt_a` a `alt_e` | Texto das alternativas |
+| `img_a` a `img_e` | Imagens das alternativas |
+| `correta` | Letra ou letras corretas |
+| `feedback` | Explicação apresentada na revisão |
 
-- `single`
-- `multiple`
-- `dragdrop`
+> Use codificação UTF-8 para preservar acentos e caracteres especiais.
+
+---
+
+## ☁️ Arquitetura e sincronização
+
+```mermaid
+flowchart LR
+    A["Navegador"] --> B["IndexedDB"]
+    A --> C["Supabase Auth"]
+    B <--> D["PostgreSQL"]
+    B <--> E["Storage privado"]
+    E --> F["manifest.json"]
+```
+
+| Camada | Responsabilidade |
+|---|---|
+| IndexedDB | Bancos, progresso, histórico e imagens offline |
+| Supabase Auth | Identidade e sessão do usuário |
+| PostgreSQL | Metadados, respostas, progresso e histórico |
+| Supabase Storage | Imagens privadas organizadas por usuário e banco |
+| `manifest.json` | Relação canônica entre nomes do CSV e arquivos visuais |
+| Service Worker | Cache dos arquivos principais e suporte PWA |
+
+### Sincronização incremental
+
+Ao atualizar a página, o sistema faz primeiro uma verificação leve. Uma sincronização completa acontece somente quando há alteração local, mudança em outro computador ou solicitação manual.
+
+Imagens já existentes não são reenviadas. Arquivos ausentes são transferidos em paralelo e ficam armazenados no IndexedDB do novo dispositivo.
+
+---
+
+## 🛠️ Tecnologias
+
+| Tecnologia | Utilização |
+|---|---|
+| HTML5 | Estrutura semântica |
+| CSS3 | Interface, responsividade e animações discretas |
+| JavaScript ES Modules | Regras de negócio |
+| IndexedDB | Persistência offline |
+| Supabase | Autenticação, PostgreSQL e Storage |
+| Papa Parse | Leitura do CSV |
+| JSZip | Importação de ZIP |
+| Chart.js | Indicadores e gráficos |
+| Service Worker | Cache e PWA |
+| GitHub Pages | Hospedagem estática gratuita |
+
+---
+
+## 📁 Estrutura do projeto
+
+```text
+Simulador-3.0-main/
+├── index.html
+├── style.css
+├── app.js
+├── cloud.js
+├── db.js
+├── service-worker.js
+├── manifest.webmanifest
+├── modelo-questoes.csv
+├── SUPABASE_STORAGE_SETUP.sql
+├── SUPABASE_STORAGE_V6_4_MIGRATION.sql
+├── README.md
+└── docs/
+    ├── banner.png
+    └── screenshots/
+```
+
+---
+
+## 🚀 Instalação
+
+### GitHub Pages
+
+1. Envie todos os arquivos para a raiz do repositório.
+2. Abra **Settings → Pages**.
+3. Selecione a branch principal e a pasta raiz.
+4. Aguarde a publicação.
+5. Abra a aplicação e pressione `Ctrl + Shift + R`.
+
+### Supabase
+
+1. Crie um projeto no Supabase.
+2. Configure as tabelas e políticas RLS.
+3. Execute `SUPABASE_STORAGE_SETUP.sql` no SQL Editor.
+4. Em instalações anteriores à V6.4, execute também `SUPABASE_STORAGE_V6_4_MIGRATION.sql`.
+5. Confirme o bucket privado `question-images`.
 
 ---
 
 ## 🔐 Segurança
 
-A aplicação usa apenas a **Publishable Key** do Supabase no frontend.  
-Nunca coloque no repositório:
-
-- senha do banco;
-- Service Role Key;
-- JWT Secret;
-- Secret Key.
-
-As tabelas devem permanecer protegidas por **Row Level Security (RLS)**.
+- Cada usuário acessa somente seus próprios registros.
+- As imagens permanecem em bucket privado.
+- As políticas do Storage validam a pasta pelo `auth.uid()`.
+- A aplicação utiliza apenas a chave pública do Supabase.
+- Nunca publique `service_role`, JWT Secret ou credenciais administrativas.
 
 ---
 
-## 🗺️ Roadmap
+## ✅ Status da V6.4.1
 
-- [x] Simulados e importação CSV
-- [x] Imagens em perguntas e alternativas
-- [x] Revisão detalhada
-- [x] IndexedDB e funcionamento offline
-- [x] Supabase Auth e Cloud Sync
-- [x] Dashboard e curva de aprendizado
+- [x] Progresso entre computadores
+- [x] Histórico completo por usuário
+- [x] Imagens sincronizadas pelo Storage
+- [x] Manifesto canônico de imagens
+- [x] Sincronização incremental
+- [x] Importação CSV, pasta e ZIP
+- [x] Revisão inteligente
+- [x] Estatísticas e gráficos
 - [x] Flashcards
-- [x] Metas, XP, níveis e conquistas
-- [x] Busca global
-- [x] PWA instalável
-- [ ] Repetição espaçada avançada
-- [ ] Compartilhamento de bancos
-- [ ] Dashboard de instrutor
-- [ ] Aplicativo nativo
+- [x] Metas, XP e conquistas
+- [x] Backup e recuperação
+- [x] PWA e funcionamento offline
 
 ---
 
@@ -256,8 +301,7 @@ As tabelas devem permanecer protegidas por **Row Level Security (RLS)**.
 
 Desenvolvido por **Jadson Rodrigues**.
 
----
-
 <p align="center">
-  <strong>Simulador Academy — estude com dados, revise com estratégia e evolua continuamente.</strong>
+  <strong>Simulador Academy</strong><br>
+  Estude com dados, revise com estratégia e evolua continuamente.
 </p>

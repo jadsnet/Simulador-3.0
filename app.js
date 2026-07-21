@@ -377,7 +377,7 @@ function setupV6Features(){
         </div>
       </article>
     </section>
-    <article class="panel">
+    <article class="panel study-calendar-card">
       <div class="panel-title"><div><p>ATIVIDADE</p><h2>Calendário de estudos</h2></div></div>
       <div id="activityHeatmap" class="activity-heatmap"></div>
     </article>
