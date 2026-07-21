@@ -1,7 +1,0 @@
-CORREÇÃO V6.1.2 — TELA APÓS SAIR
-
-- Remove a mensagem “Login confirmado. Carregando...” ao deslogar.
-- Limpa automaticamente o campo de senha.
-- Restaura o formulário para o modo Entrar.
-- Garante que o botão Entrar permaneça habilitado.
-- Trata eventuais falhas do comando Sair sem deixar a interface travada.
