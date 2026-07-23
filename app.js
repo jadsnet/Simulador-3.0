@@ -2210,17 +2210,46 @@ function renderReview(items){
 
     const ca=document.createElement("div");
     ca.className="review-answer correct";
-    ca.textContent=`Resposta correta: ${x.r.join(", ")||"Não informada"}`;
+    ca.textContent="Resposta correta:";
 
-    e.append(cat,h,qt,ua,ca);
+    e.append(cat,h,qt);
 
     const qImg=resolveImage(x.q.imagem_pergunta);
     if(qImg)e.appendChild(makeLabeledImage("Imagem do enunciado",qImg));
 
-    const relevant=[...new Set([...x.u,...x.r])];
-    for(const letter of relevant){
-      const img=resolveImage(x.q[`img_${letter.toLowerCase()}`]);
-      if(img)e.appendChild(makeLabeledImage(`Imagem da alternativa ${letter}`,img));
+    e.append(ua,ca);
+
+    if(x.r.length){
+      const correctOptions=document.createElement("div");
+      correctOptions.className="review-correct-options";
+
+      for(const letter of x.r){
+        const key=letter.toLowerCase();
+        const option=document.createElement("div");
+        option.className="review-correct-option";
+
+        const optionText=document.createElement("div");
+        optionText.className="review-correct-option-text";
+
+        const optionLetter=document.createElement("span");
+        optionLetter.className="option-letter";
+        optionLetter.textContent=`${letter})`;
+        optionText.appendChild(optionLetter);
+
+        const text=document.createElement("span");
+        text.textContent=x.q[`alt_${key}`]||"Alternativa apresentada somente como imagem";
+        optionText.appendChild(text);
+        option.appendChild(optionText);
+
+        const img=resolveImage(x.q[`img_${key}`]);
+        if(img)option.appendChild(makeImageBlock(img,`Imagem da alternativa correta ${letter}`));
+
+        correctOptions.appendChild(option);
+      }
+
+      e.appendChild(correctOptions);
+    }else{
+      ca.textContent="Resposta correta: Não informada";
     }
 
     if(String(x.note||"").trim()){

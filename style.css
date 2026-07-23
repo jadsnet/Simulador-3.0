@@ -879,3 +879,11 @@ body{
 .global-search-card h3{margin:10px 0;font-size:.9rem}.global-search-card p{margin:0;color:var(--muted)}
 @media(max-width:900px){.profile-grid{grid-template-columns:1fr}.achievement-grid{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:640px){.v6-toolbar,.v6-toolbar-actions,.global-search-controls,.flashcard-actions{flex-direction:column;align-items:stretch}.achievement-grid{grid-template-columns:1fr}.global-search-input{min-width:0}.study-calendar-card{width:min(265px,100%);height:auto;min-height:265px}.activity-heatmap{grid-template-columns:repeat(7,1fr)}}
+
+/* V6.4.3 — resultado completo com conteúdo da alternativa correta */
+.review-answer.correct{margin-top:12px;font-weight:700}
+.review-correct-options{display:grid;gap:9px;margin:8px 0 2px}
+.review-correct-option{padding:11px 12px;border:1px solid rgba(57,217,138,.28);border-radius:8px;background:rgba(57,217,138,.06);color:#e5edf7}
+.review-correct-option-text{display:flex;align-items:flex-start;gap:8px;line-height:1.55}
+.review-correct-option-text .option-letter{flex:0 0 auto;margin-right:0;color:#98edb8}
+.review-correct-option .image-scroll{margin-top:10px}
