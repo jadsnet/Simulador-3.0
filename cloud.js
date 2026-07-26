@@ -363,6 +363,45 @@ export async function deleteCloudProgress(bank){
   if(data?.id) await supabase.from("quiz_progress").delete().eq("user_id",user.id).eq("bank_id",data.id);
 }
 
+export async function deleteCloudBank(bank){
+  const user=await requireUser();
+  const stableId=stableBankId(bank);
+  const name=String(bank?.name||"").trim().toLowerCase();
+  const questionCount=Array.isArray(bank?.questions)?bank.questions.length:0;
+  const columns="id,local_bank_id,name,question_count";
+  const result=await supabase.from("question_banks").select(columns).eq("user_id",user.id).limit(200);
+  if(result.error)throw result.error;
+
+  const matches=(result.data||[]).filter(row=>
+    row.local_bank_id===stableId||
+    row.local_bank_id===String(bank.id)||
+    (String(row.name||"").trim().toLowerCase()===name&&Number(row.question_count)===questionCount)
+  );
+  const bankIds=matches.map(row=>row.id);
+
+  if(bankIds.length){
+    const progressDelete=await supabase.from("quiz_progress").delete().eq("user_id",user.id).in("bank_id",bankIds);
+    if(progressDelete.error)throw progressDelete.error;
+    const historyDelete=await supabase.from("quiz_history").delete().eq("user_id",user.id).in("bank_id",bankIds);
+    if(historyDelete.error)throw historyDelete.error;
+    const bankDelete=await supabase.from("question_banks").delete().eq("user_id",user.id).in("id",bankIds);
+    if(bankDelete.error)throw bankDelete.error;
+  }
+
+  const folder=`${user.id}/${stableId}`;
+  const listed=await supabase.storage.from(IMAGE_BUCKET).list(folder,{limit:1000,sortBy:{column:"name",order:"asc"}});
+  if(listed.error&&!/not found|does not exist|404/i.test(`${listed.error.message||""} ${listed.error.statusCode||listed.error.status||""}`))throw listed.error;
+  const paths=(listed.data||[]).map(item=>`${folder}/${item.name}`);
+  for(let index=0;index<paths.length;index+=100){
+    const removed=await supabase.storage.from(IMAGE_BUCKET).remove(paths.slice(index,index+100));
+    if(removed.error)throw removed.error;
+  }
+
+  imageManifestCache.delete(stableId);
+  storageManifestCache.delete(`${user.id}/${stableId}`);
+  return {banks:bankIds.length,files:paths.length};
+}
+
 export async function pushHistory(bank,h){
   const user=await requireUser();
   const cloudBankId=await ensureCloudBank(bank);

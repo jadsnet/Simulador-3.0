@@ -1,5 +1,5 @@
 import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 let onboardingStep=0,onboardingTarget=null;
@@ -1491,11 +1491,24 @@ function renderBanks(){
     el.innerHTML=`<div><h3>${esc(bank.name)}</h3><p>${bank.questions.length} questões · importado em ${new Date(bank.createdAt).toLocaleDateString("pt-BR")}</p></div><div class="bank-actions"><button class="btn primary" data-open>Abrir</button><button class="btn danger" data-delete>Excluir</button></div>`;
     el.querySelector("[data-open]").onclick=()=>showSetup(bank.id);
     el.querySelector("[data-delete]").onclick=async()=>{
-      if(confirm("Excluir este banco e seu progresso?")){
-        markCloudDirty("banco excluído");
+      if(!confirm(`Excluir definitivamente "${bank.name}"?\n\nSerão removidos o banco, o progresso, os históricos e as imagens associados, neste dispositivo e na nuvem.`))return;
+      const button=el.querySelector("[data-delete]");
+      button.disabled=true;
+      button.textContent="Excluindo...";
+      try{
+        if(getCloudUser())await deleteCloudBank(bank);
         await del("banks",bank.id);
         await del("progress",bank.id);
+        const localHistory=await getAll("history");
+        for(const item of localHistory.filter(history=>history.bankId===bank.id))await del("history",item.id);
+        markCloudDirty("banco excluído definitivamente");
         await refreshHome();
+        toast("Banco excluído deste dispositivo e da nuvem.");
+      }catch(error){
+        console.error("Falha ao excluir banco",error);
+        alert("Não foi possível excluir o banco da nuvem. Nenhum dado local foi removido. Tente novamente conectado à internet.\n\n"+(error.message||error));
+        button.disabled=false;
+        button.textContent="Excluir";
       }
     };
     list.appendChild(el);
