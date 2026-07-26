@@ -11,7 +11,7 @@ const onboardingSteps=[
   {selector:'.side-link[data-page="review"]',icon:"☆",title:"Estudo inteligente",text:"Consulte favoritas, marcações, anotações e erros.",placement:"right"},
   {selector:'.side-link[data-page="history"]',icon:"◷",title:"Histórico",text:"Abra resultados anteriores e revise suas respostas.",placement:"right"}
 ];
-let banks=[],selectedBank=null,questions=[],answers={},currentIndex=0,timerSeconds=0,timerHandle=null,settings={},favorites=new Set(),marked=new Set(),notes={},reviewData=[];
+let banks=[],selectedBank=null,questions=[],answers={},currentIndex=0,timerSeconds=0,timerHandle=null,settings={},favorites=new Set(),marked=new Set(),notes={},reviewData=[],answerAudit=[];
 let authMode="signin",cloudSaveTimer=null,pendingCloudProgress=null,cloudSaveInFlight=false;
 document.addEventListener("DOMContentLoaded",init);
 
@@ -911,7 +911,8 @@ async function importLegacyProgress(){
       bankId:bank.id,
       currentIndex:Math.min(Number(old.currentQuestion)||0,Math.max(0,order.length-1)),
       order,answers:restored,timerSeconds:Number(old.timerSeconds)||0,
-      settings:{limit:order.length,timeLimit:0,shuffle:false,warn:true},
+      settings:{limit:order.length,timeLimit:0,shuffle:false,warn:true,
+        __bankSignature:questionsSignature(bank.questions),__answerAudit:[]},
       favorites:[],marked:[],notes:{},savedAt:new Date().toISOString()
     };
     await put("progress",progress);
@@ -1664,22 +1665,23 @@ function parseCsv(file){
     header:true,
     skipEmptyLines:"greedy",
     transformHeader:h=>h.replace(/^\uFEFF/,"").trim().toLowerCase(),
-    complete:r=>res(normalizeQuestions(r.data)),
+    complete:r=>{try{res(normalizeQuestions(r.data))}catch(error){rej(error)}},
     error:()=>rej(new Error("Erro no CSV"))
   }));
 }
 
 function parseCsvText(text){
-  return new Promise(res=>Papa.parse(text,{
+  return new Promise((res,rej)=>Papa.parse(text,{
     header:true,
     skipEmptyLines:"greedy",
     transformHeader:h=>h.replace(/^\uFEFF/,"").trim().toLowerCase(),
-    complete:r=>res(normalizeQuestions(r.data))
+    complete:r=>{try{res(normalizeQuestions(r.data))}catch(error){rej(error)}},
+    error:()=>rej(new Error("Erro no CSV"))
   }));
 }
 
 function normalizeQuestions(rows){
-  return rows.map((q,i)=>{
+  const questions=rows.map((q,i)=>{
     const x={};
     for(const[k,v]of Object.entries(q))x[k.trim().toLowerCase()]=typeof v==="string"?v.trim():v;
     x.id=String(x.id||i+1);
@@ -1687,6 +1689,15 @@ function normalizeQuestions(rows){
     x.correta=normAnswers(x.correta);
     return x;
   }).filter(q=>q.pergunta);
+
+  const seen=new Set();
+  for(const q of questions){
+    if(seen.has(q.id))throw new Error(`O CSV contém ID duplicado: ${q.id}. Cada questão precisa de um ID único.`);
+    seen.add(q.id);
+    if(q.tipo==="single"&&q.correta.length>1)throw new Error(`A questão ID ${q.id} é single, mas possui mais de uma resposta correta.`);
+    if(q.tipo==="multiple"&&q.correta.length<2)throw new Error(`A questão ID ${q.id} é multiple, mas possui menos de duas respostas corretas.`);
+  }
+  return questions;
 }
 
 async function showSetup(id){
@@ -1739,6 +1750,9 @@ async function startNew(){
   questions=questions.slice(0,settings.limit);
 
   answers={};
+  answerAudit=[];
+  settings.__bankSignature=questionsSignature(questions);
+  settings.__answerAudit=answerAudit;
   favorites=new Set();
   marked=new Set();
   notes={};
@@ -1756,14 +1770,27 @@ async function resume(){
 
   const byId=new Map(selectedBank.questions.map(q=>[q.id,q]));
   questions=p.order.map(id=>byId.get(id)).filter(Boolean);
-  answers=p.answers||{};
+  const expectedSignature=questionsSignature(questions);
+  const savedSignature=p.settings?.__bankSignature;
+  if(savedSignature&&savedSignature!==expectedSignature){
+    alert("Este progresso pertence a outra versão do banco de questões e não será aplicado. Inicie um novo simulado ou restaure a versão original do banco.");
+    return;
+  }
+  const validation=validateSavedAnswers(questions,p.answers||{});
+  if(validation.conflicts.length){
+    alert(`O progresso contém ${validation.conflicts.length} resposta(s) incompatível(is), incluindo questão single com múltiplas letras. A retomada foi bloqueada para evitar deslocamento ou perda de respostas. Exporte um backup antes de apagar o progresso.`);
+    return;
+  }
+  answers=validation.answers;
   favorites=new Set(p.favorites||[]);
   marked=new Set(p.marked||[]);
   notes=p.notes||{};
   await loadQuestionMetadata();
   currentIndex=p.currentIndex||0;
   timerSeconds=p.timerSeconds||0;
-  settings=p.settings||{};
+  settings={...(p.settings||{}),__bankSignature:expectedSignature};
+  answerAudit=Array.isArray(settings.__answerAudit)?settings.__answerAudit:[];
+  settings.__answerAudit=answerAudit;
 
   openQuiz();
 }
@@ -1845,6 +1872,14 @@ function selectAnswer(q,a){
   else arr=[a];
 
   answers[q.id]=arr.sort();
+  answerAudit.push({
+    at:new Date().toISOString(),
+    questionId:String(q.id),
+    questionSignature:questionSignature(q),
+    selected:[...answers[q.id]]
+  });
+  if(answerAudit.length>5000)answerAudit=answerAudit.slice(-5000);
+  settings.__answerAudit=answerAudit;
   renderQuestion();
 }
 
@@ -2044,6 +2079,8 @@ function stopTimer(){
 async function saveProgress(){
   if(!selectedBank||!questions.length)return;
 
+  settings.__bankSignature=questionsSignature(questions);
+  settings.__answerAudit=answerAudit;
   const progressRecord={
     bankId:selectedBank.id,
     currentIndex,
@@ -2085,6 +2122,14 @@ async function deleteProgress(){
 }
 
 async function finish(){
+  const validation=validateSavedAnswers(questions,answers);
+  if(validation.conflicts.length){
+    const first=validation.conflicts[0];
+    alert(`Não é possível finalizar: a questão ${first.position} possui uma resposta incompatível (${first.reason}). Revise essa questão ou exporte um backup para diagnóstico.`);
+    goTo(first.position-1);
+    return;
+  }
+  answers=validation.answers;
   const unanswered=questions.filter(q=>!(answers[q.id]||[]).length).length;
   if(marked.size&&!confirm(`Há ${marked.size} questão(ões) marcada(s) para revisão. Deseja finalizar mesmo assim?`))return;
   if(settings.warn&&unanswered&&!confirm(`Há ${unanswered} não respondidas. Finalizar?`))return;
@@ -2122,7 +2167,9 @@ async function finish(){
     total:questions.length,
     unanswered,
     time:timerSeconds,
-    reviewData
+    reviewData,
+    answerAudit:[...answerAudit],
+    bankSignature:questionsSignature(questions)
   };
 
   await put("history",historyRecord);
@@ -2369,8 +2416,47 @@ function toast(t){
 }
 
 function normAnswers(v){
-  if(Array.isArray(v))return v.map(String).map(x=>x.trim().toUpperCase()).filter(Boolean).sort();
+  if(Array.isArray(v))return v.map(String).map(x=>x.trim().toUpperCase()).filter(x=>/^[A-E]$/.test(x)).sort();
   return String(v||"").replace(/["']/g,"").toUpperCase().split(/[,\s;|/]+/).filter(x=>/^[A-E]$/.test(x)).sort();
+}
+
+function questionSignature(q){
+  const source=[q.id,q.tipo,q.pergunta,q.alt_a,q.alt_b,q.alt_c,q.alt_d,q.alt_e,normAnswers(q.correta).join(",")]
+    .map(value=>String(value??"").trim()).join("\u001f");
+  return hashText(source);
+}
+
+function questionsSignature(list){
+  return `questions-${list.length}-${hashText(list.map(questionSignature).join("\u001e"))}`;
+}
+
+function hashText(value){
+  let hash=0x811c9dc5;
+  const text=String(value||"");
+  for(let i=0;i<text.length;i++)hash=Math.imul(hash^text.charCodeAt(i),0x01000193);
+  return (hash>>>0).toString(16).padStart(8,"0");
+}
+
+function validateSavedAnswers(list,saved){
+  const normalized={};
+  const conflicts=[];
+  const seen=new Set();
+
+  list.forEach((q,index)=>{
+    const id=String(q.id);
+    if(seen.has(id)){
+      conflicts.push({position:index+1,id,reason:"ID duplicado no banco"});
+      return;
+    }
+    seen.add(id);
+    const values=normAnswers(saved?.[id]||[]);
+    if(q.tipo==="single"&&values.length>1){
+      conflicts.push({position:index+1,id,reason:`questão single com ${values.length} alternativas (${values.join(", ")})`});
+    }
+    if(values.length)normalized[id]=q.tipo==="single"?values.slice(0,1):[...new Set(values)];
+  });
+
+  return {answers:normalized,conflicts};
 }
 
 function eq(a,b){return a.length===b.length&&a.every((v,i)=>v===b[i])}

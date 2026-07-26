@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão" src="https://img.shields.io/badge/versão-V6.4.3-2F7DF4">
+  <img alt="Versão" src="https://img.shields.io/badge/versão-V6.4.4-2F7DF4">
   <img alt="Status" src="https://img.shields.io/badge/status-estável-22C55E">
   <img alt="PWA" src="https://img.shields.io/badge/PWA-ready-8B5CF6">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-cloud-3ECF8E">
@@ -46,6 +46,7 @@ A aplicação funciona online e offline, aceita questões com texto e imagens, p
 - 🧠 Revisão inteligente de erros e acertos
 - 📊 Estatísticas, categorias e curva de aprendizado
 - 🃏 Flashcards gerados a partir dos erros
+- 🛡️ Validação de integridade e auditoria de cada seleção
 - 🎯 Metas diárias, XP, níveis e conquistas
 - 🔥 Sequência e calendário de estudos
 - 🔍 Pesquisa global por questão, resposta ou categoria
@@ -282,7 +283,7 @@ Simulador-3.0-main/
 
 ---
 
-## ✅ Status da V6.4.3
+## ✅ Status da V6.4.4
 
 - [x] Progresso entre computadores
 - [x] Histórico completo por usuário

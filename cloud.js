@@ -340,16 +340,18 @@ export async function pullProgress(bank){
   // Não baixa aqui o snapshot completo do banco guardado em settings. Isso
   // mantém a abertura de um simulado rápida mesmo após versões antigas terem
   // gravado imagens Base64 muito grandes nesse campo.
-  const progressColumns="current_index,question_order,answers,timer_seconds,favorites,marked,notes,client_updated_at,updated_at";
+  const progressColumns="current_index,question_order,answers,timer_seconds,settings,favorites,marked,notes,client_updated_at,updated_at";
   const {data,error}=await supabase.from("quiz_progress").select(progressColumns)
     .eq("user_id",user.id).eq("bank_id",bankRow.id).maybeSingle();
   if(error) throw error;
   if(!data) return null;
+  const cleanSettings={...(data.settings||{})};
+  delete cleanSettings.__cloudBank;
   return {
     bankId:bank.id, currentIndex:data.current_index,
     order:data.question_order||[], answers:data.answers||{},
     timerSeconds:data.timer_seconds||0,
-    settings:{limit:(data.question_order||[]).length,timeLimit:0,shuffle:false,warn:true},
+    settings:{limit:(data.question_order||[]).length,timeLimit:0,shuffle:false,warn:true,...cleanSettings},
     favorites:data.favorites||[], marked:data.marked||[],
     notes:data.notes||{}, savedAt:data.client_updated_at||data.updated_at
   };
@@ -371,7 +373,7 @@ export async function pushHistory(bank,h){
     correct_answers:h.correct||0,
     wrong_answers:Math.max(0,(h.total||0)-(h.correct||0)),
     score:h.score||0, elapsed_seconds:h.time||0,
-    answers:{reviewData:h.reviewData||[]}, settings:{__cloudBank:await cloudBankSnapshot(bank)},
+    answers:{reviewData:h.reviewData||[],answerAudit:h.answerAudit||[],bankSignature:h.bankSignature||""}, settings:{__cloudBank:await cloudBankSnapshot(bank)},
     finished_at:h.finishedAt||new Date().toISOString()
   };
   const {error}=await supabase.from("quiz_history").upsert(payload);
@@ -442,7 +444,9 @@ export async function pullCloudState(options={}){
     return {id:row.id,bankId:cloudBankIds.get(row.bank_id)||null,
       bankName:row.bank_name||"Banco de questões",finishedAt:row.finished_at||new Date().toISOString(),
       score:Number(row.score)||0,correct:Number(row.correct_answers)||0,total,
-      unanswered:Math.max(0,total-answered),time:Number(row.elapsed_seconds)||0,reviewData};
+      unanswered:Math.max(0,total-answered),time:Number(row.elapsed_seconds)||0,reviewData,
+      answerAudit:Array.isArray(row.answers?.answerAudit)?row.answers.answerAudit:[],
+      bankSignature:row.answers?.bankSignature||""};
   });
 
   return {banks:[...banks.values()],progress,history,diagnostics:{
