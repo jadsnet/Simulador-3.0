@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#07111f">
   <meta name="description" content="Plataforma de simulados de certificação.">
-  <title>Simulador Academy V6.5.0</title>
+  <title>Simulador Academy V6.6.1</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%232f7df4'/><text x='32' y='43' text-anchor='middle' font-size='34' font-family='Arial' font-weight='700' fill='white'>S</text></svg>">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=6.5.0">
+  <link rel="stylesheet" href="style.css?v=6.6.1">
   <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script type="module" src="app.js?v=6.5.0"></script>
+  <script type="module" src="app.js?v=6.6.1"></script>
 </head>
 <body>
 
@@ -96,6 +96,7 @@
               <label class="field"><span>Pacote ZIP</span><input id="zipFile" type="file" accept=".zip,application/zip"></label>
               <button id="importBankBtn" class="btn primary full">Importar banco</button>
               <div class="or"><span>criação manual</span></div>
+              <button id="openCommonQuestionBuilderBtn" class="btn secondary full" type="button">Criar questão comum</button>
               <button id="openDragDropBuilderBtn" class="btn secondary full" type="button">Montar questão drag-and-drop</button>
               <details class="help"><summary>Formato do CSV</summary><pre>id;categoria;tipo;pergunta;imagem_pergunta;alt_a;img_a;alt_b;img_b;alt_c;img_c;alt_d;img_d;alt_e;img_e;correta;feedback</pre></details>
             </div>
@@ -259,24 +260,81 @@
             <label class="field"><span>ID da questão</span><input id="dragDropQuestionId" placeholder="Ex.: 601"></label>
             <label class="field"><span>Categoria</span><input id="dragDropCategory" placeholder="Ex.: Policies"></label>
           </div>
-          <label class="field"><span>Enunciado</span><textarea id="dragDropQuestionText" rows="5" placeholder="Digite o enunciado completo..."></textarea></label>
-          <label class="field"><span>Imagem com as caixas vazias</span><input id="dragDropBackgroundFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
-          <label class="field"><span>Cartões disponíveis — um por linha</span><textarea id="dragDropItemsText" rows="7" placeholder="reject&#10;tloc&#10;accept&#10;route&#10;drop"></textarea></label>
-          <p class="builder-help">Depois de carregar a imagem, crie as áreas de destino. Mova e redimensione cada caixa diretamente sobre a imagem e escolha o cartão correto.</p>
+          <label class="field"><span>Enunciado em texto</span><textarea id="dragDropQuestionText" rows="5" placeholder="Digite o enunciado completo..."></textarea></label>
+          <label class="field"><span>1. Imagem ilustrativa do enunciado (opcional)</span><input id="dragDropPromptFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><small>Ex.: topologia, diagrama ou exhibit exibido antes da atividade.</small></label>
+          <label class="field"><span>2. Imagem da atividade drag-and-drop</span><input id="dragDropBackgroundFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><small>Use a imagem que contém os espaços onde os cartões serão colocados.</small></label>
+          <label class="field"><span>Cartões para arrastar — um por linha</span><textarea id="dragDropItemsText" rows="7" placeholder="reject&#10;tloc&#10;accept&#10;route&#10;drop"></textarea></label>
+          <p class="builder-help">A imagem 1 aparece junto ao enunciado. Na imagem 2, clique em “Adicionar área de resposta”, posicione e redimensione cada área sobre o espaço correto e vincule o cartão esperado.</p>
           <div class="builder-actions">
-            <button id="addDragDropZoneBtn" class="btn secondary" type="button">+ Adicionar caixa</button>
+            <button id="addDragDropZoneBtn" class="btn secondary" type="button">+ Adicionar área de resposta</button>
+            <button id="previewDragDropQuestionBtn" class="btn secondary" type="button">Pré-visualizar</button>
             <button id="saveDragDropQuestionBtn" class="btn primary" type="button">Salvar questão</button>
           </div>
           <label class="field"><span>Feedback</span><textarea id="dragDropFeedback" rows="5" placeholder="Explique a sequência correta..."></textarea></label>
         </aside>
         <main class="builder-canvas-column">
-          <div id="dragDropBuilderEmpty" class="builder-empty">Carregue a imagem-base para começar.</div>
+          <div id="dragDropBuilderEmpty" class="builder-empty">Carregue a imagem da atividade drag-and-drop para começar.</div>
           <div id="dragDropBuilderStage" class="builder-stage hidden">
-            <img id="dragDropBuilderImage" alt="Imagem-base da questão">
+            <img id="dragDropBuilderImage" alt="Imagem da atividade drag-and-drop">
             <div id="dragDropZoneLayer" class="builder-zone-layer"></div>
           </div>
           <div id="dragDropZoneSummary" class="builder-zone-summary"></div>
         </main>
+      </div>
+    </section>
+  </div>
+
+  <div id="commonQuestionBuilderModal" class="builder-overlay hidden" aria-hidden="true">
+    <section class="dragdrop-builder common-question-builder" role="dialog" aria-modal="true" aria-labelledby="commonQuestionBuilderTitle">
+      <header class="builder-head">
+        <div><p class="eyebrow">EDITOR DE QUESTÕES</p><h2 id="commonQuestionBuilderTitle">Nova questão comum</h2></div>
+        <button id="closeCommonQuestionBuilderBtn" class="modal-close" type="button" aria-label="Fechar">×</button>
+      </header>
+      <div class="common-builder-grid">
+        <div class="builder-form common-builder-form">
+          <div class="common-builder-meta">
+            <label class="field"><span>Banco de destino</span><select id="commonQuestionBankSelect"></select></label>
+            <label id="commonQuestionNewBankField" class="field hidden"><span>Nome do novo banco</span><input id="commonQuestionNewBankName" placeholder="Ex.: Cisco SD-WAN"></label>
+            <label class="field"><span>Tipo da questão</span><select id="commonQuestionType"><option value="single">Escolha única</option><option value="multiple">Múltipla escolha</option></select></label>
+            <label class="field"><span>ID da questão</span><input id="commonQuestionId" placeholder="Ex.: 602"></label>
+            <label class="field"><span>Categoria</span><input id="commonQuestionCategory" placeholder="Ex.: Policies"></label>
+          </div>
+          <label class="field"><span>Enunciado em texto</span><textarea id="commonQuestionText" rows="5" placeholder="Digite o enunciado completo..."></textarea></label>
+          <label class="field"><span>Imagem do enunciado (opcional)</span><input id="commonQuestionImageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><small>Ex.: exhibit, topologia, comando ou diagrama apresentado na questão.</small></label>
+
+          <div class="common-alternatives-head">
+            <div><strong>Alternativas</strong><small>O texto e a imagem são opcionais individualmente, mas cada alternativa utilizada precisa ter pelo menos um deles.</small></div>
+            <span id="commonCorrectHint">Marque uma resposta correta.</span>
+          </div>
+          <div id="commonAlternatives" class="common-alternatives">
+            <div class="common-alternative" data-letter="a"><label class="common-correct"><input type="radio" name="commonCorrect" value="A"><span>A</span></label><label class="field"><span>Texto da alternativa A</span><textarea id="commonAltTextA" rows="2"></textarea></label><label class="field"><span>Imagem da alternativa A (opcional)</span><input id="commonAltImageA" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><small id="commonAltImageStatusA"></small></label></div>
+            <div class="common-alternative" data-letter="b"><label class="common-correct"><input type="radio" name="commonCorrect" value="B"><span>B</span></label><label class="field"><span>Texto da alternativa B</span><textarea id="commonAltTextB" rows="2"></textarea></label><label class="field"><span>Imagem da alternativa B (opcional)</span><input id="commonAltImageB" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><small id="commonAltImageStatusB"></small></label></div>
+            <div class="common-alternative" data-letter="c"><label class="common-correct"><input type="radio" name="commonCorrect" value="C"><span>C</span></label><label class="field"><span>Texto da alternativa C</span><textarea id="commonAltTextC" rows="2"></textarea></label><label class="field"><span>Imagem da alternativa C (opcional)</span><input id="commonAltImageC" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><small id="commonAltImageStatusC"></small></label></div>
+            <div class="common-alternative" data-letter="d"><label class="common-correct"><input type="radio" name="commonCorrect" value="D"><span>D</span></label><label class="field"><span>Texto da alternativa D</span><textarea id="commonAltTextD" rows="2"></textarea></label><label class="field"><span>Imagem da alternativa D (opcional)</span><input id="commonAltImageD" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><small id="commonAltImageStatusD"></small></label></div>
+            <div class="common-alternative" data-letter="e"><label class="common-correct"><input type="radio" name="commonCorrect" value="E"><span>E</span></label><label class="field"><span>Texto da alternativa E</span><textarea id="commonAltTextE" rows="2"></textarea></label><label class="field"><span>Imagem da alternativa E (opcional)</span><input id="commonAltImageE" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><small id="commonAltImageStatusE"></small></label></div>
+          </div>
+          <label class="field"><span>Feedback ou explicação (opcional)</span><textarea id="commonQuestionFeedback" rows="5" placeholder="Explique por que a resposta está correta..."></textarea></label>
+          <div class="builder-actions common-builder-actions">
+            <button id="previewCommonQuestionBtn" class="btn secondary" type="button">Pré-visualizar questão</button>
+            <button id="saveCommonQuestionBtn" class="btn primary" type="button">Salvar questão</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <div id="questionPreviewModal" class="builder-overlay question-preview-overlay hidden" aria-hidden="true">
+    <section class="question-preview-dialog" role="dialog" aria-modal="true" aria-labelledby="questionPreviewTitle">
+      <header class="builder-head">
+        <div><p class="eyebrow">MODO SIMULADO</p><h2 id="questionPreviewTitle">Pré-visualização da questão</h2></div>
+        <button id="closeQuestionPreviewBtn" class="modal-close" type="button" aria-label="Fechar">×</button>
+      </header>
+      <div class="question-preview-body">
+        <div class="question-tags"><span id="previewCategoryBadge" class="badge"></span><span id="previewTypeBadge" class="badge neutral"></span></div>
+        <h2 id="previewQuestionText" class="preview-question-text"></h2>
+        <div id="previewQuestionImage"></div>
+        <div id="previewAnswerArea" class="options"></div>
+        <section class="preview-feedback-panel"><span>FEEDBACK DA REVISÃO</span><strong id="previewCorrectAnswer"></strong><div id="previewFeedbackText"></div></section>
       </div>
     </section>
   </div>

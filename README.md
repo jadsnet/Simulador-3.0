@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão" src="https://img.shields.io/badge/versão-V6.5.0-2F7DF4">
+  <img alt="Versão" src="https://img.shields.io/badge/versão-V6.6.1-2F7DF4">
   <img alt="Status" src="https://img.shields.io/badge/status-estável-22C55E">
   <img alt="PWA" src="https://img.shields.io/badge/PWA-ready-8B5CF6">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-cloud-3ECF8E">
@@ -183,6 +183,20 @@ id;categoria;tipo;pergunta;imagem_pergunta;alt_a;img_a;alt_b;img_b;alt_c;img_c;a
 
 > Use codificação UTF-8 para preservar acentos e caracteres especiais.
 
+### Editor manual de questões comuns
+
+Questões de escolha única ou múltipla também podem ser criadas pela área **Importar banco**, sem montar um CSV:
+
+1. Clique em **Criar questão comum**.
+2. Escolha um banco existente ou crie um novo.
+3. Selecione **Escolha única** ou **Múltipla escolha**.
+4. Informe ID, categoria, enunciado e, se desejar, uma imagem do enunciado.
+5. Preencha de duas a cinco alternativas. Cada alternativa pode conter texto, imagem ou ambos.
+6. Marque uma resposta correta na escolha única ou duas ou mais na múltipla escolha.
+7. Adicione o feedback opcional e salve a questão.
+
+Alternativas sem texto e sem imagem são ignoradas. O editor valida IDs repetidos, conteúdo mínimo e respostas corretas antes de salvar.
+
 ### Editor visual de questões drag-and-drop
 
 Questões drag-and-drop podem ser adicionadas diretamente pela área **Importar banco**, sem editar o CSV:
@@ -190,11 +204,12 @@ Questões drag-and-drop podem ser adicionadas diretamente pela área **Importar 
 1. Escolha um banco existente ou crie um banco novo diretamente no editor.
 2. Clique em **Montar questão drag-and-drop**.
 3. Escolha o banco, informe ID, categoria, enunciado e feedback.
-4. Carregue uma imagem que contenha as caixas vazias.
-5. Digite os cartões disponíveis, um por linha.
-6. Use **Adicionar caixa** para criar cada área de destino.
-7. Mova e redimensione as áreas sobre a imagem e selecione a resposta correta de cada uma.
-8. Salve a questão.
+4. Opcionalmente, carregue uma imagem ilustrativa do enunciado.
+5. Carregue a imagem da atividade que contém os espaços das respostas.
+6. Digite os cartões disponíveis, um por linha.
+7. Use **Adicionar área de resposta** para criar cada destino.
+8. Mova e redimensione as áreas sobre a imagem e selecione a resposta correta de cada uma.
+9. Salve a questão.
 
 Durante o simulado, os cartões podem ser arrastados com o mouse. Em dispositivos de toque, selecione um cartão e depois toque na caixa de destino. Opções extras podem permanecer sem utilização.
 
@@ -301,7 +316,7 @@ Simulador-3.0-main/
 
 ---
 
-## ✅ Status da V6.5.0
+## ✅ Status da V6.6.1
 
 - [x] Progresso entre computadores
 - [x] Histórico completo por usuário
@@ -310,6 +325,9 @@ Simulador-3.0-main/
 - [x] Sincronização incremental
 - [x] Importação CSV, pasta e ZIP
 - [x] Editor visual para criar questões drag-and-drop manualmente
+- [x] Imagem ilustrativa e imagem interativa independentes nas questões drag-and-drop
+- [x] Editor manual de questões de escolha única e múltipla, com imagens opcionais
+- [x] Pré-visualização completa e cadastro contínuo sem fechar o editor
 - [x] Revisão inteligente
 - [x] Estatísticas e gráficos
 - [x] Flashcards
