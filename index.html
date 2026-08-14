@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#07111f">
   <meta name="description" content="Plataforma de simulados de certificação.">
-  <title>Simulador Academy V6.6.1</title>
+  <title>Simulador Academy V6.6.2</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%232f7df4'/><text x='32' y='43' text-anchor='middle' font-size='34' font-family='Arial' font-weight='700' fill='white'>S</text></svg>">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=6.6.1">
+  <link rel="stylesheet" href="style.css?v=6.6.2">
   <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script type="module" src="app.js?v=6.6.1"></script>
+  <script type="module" src="app.js?v=6.6.2"></script>
 </head>
 <body>
 
@@ -261,8 +261,8 @@
             <label class="field"><span>Categoria</span><input id="dragDropCategory" placeholder="Ex.: Policies"></label>
           </div>
           <label class="field"><span>Enunciado em texto</span><textarea id="dragDropQuestionText" rows="5" placeholder="Digite o enunciado completo..."></textarea></label>
-          <label class="field"><span>1. Imagem ilustrativa do enunciado (opcional)</span><input id="dragDropPromptFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><small>Ex.: topologia, diagrama ou exhibit exibido antes da atividade.</small></label>
-          <label class="field"><span>2. Imagem da atividade drag-and-drop</span><input id="dragDropBackgroundFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><small>Use a imagem que contém os espaços onde os cartões serão colocados.</small></label>
+          <label class="field"><span>1. Imagem ilustrativa do enunciado (opcional)</span><div class="image-picker-row"><input id="dragDropPromptFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><button id="clearDragDropPromptImageBtn" class="clear-image-btn" type="button">Remover imagem</button></div><small>Ex.: topologia, diagrama ou exhibit exibido antes da atividade.</small></label>
+          <label class="field"><span>2. Imagem da atividade drag-and-drop</span><div class="image-picker-row"><input id="dragDropBackgroundFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><button id="clearDragDropActivityImageBtn" class="clear-image-btn" type="button">Remover imagem</button></div><small>Use a imagem que contém os espaços onde os cartões serão colocados.</small></label>
           <label class="field"><span>Cartões para arrastar — um por linha</span><textarea id="dragDropItemsText" rows="7" placeholder="reject&#10;tloc&#10;accept&#10;route&#10;drop"></textarea></label>
           <p class="builder-help">A imagem 1 aparece junto ao enunciado. Na imagem 2, clique em “Adicionar área de resposta”, posicione e redimensione cada área sobre o espaço correto e vincule o cartão esperado.</p>
           <div class="builder-actions">
@@ -300,18 +300,18 @@
             <label class="field"><span>Categoria</span><input id="commonQuestionCategory" placeholder="Ex.: Policies"></label>
           </div>
           <label class="field"><span>Enunciado em texto</span><textarea id="commonQuestionText" rows="5" placeholder="Digite o enunciado completo..."></textarea></label>
-          <label class="field"><span>Imagem do enunciado (opcional)</span><input id="commonQuestionImageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><small>Ex.: exhibit, topologia, comando ou diagrama apresentado na questão.</small></label>
+          <label class="field"><span>Imagem do enunciado (opcional)</span><div class="image-picker-row"><input id="commonQuestionImageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><button id="clearCommonQuestionImageBtn" class="clear-image-btn" type="button">Remover imagem</button></div><small>Ex.: exhibit, topologia, comando ou diagrama apresentado na questão.</small></label>
 
           <div class="common-alternatives-head">
             <div><strong>Alternativas</strong><small>O texto e a imagem são opcionais individualmente, mas cada alternativa utilizada precisa ter pelo menos um deles.</small></div>
             <span id="commonCorrectHint">Marque uma resposta correta.</span>
           </div>
           <div id="commonAlternatives" class="common-alternatives">
-            <div class="common-alternative" data-letter="a"><label class="common-correct"><input type="radio" name="commonCorrect" value="A"><span>A</span></label><label class="field"><span>Texto da alternativa A</span><textarea id="commonAltTextA" rows="2"></textarea></label><label class="field"><span>Imagem da alternativa A (opcional)</span><input id="commonAltImageA" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><small id="commonAltImageStatusA"></small></label></div>
-            <div class="common-alternative" data-letter="b"><label class="common-correct"><input type="radio" name="commonCorrect" value="B"><span>B</span></label><label class="field"><span>Texto da alternativa B</span><textarea id="commonAltTextB" rows="2"></textarea></label><label class="field"><span>Imagem da alternativa B (opcional)</span><input id="commonAltImageB" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><small id="commonAltImageStatusB"></small></label></div>
-            <div class="common-alternative" data-letter="c"><label class="common-correct"><input type="radio" name="commonCorrect" value="C"><span>C</span></label><label class="field"><span>Texto da alternativa C</span><textarea id="commonAltTextC" rows="2"></textarea></label><label class="field"><span>Imagem da alternativa C (opcional)</span><input id="commonAltImageC" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><small id="commonAltImageStatusC"></small></label></div>
-            <div class="common-alternative" data-letter="d"><label class="common-correct"><input type="radio" name="commonCorrect" value="D"><span>D</span></label><label class="field"><span>Texto da alternativa D</span><textarea id="commonAltTextD" rows="2"></textarea></label><label class="field"><span>Imagem da alternativa D (opcional)</span><input id="commonAltImageD" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><small id="commonAltImageStatusD"></small></label></div>
-            <div class="common-alternative" data-letter="e"><label class="common-correct"><input type="radio" name="commonCorrect" value="E"><span>E</span></label><label class="field"><span>Texto da alternativa E</span><textarea id="commonAltTextE" rows="2"></textarea></label><label class="field"><span>Imagem da alternativa E (opcional)</span><input id="commonAltImageE" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><small id="commonAltImageStatusE"></small></label></div>
+            <div class="common-alternative" data-letter="a"><label class="common-correct"><input type="radio" name="commonCorrect" value="A"><span>A</span></label><label class="field"><span>Texto da alternativa A</span><textarea id="commonAltTextA" rows="2"></textarea></label><label class="field"><span>Imagem da alternativa A (opcional)</span><div class="image-picker-row"><input id="commonAltImageA" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><button id="clearCommonAltImageA" class="clear-image-btn" type="button">Remover</button></div><small id="commonAltImageStatusA"></small></label></div>
+            <div class="common-alternative" data-letter="b"><label class="common-correct"><input type="radio" name="commonCorrect" value="B"><span>B</span></label><label class="field"><span>Texto da alternativa B</span><textarea id="commonAltTextB" rows="2"></textarea></label><label class="field"><span>Imagem da alternativa B (opcional)</span><div class="image-picker-row"><input id="commonAltImageB" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><button id="clearCommonAltImageB" class="clear-image-btn" type="button">Remover</button></div><small id="commonAltImageStatusB"></small></label></div>
+            <div class="common-alternative" data-letter="c"><label class="common-correct"><input type="radio" name="commonCorrect" value="C"><span>C</span></label><label class="field"><span>Texto da alternativa C</span><textarea id="commonAltTextC" rows="2"></textarea></label><label class="field"><span>Imagem da alternativa C (opcional)</span><div class="image-picker-row"><input id="commonAltImageC" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><button id="clearCommonAltImageC" class="clear-image-btn" type="button">Remover</button></div><small id="commonAltImageStatusC"></small></label></div>
+            <div class="common-alternative" data-letter="d"><label class="common-correct"><input type="radio" name="commonCorrect" value="D"><span>D</span></label><label class="field"><span>Texto da alternativa D</span><textarea id="commonAltTextD" rows="2"></textarea></label><label class="field"><span>Imagem da alternativa D (opcional)</span><div class="image-picker-row"><input id="commonAltImageD" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><button id="clearCommonAltImageD" class="clear-image-btn" type="button">Remover</button></div><small id="commonAltImageStatusD"></small></label></div>
+            <div class="common-alternative" data-letter="e"><label class="common-correct"><input type="radio" name="commonCorrect" value="E"><span>E</span></label><label class="field"><span>Texto da alternativa E</span><textarea id="commonAltTextE" rows="2"></textarea></label><label class="field"><span>Imagem da alternativa E (opcional)</span><div class="image-picker-row"><input id="commonAltImageE" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><button id="clearCommonAltImageE" class="clear-image-btn" type="button">Remover</button></div><small id="commonAltImageStatusE"></small></label></div>
           </div>
           <label class="field"><span>Feedback ou explicação (opcional)</span><textarea id="commonQuestionFeedback" rows="5" placeholder="Explique por que a resposta está correta..."></textarea></label>
           <div class="builder-actions common-builder-actions">

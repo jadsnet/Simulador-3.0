@@ -1,5 +1,5 @@
 import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=6.6.1";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=6.6.2";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 let onboardingStep=0,onboardingTarget=null;
@@ -946,14 +946,20 @@ function bind(){
   $("commonQuestionBankSelect").onchange=updateCommonQuestionBankMode;
   $("commonQuestionType").onchange=updateCommonQuestionType;
   $("commonQuestionImageFile").onchange=loadCommonQuestionImage;
+  $("clearCommonQuestionImageBtn").onclick=event=>{event.preventDefault();clearCommonQuestionImage()};
   $("previewCommonQuestionBtn").onclick=()=>openQuestionPreview("common");
   $("saveCommonQuestionBtn").onclick=saveCommonQuestion;
-  for(const letter of LETTERS)$("commonAltImage"+letter.toUpperCase()).onchange=()=>loadCommonAlternativeImage(letter);
+  for(const letter of LETTERS){
+    $("commonAltImage"+letter.toUpperCase()).onchange=()=>loadCommonAlternativeImage(letter);
+    $("clearCommonAltImage"+letter.toUpperCase()).onclick=event=>{event.preventDefault();clearCommonAlternativeImage(letter)};
+  }
   $("openDragDropBuilderBtn").onclick=openDragDropBuilder;
   $("closeDragDropBuilderBtn").onclick=closeDragDropBuilder;
   $("dragDropBuilderModal").onclick=e=>{if(e.target===$("dragDropBuilderModal"))closeDragDropBuilder()};
   $("dragDropPromptFile").onchange=loadDragDropPromptImage;
   $("dragDropBackgroundFile").onchange=loadDragDropBuilderImage;
+  $("clearDragDropPromptImageBtn").onclick=event=>{event.preventDefault();clearDragDropPromptImage()};
+  $("clearDragDropActivityImageBtn").onclick=event=>{event.preventDefault();clearDragDropActivityImage()};
   $("dragDropBankSelect").onchange=updateDragDropBankMode;
   $("dragDropItemsText").oninput=renderDragDropBuilderZones;
   $("addDragDropZoneBtn").onclick=addDragDropBuilderZone;
@@ -1679,6 +1685,13 @@ async function loadCommonQuestionImage(){
   commonQuestionBuilder.questionImageName=`manual-enunciado-${Date.now()}-${normPath(file.name).split("/").pop()}`;
 }
 
+function clearCommonQuestionImage(){
+  $("commonQuestionImageFile").value="";
+  commonQuestionBuilder.questionImageData="";
+  commonQuestionBuilder.questionImageName="";
+  toast("Imagem do enunciado removida.");
+}
+
 async function loadCommonAlternativeImage(letter){
   const upper=letter.toUpperCase(),file=$("commonAltImage"+upper).files[0];
   if(!file){delete commonQuestionBuilder.alternatives[letter];$("commonAltImageStatus"+upper).textContent="";return}
@@ -1687,6 +1700,14 @@ async function loadCommonAlternativeImage(letter){
     imageName:`manual-alternativa-${upper}-${Date.now()}-${normPath(file.name).split("/").pop()}`
   };
   $("commonAltImageStatus"+upper).textContent=`Imagem selecionada: ${file.name}`;
+}
+
+function clearCommonAlternativeImage(letter){
+  const upper=letter.toUpperCase();
+  $("commonAltImage"+upper).value="";
+  $("commonAltImageStatus"+upper).textContent="";
+  delete commonQuestionBuilder.alternatives[letter];
+  toast(`Imagem da alternativa ${upper} removida.`);
 }
 
 async function saveCommonQuestion(){
@@ -1827,11 +1848,11 @@ function renderDragDropPreview(container,question){
       const stage=document.createElement("div");stage.className="dragdrop-runtime-stage";
       const image=document.createElement("img");image.src=definition.image;image.alt="Atividade drag-and-drop";
       const layer=document.createElement("div");layer.className="dragdrop-runtime-zone-layer";
-      definition.zones.forEach((zone,index)=>{
+      definition.zones.forEach(zone=>{
         const target=document.createElement("div");target.className="dragdrop-runtime-zone";
         Object.assign(target.style,{left:`${zone.x}%`,top:`${zone.y}%`,width:`${zone.w}%`,height:`${zone.h}%`});
         const item=definition.items.find(candidate=>candidate.id===placed[zone.id]);
-        target.textContent=item?.text||`Área ${index+1}`;target.classList.toggle("filled",Boolean(item));
+        target.textContent=item?.text||"";target.classList.toggle("filled",Boolean(item));
         target.ondragover=event=>event.preventDefault();
         target.ondrop=event=>{event.preventDefault();const id=event.dataTransfer.getData("text/plain");if(id){placed[zone.id]=id;render()}};
         target.onclick=()=>{if(state.selected){placed[zone.id]=state.selected;state.selected="";render()}};
@@ -1902,6 +1923,7 @@ function closeDragDropBuilder(){
 async function loadDragDropBuilderImage(){
   const file=$("dragDropBackgroundFile").files[0];
   if(!file)return;
+  dragDropBuilder.zones=[];
   dragDropBuilder.imageData=await fileToDataURL(file);
   dragDropBuilder.imageName=`manual-dragdrop-${Date.now()}-${normPath(file.name).split("/").pop()}`;
   const image=$("dragDropBuilderImage");
@@ -1913,6 +1935,18 @@ async function loadDragDropBuilderImage(){
   image.src=dragDropBuilder.imageData;
 }
 
+function clearDragDropActivityImage(){
+  $("dragDropBackgroundFile").value="";
+  dragDropBuilder.imageData="";
+  dragDropBuilder.imageName="";
+  dragDropBuilder.zones=[];
+  $("dragDropBuilderImage").removeAttribute("src");
+  $("dragDropBuilderStage").classList.add("hidden");
+  $("dragDropBuilderEmpty").classList.remove("hidden");
+  renderDragDropBuilderZones();
+  toast("Imagem da atividade e áreas de resposta removidas.");
+}
+
 async function loadDragDropPromptImage(){
   const file=$("dragDropPromptFile").files[0];
   if(!file){
@@ -1922,6 +1956,13 @@ async function loadDragDropPromptImage(){
   }
   dragDropBuilder.promptImageData=await fileToDataURL(file);
   dragDropBuilder.promptImageName=`manual-dragdrop-enunciado-${Date.now()}-${normPath(file.name).split("/").pop()}`;
+}
+
+function clearDragDropPromptImage(){
+  $("dragDropPromptFile").value="";
+  dragDropBuilder.promptImageData="";
+  dragDropBuilder.promptImageName="";
+  toast("Imagem ilustrativa do enunciado removida.");
 }
 
 function dragDropBuilderItems(){
@@ -1946,19 +1987,13 @@ function renderDragDropBuilderZones(){
   layer.innerHTML="";summary.innerHTML="";
   const items=dragDropBuilderItems();
 
-  dragDropBuilder.zones.forEach((zone,index)=>{
+  dragDropBuilder.zones.forEach(zone=>{
     if(!items.some(item=>item.id===zone.correctItemId))zone.correctItemId="";
     const el=document.createElement("div");
     el.className="builder-zone";
     el.dataset.zoneId=zone.id;
     Object.assign(el.style,{left:`${zone.x}%`,top:`${zone.y}%`,width:`${zone.w}%`,height:`${zone.h}%`});
-    const number=document.createElement("strong");number.textContent=index+1;
-    const select=document.createElement("select");
-    select.innerHTML='<option value="">Resposta...</option>'+items.map(item=>`<option value="${esc(item.id)}">${esc(item.text)}</option>`).join("");
-    select.value=zone.correctItemId;
-    select.onpointerdown=e=>e.stopPropagation();
-    select.onchange=()=>{zone.correctItemId=select.value;renderDragDropBuilderSummary()};
-    el.append(number,select);layer.appendChild(el);
+    layer.appendChild(el);
     enableBuilderZoneMove(el,zone);
     const observer=new ResizeObserver(()=>syncBuilderZoneGeometry(el,zone));
     observer.observe(el);
@@ -1970,12 +2005,15 @@ function renderDragDropBuilderSummary(){
   const summary=$("dragDropZoneSummary"),items=dragDropBuilderItems();
   summary.innerHTML="";
   dragDropBuilder.zones.forEach((zone,index)=>{
-    const answer=items.find(item=>item.id===zone.correctItemId)?.text||"Resposta não definida";
     const row=document.createElement("div");row.className="builder-zone-row";
-    row.innerHTML=`<span><strong>Caixa ${index+1}</strong> · ${esc(answer)}</span>`;
+    const label=document.createElement("strong");label.textContent=`Área de resposta ${index+1}`;
+    const select=document.createElement("select");
+    select.innerHTML='<option value="">Selecione o cartão correto...</option>'+items.map(item=>`<option value="${esc(item.id)}">${esc(item.text)}</option>`).join("");
+    select.value=zone.correctItemId;
+    select.onchange=()=>{zone.correctItemId=select.value};
     const remove=document.createElement("button");remove.type="button";remove.textContent="Remover";
     remove.onclick=()=>{dragDropBuilder.zones=dragDropBuilder.zones.filter(item=>item.id!==zone.id);renderDragDropBuilderZones()};
-    row.appendChild(remove);summary.appendChild(row);
+    row.append(label,select,remove);summary.appendChild(row);
   });
 }
 
@@ -2427,12 +2465,12 @@ function renderDragDropQuestion(q,container){
     const image=document.createElement("img");image.src=imageUrl;image.alt="Diagrama da questão drag-and-drop";
     image.onclick=event=>{if(event.target===image)openModal(imageUrl)};
     const layer=document.createElement("div");layer.className="dragdrop-runtime-zone-layer";
-    definition.zones.forEach((zone,index)=>{
+    definition.zones.forEach(zone=>{
       const target=document.createElement("div");target.className="dragdrop-runtime-zone";
       target.dataset.zoneId=zone.id;
       Object.assign(target.style,{left:`${zone.x}%`,top:`${zone.y}%`,width:`${zone.w}%`,height:`${zone.h}%`});
       const item=definition.items.find(candidate=>candidate.id===answer[zone.id]);
-      target.textContent=item?.text||`Caixa ${index+1}`;
+      target.textContent=item?.text||"";
       target.classList.toggle("filled",Boolean(item));
       target.ondragover=event=>{event.preventDefault();target.classList.add("active")};
       target.ondragleave=()=>target.classList.remove("active");
