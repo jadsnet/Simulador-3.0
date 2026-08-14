@@ -1,5 +1,5 @@
 import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=6.4.2";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 let onboardingStep=0,onboardingTarget=null;
@@ -804,7 +804,10 @@ async function syncAllNow(options={}){
         // Versões antigas podiam criar mais de uma cópia local. Atualiza todas
         // para que qualquer progresso aberto encontre as imagens baixadas.
         for(const match of matches){
-          const preservedImages={...(match.images||{}),...(remoteBank.images||{})};
+          // A cópia local é a fonte mais recente quando o usuário reimporta
+          // imagens corrigidas. Um manifesto remoto antigo não pode
+          // sobrescrever silenciosamente essas imagens.
+          const preservedImages={...(remoteBank.images||{}),...(match.images||{})};
           match.images=preservedImages;
           await put("banks",{...remoteBank,id:match.id,createdAt:match.createdAt||remoteBank.createdAt,images:preservedImages});
         }
@@ -1633,11 +1636,12 @@ async function importCsvAndImages(){
 
   const qs=await parseCsv(csv);
   const images={};
+  const basenameOwners=new Map();
 
   for(const f of $("imageFolder").files){
     if(!/\.(png|jpe?g|gif|webp|svg)$/i.test(f.name))continue;
-    images[normPath(f.webkitRelativePath||f.name)]=await fileToDataURL(f);
-    images[normPath(f.name)]=images[normPath(f.webkitRelativePath||f.name)];
+    const sourcePath=normPath(f.webkitRelativePath||f.name);
+    registerImportedImage(images,sourcePath,await fileToDataURL(f),basenameOwners);
   }
 
   return makeBank($("bankName").value||csv.name.replace(/\.csv$/i,""),qs,images);
@@ -1655,14 +1659,14 @@ async function importZip(file){
   const csvText=await csvEntry.async("string");
   const qs=await parseCsvText(csvText);
   const images={};
+  const basenameOwners=new Map();
 
   for(const e of entries){
     if(e.dir||e===csvEntry)continue;
     if(/\.(png|jpe?g|gif|webp|svg)$/i.test(e.name)){
       const blob=await e.async("blob");
       const data=await blobToDataURL(blob);
-      images[normPath(e.name)]=data;
-      images[normPath(e.name.split("/").pop())]=data;
+      registerImportedImage(images,e.name,data,basenameOwners);
     }
   }
 
@@ -1671,6 +1675,26 @@ async function importZip(file){
 
 function makeBank(name,qs,images){
   return{id:crypto.randomUUID(),name,createdAt:new Date().toISOString(),questions:qs,images};
+}
+
+// Mantém sempre o caminho completo. O alias pelo nome simples só é criado
+// quando esse basename é único; nomes repetidos em subpastas deixam de
+// sobrescrever uns aos outros silenciosamente.
+function registerImportedImage(images,sourceName,data,basenameOwners){
+  const fullName=normPath(sourceName);
+  const baseName=fullName.split("/").pop();
+  if(!fullName||!baseName)return;
+
+  images[fullName]=data;
+  const previous=basenameOwners.get(baseName);
+  if(previous===undefined){
+    basenameOwners.set(baseName,fullName);
+    images[baseName]=data;
+  }else if(previous!==fullName){
+    basenameOwners.set(baseName,null);
+    delete images[baseName];
+    console.warn(`Nome de imagem duplicado: ${baseName}. Use o caminho completo no CSV.`);
+  }
 }
 
 function parseCsv(file){
@@ -1911,11 +1935,18 @@ function resolveImage(name){
   for(const key of variants)if(images[key])return images[key];
 
   // Compatibilidade com ZIPs/pastas que acrescentaram diretórios ao nome.
+  // O fallback só é aceito quando o basename identifica uma única imagem.
+  // Antes, a primeira correspondência era usada mesmo em caso de ambiguidade.
   const wantedBase=[...variants].map(v=>v.split("/").pop()).find(Boolean);
+  const matches=new Map();
   for(const [storedName,url] of Object.entries(images)){
     const storedVariants=imagePathVariants(storedName);
-    if([...storedVariants].some(key=>variants.has(key)||key.split("/").pop()===wantedBase))return url;
+    if([...storedVariants].some(key=>variants.has(key)||key.split("/").pop()===wantedBase)){
+      matches.set(url,storedName);
+    }
   }
+  if(matches.size===1)return matches.keys().next().value;
+  if(matches.size>1)console.warn(`Imagem ambígua: ${name}. Use o caminho completo no CSV.`,[...matches.values()]);
   return"";
 }
 

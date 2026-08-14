@@ -82,6 +82,18 @@ function hashString(value){
   return (hash>>>0).toString(16).padStart(8,"0");
 }
 
+// Usa um hash criptográfico para identificar o conteúdo das imagens. O hash
+// FNV de 32 bits anterior podia, embora raramente, produzir colisões e fazer
+// dois arquivos diferentes compartilharem o mesmo caminho no Storage.
+async function imageContentKey(value){
+  if(globalThis.crypto?.subtle){
+    const bytes=new TextEncoder().encode(String(value));
+    const digest=await crypto.subtle.digest("SHA-256",bytes);
+    return [...new Uint8Array(digest)].map(byte=>byte.toString(16).padStart(2,"0")).join("");
+  }
+  return hashString(String(value));
+}
+
 function dataUrlToBlob(dataUrl){
   const [header,body]=String(dataUrl).split(",",2);
   const mime=(header.match(/^data:([^;]+)/)||[])[1]||"application/octet-stream";
@@ -146,9 +158,16 @@ async function writeStorageManifest(userId,stableId,manifest){
 async function uploadBankImages(bank){
   const stableId=stableBankId(bank);
   const images=bank.images&&typeof bank.images==="object"?bank.images:{};
-  const localImageCount=Object.values(images).filter(value=>String(value||"").startsWith("data:")).length;
+  const localEntries=Object.entries(images)
+    .filter(([,value])=>String(value||"").startsWith("data:"));
+  const localSignature=localEntries
+    .map(([logicalName,value])=>`${logicalName}:${hashString(String(value))}`)
+    .sort().join("|");
   const cached=imageManifestCache.get(stableId);
-  if(cached&&Object.keys(cached).length>=localImageCount)return cached;
+  // Só reutiliza o manifesto quando nomes E conteúdos continuam idênticos.
+  // Comparar apenas a quantidade mantinha manifestos antigos após reimportar
+  // imagens corrigidas com a mesma contagem de arquivos.
+  if(cached?.signature===localSignature)return cached.manifest;
   if(storageDisabledForSession)return {};
   const user=await requireUser();
   let manifest={};
@@ -157,14 +176,13 @@ async function uploadBankImages(bank){
 
   try{
     manifest={...await readStorageManifest(user.id,stableId)};
-    for(const [logicalName,value] of Object.entries(images)){
-      if(!String(value||"").startsWith("data:"))continue;
+    for(const [logicalName,value] of localEntries){
       const blob=dataUrlToBlob(value);
       if(!supportedMimeTypes.has(blob.type)){
         storageReport.skipped++;
         continue;
       }
-      const contentKey=hashString(String(value));
+      const contentKey=await imageContentKey(value);
       const fileName=`${contentKey}.${imageExtension(blob)}`;
       const objectPath=`${user.id}/${stableId}/${fileName}`;
       if(!uniqueImages.has(contentKey))uniqueImages.set(contentKey,{fileName,objectPath,blob});
@@ -186,7 +204,7 @@ async function uploadBankImages(bank){
       });
     }
     await writeStorageManifest(user.id,stableId,manifest);
-    imageManifestCache.set(stableId,manifest);
+    imageManifestCache.set(stableId,{signature:localSignature,manifest});
     return manifest;
   }catch(error){
     storageDisabledForSession=true;
