@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#07111f">
   <meta name="description" content="Plataforma de simulados de certificação.">
-  <title>Simulador Academy V6.4.5</title>
+  <title>Simulador Academy V6.5.0</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%232f7df4'/><text x='32' y='43' text-anchor='middle' font-size='34' font-family='Arial' font-weight='700' fill='white'>S</text></svg>">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=6.4.1">
+  <link rel="stylesheet" href="style.css?v=6.5.0">
   <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script type="module" src="app.js?v=6.4.2"></script>
+  <script type="module" src="app.js?v=6.5.0"></script>
 </head>
 <body>
 
@@ -95,6 +95,8 @@
               <div class="or"><span>ou</span></div>
               <label class="field"><span>Pacote ZIP</span><input id="zipFile" type="file" accept=".zip,application/zip"></label>
               <button id="importBankBtn" class="btn primary full">Importar banco</button>
+              <div class="or"><span>criação manual</span></div>
+              <button id="openDragDropBuilderBtn" class="btn secondary full" type="button">Montar questão drag-and-drop</button>
               <details class="help"><summary>Formato do CSV</summary><pre>id;categoria;tipo;pergunta;imagem_pergunta;alt_a;img_a;alt_b;img_b;alt_c;img_c;alt_d;img_d;alt_e;img_e;correta;feedback</pre></details>
             </div>
           </article>
@@ -239,6 +241,42 @@
         <button id="onboardingPrevBtn" class="btn secondary" type="button">← Anterior</button>
         <button id="onboardingSkipBtn" class="btn secondary" type="button">Sair</button>
         <button id="onboardingNextBtn" class="btn primary" type="button">Próximo →</button>
+      </div>
+    </section>
+  </div>
+
+  <div id="dragDropBuilderModal" class="builder-overlay hidden" aria-hidden="true">
+    <section class="dragdrop-builder" role="dialog" aria-modal="true" aria-labelledby="dragDropBuilderTitle">
+      <header class="builder-head">
+        <div><p class="eyebrow">EDITOR VISUAL</p><h2 id="dragDropBuilderTitle">Nova questão drag-and-drop</h2></div>
+        <button id="closeDragDropBuilderBtn" class="modal-close" type="button" aria-label="Fechar">×</button>
+      </header>
+      <div class="builder-grid">
+        <aside class="builder-form">
+          <label class="field"><span>Banco de destino</span><select id="dragDropBankSelect"></select></label>
+          <label id="dragDropNewBankField" class="field hidden"><span>Nome do novo banco</span><input id="dragDropNewBankName" placeholder="Ex.: Cisco SD-WAN — Drag and Drop"></label>
+          <div class="builder-two-cols">
+            <label class="field"><span>ID da questão</span><input id="dragDropQuestionId" placeholder="Ex.: 601"></label>
+            <label class="field"><span>Categoria</span><input id="dragDropCategory" placeholder="Ex.: Policies"></label>
+          </div>
+          <label class="field"><span>Enunciado</span><textarea id="dragDropQuestionText" rows="5" placeholder="Digite o enunciado completo..."></textarea></label>
+          <label class="field"><span>Imagem com as caixas vazias</span><input id="dragDropBackgroundFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+          <label class="field"><span>Cartões disponíveis — um por linha</span><textarea id="dragDropItemsText" rows="7" placeholder="reject&#10;tloc&#10;accept&#10;route&#10;drop"></textarea></label>
+          <p class="builder-help">Depois de carregar a imagem, crie as áreas de destino. Mova e redimensione cada caixa diretamente sobre a imagem e escolha o cartão correto.</p>
+          <div class="builder-actions">
+            <button id="addDragDropZoneBtn" class="btn secondary" type="button">+ Adicionar caixa</button>
+            <button id="saveDragDropQuestionBtn" class="btn primary" type="button">Salvar questão</button>
+          </div>
+          <label class="field"><span>Feedback</span><textarea id="dragDropFeedback" rows="5" placeholder="Explique a sequência correta..."></textarea></label>
+        </aside>
+        <main class="builder-canvas-column">
+          <div id="dragDropBuilderEmpty" class="builder-empty">Carregue a imagem-base para começar.</div>
+          <div id="dragDropBuilderStage" class="builder-stage hidden">
+            <img id="dragDropBuilderImage" alt="Imagem-base da questão">
+            <div id="dragDropZoneLayer" class="builder-zone-layer"></div>
+          </div>
+          <div id="dragDropZoneSummary" class="builder-zone-summary"></div>
+        </main>
       </div>
     </section>
   </div>

@@ -63,10 +63,14 @@ async function requireUser(){
 // conteúdo do banco e, portanto, permanece igual ao importar o mesmo CSV/ZIP.
 function stableBankId(bank){
   const questions=Array.isArray(bank?.questions)?bank.questions:[];
-  const source=questions.map(q=>[
-    q.id,q.pergunta,q.alt_a,q.alt_b,q.alt_c,q.alt_d,q.alt_e,
-    Array.isArray(q.correta)?q.correta.join(","):q.correta
-  ].map(v=>String(v??"").trim()).join("\u001f")).join("\u001e");
+  const source=questions.map(q=>{
+    const fields=[q.id,q.pergunta,q.alt_a,q.alt_b,q.alt_c,q.alt_d,q.alt_e,
+      Array.isArray(q.correta)?q.correta.join(","):q.correta];
+    // Questões tradicionais mantêm a assinatura antiga. O modelo visual só é
+    // acrescentado quando a questão realmente é drag-and-drop.
+    if(q.tipo==="dragdrop"||q.dragdrop)fields.push(JSON.stringify(q.dragdrop||{}));
+    return fields.map(v=>String(v??"").trim()).join("\u001f");
+  }).join("\u001e");
   let h1=0x811c9dc5,h2=0x9e3779b9;
   for(let i=0;i<source.length;i++){
     const c=source.charCodeAt(i);

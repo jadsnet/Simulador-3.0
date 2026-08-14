@@ -1,5 +1,5 @@
 import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=6.4.2";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=6.5.0";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 let onboardingStep=0,onboardingTarget=null;
@@ -12,6 +12,7 @@ const onboardingSteps=[
   {selector:'.side-link[data-page="history"]',icon:"◷",title:"Histórico",text:"Abra resultados anteriores e revise suas respostas.",placement:"right"}
 ];
 let banks=[],selectedBank=null,questions=[],answers={},currentIndex=0,timerSeconds=0,timerHandle=null,settings={},favorites=new Set(),marked=new Set(),notes={},reviewData=[],answerAudit=[];
+let dragDropBuilder={imageData:"",imageName:"",zones:[]},activeDragDropTokenId="";
 let authMode="signin",cloudSaveTimer=null,pendingCloudProgress=null,cloudSaveInFlight=false;
 document.addEventListener("DOMContentLoaded",init);
 
@@ -302,8 +303,8 @@ async function renderReviewLibrary(filter="all"){
           ${item.note?'<span title="Com anotação">📝</span>':""}
         </div>
         <h3>${esc(item.q.pergunta||"Questão sem enunciado")}</h3>
-        <p><strong>Sua resposta:</strong> ${esc((item.u||[]).join(", ")||"Não respondida")}</p>
-        <p><strong>Resposta correta:</strong> ${esc((item.r||[]).join(", ")||"Não informada")}</p>
+        <p><strong>Sua resposta:</strong> ${esc(formatAnswerForDisplay(item.q,item.u)||"Não respondida")}</p>
+        <p><strong>Resposta correta:</strong> ${esc(formatAnswerForDisplay(item.q,item.r)||"Não informada")}</p>
         ${item.note?`<div class="library-note"><strong>Minha anotação:</strong> ${esc(item.note)}</div>`:""}
       </div>
       <button class="btn secondary open-reviewed-question" type="button">Abrir questão</button>`;
@@ -488,7 +489,7 @@ function renderFlashcardCard(){
       </div>
       <div class="flashcard-question">${esc(item.q.pergunta||"")}</div>
       <div class="flashcard-answer ${flashcardRevealed?"":"hidden"}">
-        <p><strong>Resposta correta:</strong> ${esc((item.r||[]).join(", "))}</p>
+        <p><strong>Resposta correta:</strong> ${esc(formatAnswerForDisplay(item.q,item.r))}</p>
         ${item.q.feedback?`<p>${esc(item.q.feedback)}</p>`:""}
       </div>
       <div class="flashcard-actions">
@@ -608,7 +609,7 @@ async function renderGlobalSearch(){
   const rows=await collectReviewedQuestions();
   const filtered=rows.filter(item=>{
     const q=item.q||{};
-    const text=[q.pergunta,q.feedback,q.categoria,q.alt_a,q.alt_b,q.alt_c,q.alt_d,q.alt_e,(item.r||[]).join(" ")].join(" ").toLowerCase();
+    const text=[q.pergunta,q.feedback,q.categoria,q.alt_a,q.alt_b,q.alt_c,q.alt_d,q.alt_e,formatAnswerForDisplay(q,item.r)].join(" ").toLowerCase();
     if(term&&!text.includes(term))return false;
     if(filter==="wrong"&&item.ok)return false;
     if(filter==="favorite"&&!item.favorite)return false;
@@ -621,7 +622,7 @@ async function renderGlobalSearch(){
       <div>
         <span class="review-category">${esc(item.q.categoria||"Sem categoria")}</span>
         <h3>${esc(item.q.pergunta||"")}</h3>
-        <p>${item.ok?"✓ Respondida corretamente":"✕ Respondida incorretamente"} · correta: ${esc((item.r||[]).join(", "))}</p>
+        <p>${item.ok?"✓ Respondida corretamente":"✕ Respondida incorretamente"} · correta: ${esc(formatAnswerForDisplay(item.q,item.r))}</p>
       </div>
       <button class="btn secondary search-open-question" data-history="${esc(item.historyId)}">Abrir</button>
     </article>`).join(""):'<div class="empty-state">Nenhum resultado encontrado.</div>';
@@ -938,6 +939,14 @@ function bind(){
   $("refreshBanksBtn").onclick=refreshHome;
   window.setTimeout(scanLegacyProgress,300);
   $("importBankBtn").onclick=importBank;
+  $("openDragDropBuilderBtn").onclick=openDragDropBuilder;
+  $("closeDragDropBuilderBtn").onclick=closeDragDropBuilder;
+  $("dragDropBuilderModal").onclick=e=>{if(e.target===$("dragDropBuilderModal"))closeDragDropBuilder()};
+  $("dragDropBackgroundFile").onchange=loadDragDropBuilderImage;
+  $("dragDropBankSelect").onchange=updateDragDropBankMode;
+  $("dragDropItemsText").oninput=renderDragDropBuilderZones;
+  $("addDragDropZoneBtn").onclick=addDragDropBuilderZone;
+  $("saveDragDropQuestionBtn").onclick=saveDragDropQuestion;
   $("exportBackupBtn").onclick=exportBackup;
   $("importBackupBtn").onclick=importBackup;
   $("backHomeBtn").onclick=showHome;
@@ -1096,6 +1105,7 @@ async function refreshHome(){
   showLoading(true,"Carregando biblioteca...");
   banks=await getAll("banks");
   renderBanks();
+  populateDragDropBankSelect();
   const history = await getAll("history");
   renderHistory(history);
   await renderDashboard(history);
@@ -1134,7 +1144,7 @@ async function renderDashboard(history){
   const pr=progress.sort((a,b)=>(b.savedAt||"").localeCompare(a.savedAt||""))[0];
   const bank=await get("banks",pr.bankId);
   if(!bank) return;
-  const answered=Object.values(pr.answers||{}).filter(v=>Array.isArray(v)&&v.length).length;
+  const answered=Object.values(pr.answers||{}).filter(storedAnswerHasValue).length;
   const pct=Math.round(answered/pr.order.length*100);
   area.innerHTML=`<div class="resume-box" style="margin:0"><div><span>Em andamento</span><strong>${esc(bank.name)}</strong><p>${answered}/${pr.order.length} respondidas · ${pct}%</p></div><button class="btn primary" id="dashResume">Continuar</button></div>`;
   document.getElementById("dashResume").onclick=async()=>{await showSetup(bank.id);await resume();};
@@ -1433,7 +1443,7 @@ async function scanLegacyProgress(showFeedback=false){
       if(best&&bestScore>=Math.max(1,Math.ceil(order.length*.6)))bank=best;
     }
 
-    const answered=Object.values(pr.answers||{}).filter(v=>Array.isArray(v)&&v.length).length;
+    const answered=Object.values(pr.answers||{}).filter(storedAnswerHasValue).length;
     rows.push({pr,bank,answered,total:order.length});
   }
 
@@ -1590,6 +1600,177 @@ async function openHistoryDetails(historyId){
   window.scrollTo({top:0,behavior:"smooth"});
 }
 
+function populateDragDropBankSelect(){
+  const select=$("dragDropBankSelect");
+  if(!select)return;
+  const current=select.value;
+  select.innerHTML=banks.map(bank=>`<option value="${esc(bank.id)}">${esc(bank.name)} (${bank.questions?.length||0})</option>`).join("")
+    +'<option value="__new__">＋ Criar um banco novo</option>';
+  if(banks.some(bank=>bank.id===current))select.value=current;
+  else if(!banks.length)select.value="__new__";
+  updateDragDropBankMode();
+}
+
+function openDragDropBuilder(){
+  populateDragDropBankSelect();
+  dragDropBuilder={imageData:"",imageName:"",zones:[]};
+  $("dragDropQuestionId").value="";
+  $("dragDropCategory").value="";
+  $("dragDropQuestionText").value="";
+  $("dragDropItemsText").value="";
+  $("dragDropFeedback").value="";
+  $("dragDropNewBankName").value="";
+  $("dragDropBackgroundFile").value="";
+  $("dragDropBuilderImage").removeAttribute("src");
+  $("dragDropBuilderStage").classList.add("hidden");
+  $("dragDropBuilderEmpty").classList.remove("hidden");
+  renderDragDropBuilderZones();
+  $("dragDropBuilderModal").classList.remove("hidden");
+  $("dragDropBuilderModal").setAttribute("aria-hidden","false");
+}
+
+function updateDragDropBankMode(){
+  const creating=$("dragDropBankSelect")?.value==="__new__";
+  $("dragDropNewBankField")?.classList.toggle("hidden",!creating);
+}
+
+function closeDragDropBuilder(){
+  $("dragDropBuilderModal").classList.add("hidden");
+  $("dragDropBuilderModal").setAttribute("aria-hidden","true");
+}
+
+async function loadDragDropBuilderImage(){
+  const file=$("dragDropBackgroundFile").files[0];
+  if(!file)return;
+  dragDropBuilder.imageData=await fileToDataURL(file);
+  dragDropBuilder.imageName=`manual-dragdrop-${Date.now()}-${normPath(file.name).split("/").pop()}`;
+  const image=$("dragDropBuilderImage");
+  image.onload=()=>{
+    $("dragDropBuilderEmpty").classList.add("hidden");
+    $("dragDropBuilderStage").classList.remove("hidden");
+    renderDragDropBuilderZones();
+  };
+  image.src=dragDropBuilder.imageData;
+}
+
+function dragDropBuilderItems(){
+  return $("dragDropItemsText").value.split(/\r?\n/)
+    .map(text=>text.trim()).filter(Boolean)
+    .map((text,index)=>({id:`item-${index+1}`,text}));
+}
+
+function addDragDropBuilderZone(){
+  if(!dragDropBuilder.imageData){alert("Carregue primeiro a imagem-base da questão.");return}
+  const index=dragDropBuilder.zones.length;
+  dragDropBuilder.zones.push({
+    id:`zone-${crypto.randomUUID()}`,
+    x:Math.min(72,12+(index%4)*7),y:Math.min(82,18+index*11),w:18,h:7,correctItemId:""
+  });
+  renderDragDropBuilderZones();
+}
+
+function renderDragDropBuilderZones(){
+  const layer=$("dragDropZoneLayer"),summary=$("dragDropZoneSummary");
+  if(!layer||!summary)return;
+  layer.innerHTML="";summary.innerHTML="";
+  const items=dragDropBuilderItems();
+
+  dragDropBuilder.zones.forEach((zone,index)=>{
+    if(!items.some(item=>item.id===zone.correctItemId))zone.correctItemId="";
+    const el=document.createElement("div");
+    el.className="builder-zone";
+    el.dataset.zoneId=zone.id;
+    Object.assign(el.style,{left:`${zone.x}%`,top:`${zone.y}%`,width:`${zone.w}%`,height:`${zone.h}%`});
+    const number=document.createElement("strong");number.textContent=index+1;
+    const select=document.createElement("select");
+    select.innerHTML='<option value="">Resposta...</option>'+items.map(item=>`<option value="${esc(item.id)}">${esc(item.text)}</option>`).join("");
+    select.value=zone.correctItemId;
+    select.onpointerdown=e=>e.stopPropagation();
+    select.onchange=()=>{zone.correctItemId=select.value;renderDragDropBuilderSummary()};
+    el.append(number,select);layer.appendChild(el);
+    enableBuilderZoneMove(el,zone);
+    const observer=new ResizeObserver(()=>syncBuilderZoneGeometry(el,zone));
+    observer.observe(el);
+  });
+  renderDragDropBuilderSummary();
+}
+
+function renderDragDropBuilderSummary(){
+  const summary=$("dragDropZoneSummary"),items=dragDropBuilderItems();
+  summary.innerHTML="";
+  dragDropBuilder.zones.forEach((zone,index)=>{
+    const answer=items.find(item=>item.id===zone.correctItemId)?.text||"Resposta não definida";
+    const row=document.createElement("div");row.className="builder-zone-row";
+    row.innerHTML=`<span><strong>Caixa ${index+1}</strong> · ${esc(answer)}</span>`;
+    const remove=document.createElement("button");remove.type="button";remove.textContent="Remover";
+    remove.onclick=()=>{dragDropBuilder.zones=dragDropBuilder.zones.filter(item=>item.id!==zone.id);renderDragDropBuilderZones()};
+    row.appendChild(remove);summary.appendChild(row);
+  });
+}
+
+function syncBuilderZoneGeometry(el,zone){
+  const layer=$("dragDropZoneLayer"),bounds=layer.getBoundingClientRect(),rect=el.getBoundingClientRect();
+  if(!bounds.width||!bounds.height)return;
+  zone.x=Math.max(0,Math.min(100,(rect.left-bounds.left)/bounds.width*100));
+  zone.y=Math.max(0,Math.min(100,(rect.top-bounds.top)/bounds.height*100));
+  zone.w=Math.max(3,Math.min(100-zone.x,rect.width/bounds.width*100));
+  zone.h=Math.max(3,Math.min(100-zone.y,rect.height/bounds.height*100));
+}
+
+function enableBuilderZoneMove(el,zone){
+  el.onpointerdown=event=>{
+    if(event.target.closest("select")||event.offsetX>el.clientWidth-18&&event.offsetY>el.clientHeight-18)return;
+    event.preventDefault();el.setPointerCapture(event.pointerId);
+    const layer=$("dragDropZoneLayer"),bounds=layer.getBoundingClientRect();
+    const start={x:event.clientX,y:event.clientY,left:zone.x,top:zone.y};
+    el.onpointermove=move=>{
+      const x=start.left+(move.clientX-start.x)/bounds.width*100;
+      const y=start.top+(move.clientY-start.y)/bounds.height*100;
+      zone.x=Math.max(0,Math.min(100-zone.w,x));zone.y=Math.max(0,Math.min(100-zone.h,y));
+      el.style.left=`${zone.x}%`;el.style.top=`${zone.y}%`;
+    };
+    el.onpointerup=()=>{el.onpointermove=null;syncBuilderZoneGeometry(el,zone)};
+  };
+}
+
+async function saveDragDropQuestion(){
+  const bankId=$("dragDropBankSelect").value;
+  let bank=bankId==="__new__"?null:await get("banks",bankId);
+  const id=$("dragDropQuestionId").value.trim();
+  const questionText=$("dragDropQuestionText").value.trim();
+  const items=dragDropBuilderItems();
+  if(bankId==="__new__"){
+    const bankName=$("dragDropNewBankName").value.trim();
+    if(!bankName)return alert("Informe o nome do novo banco.");
+    bank=makeBank(bankName,[],{});
+  }
+  if(!bank)return alert("Selecione um banco válido.");
+  if(!id)return alert("Informe um ID para a questão.");
+  if(bank.questions.some(question=>String(question.id)===id))return alert(`Já existe uma questão com o ID ${id}.`);
+  if(!questionText)return alert("Digite o enunciado da questão.");
+  if(!dragDropBuilder.imageData)return alert("Carregue a imagem-base.");
+  if(items.length<2)return alert("Cadastre pelo menos dois cartões.");
+  if(!dragDropBuilder.zones.length)return alert("Adicione pelo menos uma caixa de destino.");
+  if(dragDropBuilder.zones.some(zone=>!zone.correctItemId))return alert("Defina a resposta correta de todas as caixas.");
+
+  const imageKey=normPath(dragDropBuilder.imageName);
+  const question={
+    id,categoria:$("dragDropCategory").value.trim(),tipo:"dragdrop",pergunta:questionText,
+    imagem_pergunta:imageKey,correta:"",feedback:$("dragDropFeedback").value.trim(),
+    dragdrop:{version:1,image:imageKey,items,zones:dragDropBuilder.zones.map(zone=>({...zone}))}
+  };
+  bank.questions=[...(bank.questions||[]),question];
+  bank.images={...(bank.images||{}),[imageKey]:dragDropBuilder.imageData};
+  await put("banks",bank);
+  markCloudDirty("questão drag-and-drop adicionada");
+  if(getCloudUser()){
+    try{await ensureCloudBank(bank)}catch(error){console.error("Sincronização da questão drag-and-drop pendente",error)}
+  }
+  closeDragDropBuilder();
+  await refreshHome();
+  toast(`Questão ${id} adicionada ao banco ${bank.name}.`);
+}
+
 async function importBank(){
   try{
     showLoading(true,"Importando banco...");
@@ -1722,8 +1903,8 @@ function normalizeQuestions(rows){
     const x={};
     for(const[k,v]of Object.entries(q))x[k.trim().toLowerCase()]=typeof v==="string"?v.trim():v;
     x.id=String(x.id||i+1);
-    x.tipo=/multiple|multipla|múltipla|multi/i.test(x.tipo||"")?"multiple":"single";
-    x.correta=normAnswers(x.correta);
+    x.tipo=/drag.?drop|arrastar/i.test(x.tipo||"")?"dragdrop":/multiple|multipla|múltipla|multi/i.test(x.tipo||"")?"multiple":"single";
+    x.correta=x.tipo==="dragdrop"?x.correta:normAnswers(x.correta);
     return x;
   }).filter(q=>q.pergunta);
 
@@ -1850,19 +2031,20 @@ function renderQuestion(){
 
   $("currentQuestion").textContent=currentIndex+1;
   $("totalQuestions").textContent=questions.length;
-  $("answeredCount").textContent=Object.keys(answers).filter(k=>(answers[k]||[]).length).length;
+  $("answeredCount").textContent=questions.filter(question=>isQuestionAnswered(question,answers[question.id])).length;
   $("progressBar").style.width=`${(currentIndex+1)/questions.length*100}%`;
   $("questionText").textContent=q.pergunta||"";
   $("categoryBadge").textContent=q.categoria||"";
   $("categoryBadge").classList.toggle("hidden",!q.categoria);
-  $("typeBadge").textContent=q.tipo==="multiple"?"Múltiplas respostas":"Resposta única";
+  $("typeBadge").textContent=q.tipo==="dragdrop"?"Arrastar e soltar":q.tipo==="multiple"?"Múltiplas respostas":"Resposta única";
   $("multipleNotice").classList.toggle("hidden",q.tipo!=="multiple");
 
   updateQuestionActions(q);
   updateLiveCounts();
   renderNavigator();
 
-  renderImage("questionImageWrap","questionImage",q.imagem_pergunta);
+  if(q.tipo==="dragdrop")$("questionImageWrap").classList.add("hidden");
+  else renderImage("questionImageWrap","questionImage",q.imagem_pergunta);
   renderOptions(q);
 
   $("prevBtn").disabled=currentIndex===0;
@@ -1874,6 +2056,11 @@ function renderQuestion(){
 function renderOptions(q){
   const c=$("optionsContainer");
   c.innerHTML="";
+
+  if(q.tipo==="dragdrop"){
+    renderDragDropQuestion(q,c);
+    return;
+  }
 
   for(const l of LETTERS){
     const t=q[`alt_${l}`],img=q[`img_${l}`];
@@ -1900,6 +2087,121 @@ function renderOptions(q){
     label.append(input,content);
     c.appendChild(label);
   }
+}
+
+function dragDropDefinition(q){
+  const definition=q?.dragdrop&&typeof q.dragdrop==="object"?q.dragdrop:{};
+  return {
+    image:definition.image||q?.imagem_pergunta||"",
+    items:Array.isArray(definition.items)?definition.items.filter(item=>item&&item.id):[],
+    zones:Array.isArray(definition.zones)?definition.zones.filter(zone=>zone&&zone.id):[]
+  };
+}
+
+function normalizeDragDropAnswer(q,value){
+  const definition=dragDropDefinition(q),validZones=new Set(definition.zones.map(zone=>zone.id));
+  const validItems=new Set(definition.items.map(item=>item.id));
+  const source=value&&typeof value==="object"&&!Array.isArray(value)?value:{};
+  const normalized={};
+  for(const [zoneId,itemId] of Object.entries(source)){
+    if(validZones.has(zoneId)&&validItems.has(itemId))normalized[zoneId]=itemId;
+  }
+  return normalized;
+}
+
+function expectedDragDropAnswer(q){
+  return Object.fromEntries(dragDropDefinition(q).zones
+    .filter(zone=>zone.correctItemId)
+    .map(zone=>[zone.id,zone.correctItemId]));
+}
+
+function dragDropAnswersEqual(q,user){
+  const expected=expectedDragDropAnswer(q),actual=normalizeDragDropAnswer(q,user);
+  const zones=dragDropDefinition(q).zones.map(zone=>zone.id);
+  return zones.length>0&&zones.every(zoneId=>actual[zoneId]===expected[zoneId]);
+}
+
+function isQuestionAnswered(q,value){
+  if(q?.tipo==="dragdrop")return Object.keys(normalizeDragDropAnswer(q,value)).length>0;
+  return Array.isArray(value)&&value.length>0;
+}
+
+function storedAnswerHasValue(value){
+  return Array.isArray(value)?value.length>0:Boolean(value&&typeof value==="object"&&Object.keys(value).length);
+}
+
+function isQuestionComplete(q,value){
+  if(q?.tipo==="dragdrop"){
+    const answer=normalizeDragDropAnswer(q,value);
+    return dragDropDefinition(q).zones.length>0&&dragDropDefinition(q).zones.every(zone=>answer[zone.id]);
+  }
+  return isQuestionAnswered(q,value);
+}
+
+function renderDragDropQuestion(q,container){
+  const definition=dragDropDefinition(q),answer=normalizeDragDropAnswer(q,answers[q.id]);
+  const root=document.createElement("div");root.className="dragdrop-question";
+  const instruction=document.createElement("div");instruction.className="dragdrop-instruction";
+  instruction.textContent="Arraste os cartões para as caixas. No celular, toque em um cartão e depois na caixa desejada. Nem todos os cartões precisam ser utilizados.";
+  root.appendChild(instruction);
+
+  const imageUrl=resolveImage(definition.image);
+  if(imageUrl){
+    const stage=document.createElement("div");stage.className="dragdrop-runtime-stage";
+    const image=document.createElement("img");image.src=imageUrl;image.alt="Diagrama da questão drag-and-drop";
+    image.onclick=event=>{if(event.target===image)openModal(imageUrl)};
+    const layer=document.createElement("div");layer.className="dragdrop-runtime-zone-layer";
+    definition.zones.forEach((zone,index)=>{
+      const target=document.createElement("div");target.className="dragdrop-runtime-zone";
+      target.dataset.zoneId=zone.id;
+      Object.assign(target.style,{left:`${zone.x}%`,top:`${zone.y}%`,width:`${zone.w}%`,height:`${zone.h}%`});
+      const item=definition.items.find(candidate=>candidate.id===answer[zone.id]);
+      target.textContent=item?.text||`Caixa ${index+1}`;
+      target.classList.toggle("filled",Boolean(item));
+      target.ondragover=event=>{event.preventDefault();target.classList.add("active")};
+      target.ondragleave=()=>target.classList.remove("active");
+      target.ondrop=event=>{event.preventDefault();assignDragDropItem(q,zone.id,event.dataTransfer.getData("text/plain"))};
+      target.onclick=()=>{if(activeDragDropTokenId)assignDragDropItem(q,zone.id,activeDragDropTokenId)};
+      if(item){
+        const clear=document.createElement("button");clear.type="button";clear.textContent="×";clear.title="Remover cartão";
+        clear.onclick=event=>{event.stopPropagation();clearDragDropZone(q,zone.id)};
+        target.appendChild(clear);
+      }
+      layer.appendChild(target);
+    });
+    stage.append(image,layer);root.appendChild(stage);
+  }else{
+    const warning=document.createElement("div");warning.className="notice";warning.textContent="A imagem-base desta questão não está disponível neste dispositivo.";root.appendChild(warning);
+  }
+
+  const pool=document.createElement("div");pool.className="dragdrop-pool";
+  const used=new Set(Object.values(answer));
+  definition.items.forEach(item=>{
+    const token=document.createElement("button");token.type="button";token.className="dragdrop-token";
+    token.textContent=item.text;token.draggable=true;token.classList.toggle("used",used.has(item.id));
+    token.classList.toggle("selected",activeDragDropTokenId===item.id);
+    token.ondragstart=event=>event.dataTransfer.setData("text/plain",item.id);
+    token.onclick=()=>{activeDragDropTokenId=activeDragDropTokenId===item.id?"":item.id;renderQuestion()};
+    pool.appendChild(token);
+  });
+  root.appendChild(pool);container.appendChild(root);
+}
+
+function assignDragDropItem(q,zoneId,itemId){
+  const definition=dragDropDefinition(q);
+  if(!definition.items.some(item=>item.id===itemId))return;
+  const answer=normalizeDragDropAnswer(q,answers[q.id]);
+  for(const [existingZone,existingItem] of Object.entries(answer))if(existingItem===itemId)delete answer[existingZone];
+  answer[zoneId]=itemId;answers[q.id]=answer;activeDragDropTokenId="";
+  answerAudit.push({at:new Date().toISOString(),questionId:String(q.id),questionSignature:questionSignature(q),selected:{...answer}});
+  if(answerAudit.length>5000)answerAudit=answerAudit.slice(-5000);
+  settings.__answerAudit=answerAudit;renderQuestion();
+}
+
+function clearDragDropZone(q,zoneId){
+  const answer=normalizeDragDropAnswer(q,answers[q.id]);delete answer[zoneId];
+  if(Object.keys(answer).length)answers[q.id]=answer;else delete answers[q.id];
+  renderQuestion();
 }
 
 function selectAnswer(q,a){
@@ -1968,7 +2270,7 @@ function renderNavigator(){
   questions.forEach((q,i)=>{
     const b=document.createElement("button");
     b.className="nav-number";
-    if((answers[q.id]||[]).length)b.classList.add("answered");
+    if(isQuestionAnswered(q,answers[q.id]))b.classList.add("answered");
     if(marked.has(q.id))b.classList.add("marked");
     if(favorites.has(q.id))b.classList.add("favorite");
     if(String(notes[q.id]||"").trim())b.classList.add("note");
@@ -2037,7 +2339,7 @@ function updateQuestionActions(q){
 }
 
 function updateLiveCounts(){
-  const answered=questions.filter(q=>(answers[q.id]||[]).length).length;
+  const answered=questions.filter(q=>isQuestionAnswered(q,answers[q.id])).length;
   const noteCount=questions.filter(q=>String(notes[q.id]||"").trim()).length;
   if($("liveAnswered"))$("liveAnswered").textContent=answered;
   if($("liveRemaining"))$("liveRemaining").textContent=Math.max(0,questions.length-answered);
@@ -2174,7 +2476,7 @@ async function finish(){
     return;
   }
   answers=validation.answers;
-  const unanswered=questions.filter(q=>!(answers[q.id]||[]).length).length;
+  const unanswered=questions.filter(q=>!isQuestionComplete(q,answers[q.id])).length;
   if(marked.size&&!confirm(`Há ${marked.size} questão(ões) marcada(s) para revisão. Deseja finalizar mesmo assim?`))return;
   if(settings.warn&&unanswered&&!confirm(`Há ${unanswered} não respondidas. Finalizar?`))return;
 
@@ -2184,15 +2486,16 @@ async function finish(){
   reviewData=[];
 
   for(const q of questions){
-    const u=normAnswers(answers[q.id]||[]);
-    const r=normAnswers(q.correta);
-    const ok=eq(u,r);
+    const dragdrop=q.tipo==="dragdrop";
+    const u=dragdrop?normalizeDragDropAnswer(q,answers[q.id]):normAnswers(answers[q.id]||[]);
+    const r=dragdrop?expectedDragDropAnswer(q):normAnswers(q.correta);
+    const ok=dragdrop?dragDropAnswersEqual(q,u):eq(u,r);
 
     if(ok)correct++;
 
     reviewData.push({
       q,u,r,ok,
-      unanswered:!u.length,
+      unanswered:dragdrop?!isQuestionComplete(q,u):!u.length,
       favorite:favorites.has(q.id),
       marked:marked.has(q.id),
       note:notes[q.id]||""
@@ -2297,11 +2600,11 @@ function renderReview(items){
 
     const ua=document.createElement("div");
     ua.className="review-answer user";
-    ua.textContent=`Sua resposta: ${x.u.join(", ")||"Não respondida"}`;
+    ua.textContent=x.q.tipo==="dragdrop"?"Sua montagem:":`Sua resposta: ${x.u.join(", ")||"Não respondida"}`;
 
     const ca=document.createElement("div");
     ca.className="review-answer correct";
-    ca.textContent="Resposta correta:";
+    ca.textContent=x.q.tipo==="dragdrop"?"Comparação das caixas:":"Resposta correta:";
 
     e.append(cat,h,qt);
 
@@ -2310,7 +2613,9 @@ function renderReview(items){
 
     e.append(ua,ca);
 
-    if(x.r.length){
+    if(x.q.tipo==="dragdrop"){
+      e.appendChild(makeDragDropReview(x.q,x.u,x.r));
+    }else if(x.r.length){
       const correctOptions=document.createElement("div");
       correctOptions.className="review-correct-options";
 
@@ -2359,6 +2664,30 @@ function renderReview(items){
 
     box.appendChild(e);
   });
+}
+
+function makeDragDropReview(q,userAnswer,correctAnswer){
+  const definition=dragDropDefinition(q),items=new Map(definition.items.map(item=>[item.id,item.text]));
+  const grid=document.createElement("div");grid.className="dragdrop-review-grid";
+  const makeColumn=(title,map,className)=>{
+    const column=document.createElement("div");column.className=`dragdrop-review-map ${className}`;
+    const heading=document.createElement("strong");heading.textContent=title;
+    const list=document.createElement("ol");
+    definition.zones.forEach((zone,index)=>{
+      const row=document.createElement("li");
+      const itemId=map?.[zone.id];row.textContent=`Caixa ${index+1}: ${items.get(itemId)||"Não preenchida"}`;list.appendChild(row);
+    });
+    column.append(heading,list);return column;
+  };
+  grid.append(makeColumn("Sua resposta",userAnswer,"user-wrong"),makeColumn("Resposta correta",correctAnswer,"correct-map"));
+  return grid;
+}
+
+function formatAnswerForDisplay(q,value){
+  if(q?.tipo!=="dragdrop")return Array.isArray(value)?value.join(", "):"";
+  const definition=dragDropDefinition(q),items=new Map(definition.items.map(item=>[item.id,item.text]));
+  const answer=value&&typeof value==="object"&&!Array.isArray(value)?value:{};
+  return definition.zones.map((zone,index)=>`Caixa ${index+1}: ${items.get(answer[zone.id])||"vazia"}`).join(" · ");
 }
 
 function makeLabeledImage(title,url){
@@ -2465,7 +2794,9 @@ function normAnswers(v){
 }
 
 function questionSignature(q){
-  const source=[q.id,q.tipo,q.pergunta,q.alt_a,q.alt_b,q.alt_c,q.alt_d,q.alt_e,normAnswers(q.correta).join(",")]
+  const correct=q.tipo==="dragdrop"?JSON.stringify(expectedDragDropAnswer(q)):normAnswers(q.correta).join(",");
+  const source=[q.id,q.tipo,q.pergunta,q.alt_a,q.alt_b,q.alt_c,q.alt_d,q.alt_e,correct,
+    q.tipo==="dragdrop"?JSON.stringify(q.dragdrop||{}):""]
     .map(value=>String(value??"").trim()).join("\u001f");
   return hashText(source);
 }
@@ -2493,6 +2824,11 @@ function validateSavedAnswers(list,saved){
       return;
     }
     seen.add(id);
+    if(q.tipo==="dragdrop"){
+      const value=normalizeDragDropAnswer(q,saved?.[id]);
+      if(Object.keys(value).length)normalized[id]=value;
+      return;
+    }
     const values=normAnswers(saved?.[id]||[]);
     if(q.tipo==="single"&&values.length>1){
       conflicts.push({position:index+1,id,reason:`questão single com ${values.length} alternativas (${values.join(", ")})`});

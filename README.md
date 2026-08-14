@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão" src="https://img.shields.io/badge/versão-V6.4.5-2F7DF4">
+  <img alt="Versão" src="https://img.shields.io/badge/versão-V6.5.0-2F7DF4">
   <img alt="Status" src="https://img.shields.io/badge/status-estável-22C55E">
   <img alt="PWA" src="https://img.shields.io/badge/PWA-ready-8B5CF6">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-cloud-3ECF8E">
@@ -183,6 +183,23 @@ id;categoria;tipo;pergunta;imagem_pergunta;alt_a;img_a;alt_b;img_b;alt_c;img_c;a
 
 > Use codificação UTF-8 para preservar acentos e caracteres especiais.
 
+### Editor visual de questões drag-and-drop
+
+Questões drag-and-drop podem ser adicionadas diretamente pela área **Importar banco**, sem editar o CSV:
+
+1. Escolha um banco existente ou crie um banco novo diretamente no editor.
+2. Clique em **Montar questão drag-and-drop**.
+3. Escolha o banco, informe ID, categoria, enunciado e feedback.
+4. Carregue uma imagem que contenha as caixas vazias.
+5. Digite os cartões disponíveis, um por linha.
+6. Use **Adicionar caixa** para criar cada área de destino.
+7. Mova e redimensione as áreas sobre a imagem e selecione a resposta correta de cada uma.
+8. Salve a questão.
+
+Durante o simulado, os cartões podem ser arrastados com o mouse. Em dispositivos de toque, selecione um cartão e depois toque na caixa de destino. Opções extras podem permanecer sem utilização.
+
+O modelo é armazenado com coordenadas percentuais, por isso as áreas acompanham o redimensionamento da imagem em computadores e celulares. A resposta, o progresso e a revisão também são sincronizados com o restante do banco.
+
 ---
 
 ## ☁️ Arquitetura e sincronização
@@ -284,7 +301,7 @@ Simulador-3.0-main/
 
 ---
 
-## ✅ Status da V6.4.5
+## ✅ Status da V6.5.0
 
 - [x] Progresso entre computadores
 - [x] Histórico completo por usuário
@@ -292,6 +309,7 @@ Simulador-3.0-main/
 - [x] Manifesto canônico de imagens
 - [x] Sincronização incremental
 - [x] Importação CSV, pasta e ZIP
+- [x] Editor visual para criar questões drag-and-drop manualmente
 - [x] Revisão inteligente
 - [x] Estatísticas e gráficos
 - [x] Flashcards
