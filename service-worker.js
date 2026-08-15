@@ -1,4 +1,4 @@
-const CACHE="simulador-academy-v6-6-7-subtle-active-buttons";
+const CACHE="simulador-academy-v6-7-0-system-wide-button-style";
 const ASSETS=["./","./index.html","./style.css","./app.js","./db.js","./cloud.js","./manifest.webmanifest"];
 self.addEventListener("install",e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)))});
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==CACHE).map(x=>caches.delete(x)))).then(()=>self.clients.claim())));
