@@ -1,4 +1,4 @@
-const CACHE="simulador-academy-v7-0-0-material-visual-refresh";
+const CACHE="simulador-academy-v7-1-0-borderless-floating-headers";
 const ASSETS=["./","./index.html","./style.css","./app.js","./db.js","./cloud.js","./manifest.webmanifest"];
 self.addEventListener("install",e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)))});
 self.addEventListener("activate",e=>e.waitUntil(caches.keys().then(k=>Promise.all(k.filter(x=>x!==CACHE).map(x=>caches.delete(x)))).then(()=>self.clients.claim())));
