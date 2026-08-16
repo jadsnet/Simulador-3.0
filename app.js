@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.9.9";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.0";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -40,7 +40,12 @@ function setupRichTextToolbars(){
   ids.forEach(id=>{
     const textarea=$(id);if(!textarea||textarea.dataset.visualEditor)return;
     textarea.dataset.visualEditor="true";textarea.classList.add("rich-editor-source");
-    const field=textarea.closest(".field"),title=field?.querySelector(":scope > span");
+    let field=textarea.closest(".field");
+    if(field?.tagName==="LABEL"){
+      const neutralField=document.createElement("div");neutralField.className=field.className;
+      while(field.firstChild)neutralField.appendChild(field.firstChild);field.replaceWith(neutralField);field=neutralField;
+    }
+    const title=field?.querySelector(":scope > span");
     const heading=document.createElement("div");heading.className="rich-field-heading";
     if(title)heading.appendChild(title);
     const bar=document.createElement("div");bar.className="mini-text-toolbar";bar.setAttribute("role","toolbar");bar.setAttribute("aria-label","Formatar texto");
