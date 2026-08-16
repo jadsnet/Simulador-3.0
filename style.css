@@ -1194,3 +1194,10 @@ body.theme-light.quiz-mode{background:radial-gradient(circle at 7% -8%,rgba(255,
 .review-correct-option-text .option-letter{display:grid;align-self:center;justify-self:center;width:30px;height:30px;min-width:30px;min-height:30px;margin:0;padding:0;place-items:center;text-align:center;line-height:30px;font-size:.88rem;font-weight:800}
 .review-correct-option-text>span:last-child{align-self:center;min-width:0;line-height:1.45}
 @media(max-width:700px){.review-correct-option-text{grid-template-columns:28px minmax(0,1fr);align-items:center}.review-correct-option-text .option-letter{width:28px;height:28px;min-width:28px;min-height:28px;line-height:28px}}
+
+/* V7.4.3 — imagem da alternativa abaixo do texto no histórico */
+.review-correct-option{display:grid;grid-template-columns:minmax(0,1fr);align-items:start;min-height:0;padding:13px 14px}
+.review-correct-option-text{grid-row:1;width:100%}
+.review-correct-option .image-scroll{grid-row:2;width:100%;max-width:100%;margin:12px 0 0;padding:10px;overflow:hidden}
+.review-correct-option .image-scroll .source-image,.review-correct-option .image-scroll img{display:block;width:auto;max-width:100%;height:auto;max-height:700px;margin:0 auto;object-fit:contain}
+@media(max-width:700px){.review-correct-option{padding:11px}.review-correct-option .image-scroll{margin-top:10px;padding:6px}.review-correct-option .image-scroll .source-image,.review-correct-option .image-scroll img{max-height:70vh}}
