@@ -1091,3 +1091,23 @@ input[type="file"]::file-selector-button{margin:-5px 10px -5px -7px;padding:7px 
 .bank-actions .action-menu-trigger>span,.question-action-menu .action-menu-trigger>span,.bank-actions .action-menu-trigger>span:nth-child(1),.bank-actions .action-menu-trigger>span:nth-child(2),.bank-actions .action-menu-trigger>span:nth-child(3),.question-action-menu .action-menu-trigger>span:nth-child(1),.question-action-menu .action-menu-trigger>span:nth-child(2),.question-action-menu .action-menu-trigger>span:nth-child(3){flex:0 0 1px;width:10px;height:1px;min-height:1px;border-radius:999px}
 .bank-actions .action-menu-trigger:hover>span:nth-child(2),.question-action-menu .action-menu-trigger:hover>span:nth-child(2){width:10px}
 .question-action-menu{width:17px}.bank-manager-question{grid-template-columns:42px minmax(0,1fr) 22px}
+
+/* V7.2 — menus sobrepostos, campos mais escuros e seletor de tema */
+.action-menu-portal{z-index:60000!important}
+.field input,.field textarea,.field select,.inline-form input,.inline-form select,.builder-form textarea,.builder-form select,.search,.common-alternative textarea{background:linear-gradient(145deg,#050d17,#07111d)!important;box-shadow:inset 0 3px 7px rgba(0,0,0,.42),0 1px 0 rgba(255,255,255,.018)!important}
+.field input:hover,.field textarea:hover,.field select:hover,.inline-form input:hover,.inline-form select:hover,.builder-form textarea:hover,.builder-form select:hover{background:#071321!important}
+.field input:focus,.field textarea:focus,.field select:focus,.inline-form input:focus,.inline-form select:focus,.builder-form textarea:focus,.builder-form select:focus{background:#081522!important;box-shadow:0 0 0 2px rgba(66,143,245,.55),inset 0 3px 7px rgba(0,0,0,.32),0 5px 12px rgba(0,0,0,.18)!important}
+.theme-kitty-btn{position:relative;overflow:hidden;padding:0!important;background:linear-gradient(145deg,#f8fbff,#dce6f2)!important}
+.theme-kitty-btn img{display:block;width:30px;height:30px;object-fit:contain;filter:drop-shadow(-1px 2px 2px rgba(0,0,0,.22));transition:transform .16s ease}
+.theme-kitty-btn:hover img{transform:scale(1.04)}.theme-kitty-btn:active img{transform:scale(.995)}
+.theme-light{--text:#24324a;--muted:#667085;--surface:#fff;--panel:#fff;--panel2:#f7f9fc;--border:#dfe5ed;background:#e9edf3;color:#24324a}
+.theme-light .sidebar{background:linear-gradient(165deg,#34343c,#222228);box-shadow:-7px 15px 30px rgba(41,47,58,.24)}
+.theme-light .content-shell{background:linear-gradient(145deg,#edf1f6,#e7ecf3)}
+.theme-light .topbar h1,.theme-light .panel h2,.theme-light .panel strong,.theme-light .bank-card h3,.theme-light .field span{color:#263550}
+.theme-light .topbar p:last-child,.theme-light .bank-card p,.theme-light .history-item p,.theme-light .empty-state{color:#69758a}
+.theme-light .panel,.theme-light .metrics article,.theme-light .question-card,.theme-light .navigator,.theme-light .result-card{background:#fff;box-shadow:-4px 10px 24px rgba(62,72,88,.15),0 2px 6px rgba(62,72,88,.09)}
+.theme-light .bank-card,.theme-light .history-item,.theme-light .review-item,.theme-light .category-card,.theme-light .v7-insight-grid>div,.theme-light .checks label{background:#f8fafc;color:#263550;box-shadow:-2px 5px 13px rgba(70,80,95,.12)}
+.theme-light .field input,.theme-light .field textarea,.theme-light .field select,.theme-light .inline-form input,.theme-light .inline-form select,.theme-light .builder-form textarea,.theme-light .builder-form select,.theme-light .search{color:#24324a;background:#eef2f7!important;box-shadow:inset 0 2px 5px rgba(72,82,96,.13),0 1px 0 rgba(255,255,255,.8)!important}
+.theme-light .field input::placeholder,.theme-light .field textarea::placeholder,.theme-light .search input::placeholder{color:#7d8797}
+.theme-light .quick-list button,.theme-light .text-btn{color:#36577f}.theme-light .quick-list small{color:#7b8797}
+.theme-light .action-menu-popover{background:#fff;box-shadow:-7px 16px 34px rgba(52,62,76,.22)}.theme-light .action-menu-popover button{color:#33425b}.theme-light .action-menu-popover button:hover{background:#edf3fa}

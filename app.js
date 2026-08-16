@@ -1,7 +1,8 @@
 import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.1.1";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.2.0";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
+const THEME_KEY="simulador-academy-theme-v1";
 let onboardingStep=0,onboardingTarget=null;
 const onboardingSteps=[
   {selector:"#dashboard",icon:"⌂",title:"Visão geral",text:"Acompanhe simulados, questões respondidas, taxa de acertos e tempo de estudo.",placement:"bottom"},
@@ -20,6 +21,7 @@ let authMode="signin",cloudSaveTimer=null,pendingCloudProgress=null,cloudSaveInF
 document.addEventListener("DOMContentLoaded",init);
 
 async function init(){
+  initializeTheme();
   setupApplicationPages();
   setupV6Features();
   bind();
@@ -639,6 +641,7 @@ function bindAuth(){
   const logoutBtn=$("logoutBtn");
   const syncBtn=$("syncNowBtn");
   const legacyBtn=$("importLegacyBtn");
+  const themeBtn=$("themeKittyBtn");
 
   if(submitBtn) submitBtn.onclick=submitAuth;
   if(toggleBtn) toggleBtn.onclick=()=>{
@@ -656,6 +659,29 @@ function bindAuth(){
   };
   if(syncBtn) syncBtn.onclick=()=>syncAllNow({force:true});
   if(legacyBtn) legacyBtn.onclick=importLegacyProgress;
+  if(themeBtn) themeBtn.onclick=toggleTheme;
+}
+
+function initializeTheme(){
+  const saved=localStorage.getItem(THEME_KEY)==="light"?"light":"dark";
+  applyTheme(saved);
+}
+
+function applyTheme(theme){
+  const light=theme==="light";
+  document.body.classList.toggle("theme-light",light);
+  const button=$("themeKittyBtn");
+  if(button){
+    button.setAttribute("aria-pressed",String(light));
+    button.title=light?"Ativar tema escuro":"Ativar tema claro";
+  }
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content",light?"#e9edf3":"#07111f");
+}
+
+function toggleTheme(){
+  const next=document.body.classList.contains("theme-light")?"dark":"light";
+  localStorage.setItem(THEME_KEY,next);
+  applyTheme(next);
 }
 
 async function submitAuth(){
@@ -1574,7 +1600,7 @@ function toggleActionMenu(trigger){
   const opening=menu.classList.contains("hidden");
   closeAllActionMenus(menu);
   menu.removeAttribute("style");
-  if(opening&&trigger.closest(".bank-manager-question")){
+  if(opening){
     const rect=trigger.getBoundingClientRect(),openAbove=window.innerHeight-rect.bottom<175;
     trigger._actionMenuPopover=menu;menu._actionMenuTrigger=trigger;menu.classList.add("action-menu-portal");document.body.appendChild(menu);
     menu.style.position="fixed";
