@@ -1,5 +1,5 @@
 import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=6.11.0";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=6.12.0";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 let onboardingStep=0,onboardingTarget=null;
@@ -962,6 +962,7 @@ function bind(){
   $("dragDropBackgroundFile").onchange=loadDragDropBuilderImage;
   $("clearDragDropPromptImageBtn").onclick=event=>{event.preventDefault();clearDragDropPromptImage()};
   $("clearDragDropActivityImageBtn").onclick=event=>{event.preventDefault();clearDragDropActivityImage()};
+  $("clearDragDropCanvasImageBtn").onclick=event=>{event.preventDefault();clearDragDropActivityImage()};
   $("dragDropBankSelect").onchange=updateDragDropBankMode;
   $("dragDropItemsText").oninput=renderDragDropBuilderZones;
   $("addDragDropZoneBtn").onclick=addDragDropBuilderZone;

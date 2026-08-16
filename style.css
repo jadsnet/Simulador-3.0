@@ -984,12 +984,17 @@ button:disabled{cursor:not-allowed;box-shadow:none!important;filter:saturate(.6)
 .import-section-heading{margin:22px 0 15px;padding-top:17px;border-top:1px solid var(--border)}.import-section-heading p{margin:0 0 5px;color:#60a5fa;font-size:.7rem;font-weight:800;letter-spacing:.14em}.import-section-heading h2{margin:0;font-size:1rem}.import-panel .panel-body>.btn.full:first-child{margin-top:0}
 #commonQuestionImageStatus,#dragDropPromptImageStatus,#dragDropActivityImageStatus{color:#8fb9ec;font-weight:600}
 
-/* V6.11 — controles mínimos e fechamento lateral do editor visual */
-.bank-actions{gap:4px}.compact-play-btn{width:22px;min-width:22px;height:22px;min-height:22px;border-radius:5px}.compact-play-btn span{font-size:.58rem;transform:translateX(.5px)}
-.action-menu-trigger{gap:2px;width:22px;height:22px;border-radius:5px}.action-menu-trigger>span{width:16px;height:1.4px}.action-menu-trigger:hover>span:nth-child(2){width:14px}
-.question-action-menu .action-menu-trigger{width:22px;height:22px}.bank-manager-question{grid-template-columns:42px minmax(0,1fr) 28px}
-#closeDragDropBuilderBtn{position:fixed;z-index:51000;right:8px;top:50%;width:20px;height:20px;min-width:20px;min-height:20px;transform:translateY(-50%);border-radius:5px;background:linear-gradient(145deg,#223a59,#12243a);box-shadow:-2px 4px 7px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.1)}
-#closeDragDropBuilderBtn:before,#closeDragDropBuilderBtn:after{width:8px;height:1.5px}
-#closeDragDropBuilderBtn:hover{transform:translateY(calc(-50% - .3px)) scale(1.02);box-shadow:-2px 5px 8px rgba(0,0,0,.53),inset 0 1px 0 rgba(255,255,255,.13)}
-#closeDragDropBuilderBtn:active{transform:translateY(-50%) scale(.99);box-shadow:-1px 3px 5px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.08)}
-@media(max-width:720px){.bank-manager-question{grid-template-columns:36px minmax(0,1fr) 28px}}
+/* V6.12 — controles geométricos, compactos e uniformes */
+.bank-actions{gap:3px}.compact-play-btn{width:19px;min-width:19px;height:19px;min-height:19px;padding:0;border-radius:4px}.compact-play-btn span{display:block;font-size:0;transform:none}.compact-play-btn span:before{content:"";display:block;width:0;height:0;margin-left:1px;border-top:4px solid transparent;border-bottom:4px solid transparent;border-left:7px solid #fff}
+.action-menu-trigger{gap:2px;width:19px;height:19px;padding:0;border-radius:4px}.action-menu-trigger>span{display:block;width:13px;height:1.5px;min-height:1.5px;border-radius:999px;background:#e7f0fb;transition:background .14s ease}.action-menu-trigger:hover>span:nth-child(2){width:13px}.action-menu-trigger>span:nth-child(1),.action-menu-trigger>span:nth-child(2),.action-menu-trigger>span:nth-child(3){width:13px;height:1.5px}
+.question-action-menu .action-menu-trigger{width:19px;height:19px}.bank-manager-question{grid-template-columns:42px minmax(0,1fr) 25px}
+/* O fechamento do editor permanece redondo e no cabeçalho. */
+#closeDragDropBuilderBtn{position:relative;right:auto;top:auto;width:40px;height:40px;min-width:40px;min-height:40px;transform:none;border-radius:50%}
+#closeDragDropBuilderBtn:before,#closeDragDropBuilderBtn:after{width:13px;height:2px}
+#closeDragDropBuilderBtn:hover{transform:translateY(-.6px) scale(1.015)}
+#closeDragDropBuilderBtn:active{transform:translateY(0) scale(.995)}
+/* Remoção da imagem diretamente ao lado da imagem editada. */
+.canvas-image-clear{position:absolute;z-index:6;right:-25px;top:50%;display:grid;width:18px;height:18px;min-width:18px;min-height:18px;padding:0;place-items:center;transform:translateY(-50%);border:0;border-radius:50%;background:linear-gradient(145deg,#f05252,#c51f2d);box-shadow:-2px 4px 7px rgba(0,0,0,.5),inset 0 1px 1px rgba(255,255,255,.22);cursor:pointer}
+.canvas-image-clear:before,.canvas-image-clear:after{content:"";position:absolute;left:50%;top:50%;width:8px;height:1.5px;border-radius:2px;background:#fff}.canvas-image-clear:before{transform:translate(-50%,-50%) rotate(45deg)}.canvas-image-clear:after{transform:translate(-50%,-50%) rotate(-45deg)}
+.canvas-image-clear:hover{filter:brightness(1.06);transform:translateY(calc(-50% - .3px)) scale(1.015)}.canvas-image-clear:active{transform:translateY(-50%) scale(.995)}
+@media(max-width:720px){.bank-manager-question{grid-template-columns:36px minmax(0,1fr) 25px}.canvas-image-clear{right:5px;top:9px;transform:none}.canvas-image-clear:hover,.canvas-image-clear:active{transform:none}}
