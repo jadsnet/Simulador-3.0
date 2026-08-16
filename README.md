@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão" src="https://img.shields.io/badge/versão-V7.9.8-E75493">
+  <img alt="Versão" src="https://img.shields.io/badge/versão-V7.9.9-E75493">
   <img alt="Status" src="https://img.shields.io/badge/status-estável-22C55E">
   <img alt="PWA" src="https://img.shields.io/badge/PWA-ready-8B5CF6">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-cloud-3ECF8E">
@@ -317,7 +317,11 @@ Simulador-3.0-main/
 
 ---
 
-## ✅ Status da V7.9.8
+## ✅ Status da V7.9.9
+
+- Negrito corrigido diretamente no editor e preservado após salvar.
+- Cores RGB e hexadecimais preservadas no conteúdo salvo.
+- Borda da foto em Perfil e metas removida e botão superior refinado.
 
 - Foto da tela de perfil redesenhada com proporção menor e acabamento circular.
 - Fundo azul residual removido quando existe uma foto cadastrada.

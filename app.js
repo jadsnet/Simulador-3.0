@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.9.8";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.9.9";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -56,7 +56,7 @@ function setupRichTextToolbars(){
     editor.addEventListener("input",sync);editor.addEventListener("paste",()=>requestAnimationFrame(sync));
     bar.querySelectorAll("button").forEach(button=>{
       button.tabIndex=-1;button.addEventListener("mousedown",event=>event.preventDefault());
-      button.addEventListener("click",()=>{restoreSelection();document.execCommand(button.dataset.command,false,null);normalizeVisualEditor(editor);sync()});
+      button.addEventListener("click",()=>{restoreSelection();document.execCommand("styleWithCSS",false,false);document.execCommand(button.dataset.command,false,null);sync();requestAnimationFrame(restoreSelection)});
     });
     const color=bar.querySelector('input[type="color"]');color.addEventListener("mousedown",rememberSelection);
     const applySelectedColor=event=>{restoreSelection();document.execCommand("foreColor",false,event.target.value);normalizeVisualEditor(editor);sync();requestAnimationFrame(restoreSelection)};
@@ -66,10 +66,6 @@ function setupRichTextToolbars(){
 }
 
 function normalizeVisualEditor(editor,size=""){
-  editor.querySelectorAll("b").forEach(node=>{const strong=document.createElement("strong");while(node.firstChild)strong.appendChild(node.firstChild);node.replaceWith(strong)});
-  editor.querySelectorAll("i").forEach(node=>{const emphasis=document.createElement("em");while(node.firstChild)emphasis.appendChild(node.firstChild);node.replaceWith(emphasis)});
-  editor.querySelectorAll('span[style*="font-weight"]').forEach(node=>{if(!/font-weight:\s*(bold|[6-9]00)/i.test(node.getAttribute("style")||""))return;const strong=document.createElement("strong");while(node.firstChild)strong.appendChild(node.firstChild);node.replaceWith(strong)});
-  editor.querySelectorAll('span[style*="font-style"]').forEach(node=>{if(!/font-style:\s*italic/i.test(node.getAttribute("style")||""))return;const emphasis=document.createElement("em");while(node.firstChild)emphasis.appendChild(node.firstChild);node.replaceWith(emphasis)});
   editor.querySelectorAll("font").forEach(font=>{
     const span=document.createElement("span"),color=font.getAttribute("color"),fontSize=font.getAttribute("size");
     if(color)span.style.color=color;if(size||fontSize)span.className=`text-${size||(Number(fontSize)>=4?"large":"small")}`;
@@ -82,18 +78,19 @@ function refreshRichEditor(textarea){
 }
 function refreshAllRichEditors(){document.querySelectorAll("textarea.rich-editor-source").forEach(refreshRichEditor)}
 
-function richTextEnabled(value){return /<(strong|em|u|ul|ol|li|span|div|p|br)(\s|>)/i.test(String(value||""))}
+function richTextEnabled(value){return /<(strong|b|em|i|u|ul|ol|li|span|div|p|br)(\s|>)/i.test(String(value||""))}
 function safeRichText(value){
   const template=document.createElement("template");template.innerHTML=String(value||"");
-  const allowed=new Set(["STRONG","EM","U","UL","OL","LI","SPAN","BR","DIV","P"]);
+  const allowed=new Set(["STRONG","B","EM","I","U","UL","OL","LI","SPAN","BR","DIV","P"]);
   [...template.content.querySelectorAll("*")].forEach(node=>{
     if(!allowed.has(node.tagName)){node.replaceWith(document.createTextNode(node.textContent||""));return}
     const originalClass=node.getAttribute("class")||"";
     const originalStyle=node.getAttribute("style")||"";
     [...node.attributes].forEach(attribute=>node.removeAttribute(attribute.name));
     if(node.tagName==="SPAN"){
-      const colorMatch=originalStyle.match(/color:\s*(#[0-9a-f]{6})/i);
-      if(colorMatch)node.style.color=colorMatch[1];
+      const probe=document.createElement("span");probe.setAttribute("style",originalStyle);
+      const color=probe.style.color;
+      if(color&&CSS.supports("color",color))node.style.color=color;
     }
   });
   template.content.querySelectorAll("span:not([style])").forEach(span=>span.replaceWith(...span.childNodes));
@@ -895,6 +892,7 @@ async function savePublicProfile(){
       avatarFile:croppedAvatar
     });
     localStorage.setItem(`simulador-public-profile:${getCloudUser()?.id}`,JSON.stringify(profile));
+    $("logoutBtn").classList.toggle("has-image",Boolean(profile?.avatar_url));
     $("logoutBtn").innerHTML=profile?.avatar_url?`<img src="${esc(profile.avatar_url)}" alt="Foto do perfil">`:esc(String(profile?.display_name||"U").slice(0,2).toUpperCase());
     $("profileAvatarInput").value="";
     if(profileCrop.url)URL.revokeObjectURL(profileCrop.url);
@@ -1234,12 +1232,13 @@ async function handleAuthChange(user){
     $("authPassword").value="";
     return;
   }
-  $("logoutBtn").textContent=(user.email||"U").slice(0,2).toUpperCase();
+  $("logoutBtn").classList.remove("has-image");$("logoutBtn").textContent=(user.email||"U").slice(0,2).toUpperCase();
   setCloudStatus("Sincronizando","syncing");
   try{
     try{
       const publicProfile=await ensurePublicProfile();
       localStorage.setItem(`simulador-public-profile:${user.id}`,JSON.stringify(publicProfile||{}));
+      $("logoutBtn").classList.toggle("has-image",Boolean(publicProfile?.avatar_url));
       $("logoutBtn").innerHTML=publicProfile?.avatar_url?`<img src="${esc(publicProfile.avatar_url)}" alt="Foto do perfil">`:esc(String(publicProfile?.display_name||user.email||"U").slice(0,2).toUpperCase());
       const savedGoal=localStorage.getItem(dailyGoalStorageKey());
       if(savedGoal===null)localStorage.setItem(dailyGoalStorageKey(),String(Math.max(1,Number(publicProfile?.daily_goal)||20)));
