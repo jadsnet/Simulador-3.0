@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão" src="https://img.shields.io/badge/versão-V7.10.0-E75493">
+  <img alt="Versão" src="https://img.shields.io/badge/versão-V7.10.1-E75493">
   <img alt="Status" src="https://img.shields.io/badge/status-estável-22C55E">
   <img alt="PWA" src="https://img.shields.io/badge/PWA-ready-8B5CF6">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-cloud-3ECF8E">
@@ -317,7 +317,11 @@ Simulador-3.0-main/
 
 ---
 
-## ✅ Status da V7.10.0
+## ✅ Status da V7.10.1
+
+- Índice rolável de questões adicionado ao editor de criação manual.
+- Lista filtrada pelo banco de destino com ID e trecho do enunciado.
+- Seleção abre diretamente a questão no editor correspondente.
 
 - Corrigido clique involuntário no negrito ao focar o campo de edição.
 - Enunciados exibidos com peso normal; somente trechos marcados ficam em negrito.

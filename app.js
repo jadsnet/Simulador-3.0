@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.0";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.1";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -1504,7 +1504,8 @@ function bind(){
   $("openCommonQuestionBuilderBtn").onclick=openCommonQuestionBuilder;
   $("closeCommonQuestionBuilderBtn").onclick=closeCommonQuestionBuilder;
   $("commonQuestionBuilderModal").onclick=e=>{if(e.target===$("commonQuestionBuilderModal"))closeCommonQuestionBuilder()};
-  $("commonQuestionBankSelect").onchange=updateCommonQuestionBankMode;
+  $("commonQuestionBankSelect").onchange=()=>{updateCommonQuestionBankMode();populateCommonQuestionIndex()};
+  $("commonQuestionIndex").onchange=selectCommonBuilderQuestion;
   $("commonQuestionType").onchange=updateCommonQuestionType;
   $("commonQuestionImageFile").onchange=loadCommonQuestionImage;
   $("clearCommonQuestionImageBtn").onclick=event=>{event.preventDefault();clearCommonQuestionImage()};
@@ -2377,6 +2378,33 @@ function populateCommonQuestionBankSelect(){
   if(banks.some(bank=>bank.id===current))select.value=current;
   else if(!banks.length)select.value="__new__";
   updateCommonQuestionBankMode();
+  populateCommonQuestionIndex();
+}
+
+function populateCommonQuestionIndex(selectedId=""){
+  const select=$("commonQuestionIndex"),bankId=$("commonQuestionBankSelect")?.value;if(!select)return;
+  const bank=banks.find(item=>item.id===bankId),items=bank?.questions||[];
+  select.innerHTML='<option value="">＋ Nova questão</option>'+(items.length?items.map(question=>{
+    const text=richTextPlainText(question.pergunta||"Questão"),snippet=text.slice(0,6)+(text.length>6?"…":"");
+    return `<option value="${esc(String(question.id))}">ID ${esc(question.id||"—")} — ${esc(snippet)}</option>`;
+  }).join(""):'<option value="" disabled>Nenhuma questão cadastrada</option>');
+  select.disabled=!bank||!items.length;
+  select.value=selectedId&&items.some(question=>String(question.id)===String(selectedId))?String(selectedId):"";
+}
+
+async function selectCommonBuilderQuestion(){
+  const questionId=$("commonQuestionIndex").value,bankId=$("commonQuestionBankSelect").value;
+  if(!questionId){
+    if(editingQuestion){editingQuestion=null;$("commonQuestionBankSelect").disabled=false;$("commonQuestionBuilderTitle").textContent="Nova questão comum";$("saveCommonQuestionBtn").textContent="Salvar questão";resetCommonQuestionFields();populateCommonQuestionIndex()}
+    return;
+  }
+  const bank=await get("banks",bankId),question=bank?.questions?.find(item=>String(item.id)===questionId);
+  if(!bank||!question){toast("A questão selecionada não foi encontrada.");populateCommonQuestionIndex();return}
+  editingQuestion={bankId,originalId:String(question.id),type:question.tipo==="dragdrop"?"dragdrop":"common"};
+  if(question.tipo==="dragdrop"){
+    $("commonQuestionBuilderModal").classList.add("hidden");$("commonQuestionBuilderModal").setAttribute("aria-hidden","true");
+    openDragDropQuestionEditor(bank,question);
+  }else openCommonQuestionEditor(bank,question);
 }
 
 function updateCommonQuestionBankMode(){
@@ -2392,6 +2420,7 @@ function openCommonQuestionBuilder(){
   $("saveCommonQuestionBtn").textContent="Salvar questão";
   $("commonQuestionNewBankName").value="";
   resetCommonQuestionFields();
+  populateCommonQuestionIndex();
   $("commonQuestionBuilderModal").classList.remove("hidden");
   $("commonQuestionBuilderModal").setAttribute("aria-hidden","false");
 }
@@ -2537,6 +2566,7 @@ async function saveCommonQuestion(){
   $("commonQuestionBankSelect").value=bank.id;
   updateCommonQuestionBankMode();
   resetCommonQuestionFields();
+  populateCommonQuestionIndex();
   toast(`Questão ${id} adicionada. O editor continua aberto para a próxima questão.`);
 }
 
@@ -2622,6 +2652,7 @@ function openCommonQuestionEditor(bank,question){
   const correct=new Set(normAnswers(question.correta));
   document.querySelectorAll('input[name="commonCorrect"]').forEach(input=>input.checked=correct.has(input.value));
   refreshAllRichEditors();
+  populateCommonQuestionIndex(question.id);
   $("commonQuestionBuilderModal").classList.remove("hidden");
   $("commonQuestionBuilderModal").setAttribute("aria-hidden","false");
 }
