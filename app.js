@@ -1,5 +1,5 @@
 import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=6.8.0";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=6.9.0";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 let onboardingStep=0,onboardingTarget=null;
@@ -15,6 +15,7 @@ let banks=[],selectedBank=null,questions=[],answers={},currentIndex=0,timerSecon
 let dragDropBuilder={imageData:"",imageName:"",promptImageData:"",promptImageName:"",zones:[]},activeDragDropTokenId="";
 let commonQuestionBuilder={questionImageData:"",questionImageName:"",alternatives:{}};
 let managedBankId="";
+let editingQuestion=null;
 let authMode="signin",cloudSaveTimer=null,pendingCloudProgress=null,cloudSaveInFlight=false;
 document.addEventListener("DOMContentLoaded",init);
 
@@ -972,6 +973,7 @@ function bind(){
   $("bankManagerModal").onclick=e=>{if(e.target===$("bankManagerModal"))closeBankManager()};
   $("bankManagerSearch").oninput=renderBankManagerQuestions;
   $("saveBankNameBtn").onclick=saveManagedBankName;
+  document.addEventListener("click",()=>closeAllActionMenus());
   $("exportBackupBtn").onclick=exportBackup;
   $("importBackupBtn").onclick=importBackup;
   $("backHomeBtn").onclick=showHome;
@@ -1527,9 +1529,12 @@ function renderBanks(){
   for(const bank of banks){
     const el=document.createElement("div");
     el.className="bank-card";
-    el.innerHTML=`<div><h3>${esc(bank.name)}</h3><p>${bank.questions.length} questões · importado em ${new Date(bank.createdAt).toLocaleDateString("pt-BR")}</p></div><div class="bank-actions"><button class="btn secondary" data-manage>Gerenciar</button><button class="btn primary" data-open>Abrir</button><button class="btn danger" data-delete>Excluir</button></div>`;
-    el.querySelector("[data-manage]").onclick=()=>openBankManager(bank.id);
+    el.innerHTML=`<div><h3>${esc(bank.name)}</h3><p>${bank.questions.length} questões · importado em ${new Date(bank.createdAt).toLocaleDateString("pt-BR")}</p></div><div class="bank-actions"><button class="btn primary compact-play-btn" data-open aria-label="Abrir banco"><span aria-hidden="true">▶</span> Abrir</button><div class="action-menu"><button class="action-menu-trigger" data-menu type="button" aria-label="Mais opções" aria-expanded="false"><span></span><span></span><span></span></button><div class="action-menu-popover hidden"><button type="button" data-menu-open><span>▶</span>Abrir</button><button type="button" data-manage><span>✎</span>Gerenciar</button><button type="button" class="danger-item" data-delete><span>⌫</span>Excluir banco</button></div></div></div>`;
     el.querySelector("[data-open]").onclick=()=>showSetup(bank.id);
+    el.querySelector("[data-menu-open]").onclick=()=>showSetup(bank.id);
+    el.querySelector("[data-manage]").onclick=()=>openBankManager(bank.id);
+    const menuTrigger=el.querySelector("[data-menu]");
+    menuTrigger.onclick=event=>{event.stopPropagation();toggleActionMenu(menuTrigger)};
     el.querySelector("[data-delete]").onclick=async()=>{
       if(!confirm(`Excluir definitivamente "${bank.name}"?\n\nSerão removidos o banco, o progresso, os históricos e as imagens associados, neste dispositivo e na nuvem.`))return;
       const button=el.querySelector("[data-delete]");
@@ -1553,6 +1558,31 @@ function renderBanks(){
     };
     list.appendChild(el);
   }
+}
+
+function closeAllActionMenus(except=null){
+  document.querySelectorAll(".action-menu-popover").forEach(menu=>{
+    if(menu===except)return;
+    menu.classList.add("hidden");
+    (menu._actionMenuTrigger||menu.closest(".action-menu")?.querySelector(".action-menu-trigger"))?.setAttribute("aria-expanded","false");
+  });
+}
+
+function toggleActionMenu(trigger){
+  let menu=trigger._actionMenuPopover||trigger.closest(".action-menu").querySelector(".action-menu-popover");
+  const opening=menu.classList.contains("hidden");
+  closeAllActionMenus(menu);
+  menu.removeAttribute("style");
+  if(opening&&trigger.closest(".bank-manager-question")){
+    const rect=trigger.getBoundingClientRect(),openAbove=window.innerHeight-rect.bottom<175;
+    trigger._actionMenuPopover=menu;menu._actionMenuTrigger=trigger;menu.classList.add("action-menu-portal");document.body.appendChild(menu);
+    menu.style.position="fixed";
+    menu.style.right=`${Math.max(8,window.innerWidth-rect.right)}px`;
+    if(openAbove)menu.style.bottom=`${Math.max(8,window.innerHeight-rect.top+6)}px`;
+    else menu.style.top=`${rect.bottom+6}px`;
+  }
+  menu.classList.toggle("hidden",!opening);
+  trigger.setAttribute("aria-expanded",String(opening));
 }
 
 async function openBankManager(bankId){
@@ -1580,6 +1610,7 @@ function questionKindLabel(question){
 
 async function renderBankManagerQuestions(){
   if(!managedBankId)return;
+  document.querySelectorAll("body>.action-menu-portal").forEach(menu=>menu.remove());
   const bank=await get("banks",managedBankId);
   if(!bank){closeBankManager();return}
   const query=$("bankManagerSearch").value.trim().toLocaleLowerCase("pt-BR");
@@ -1594,8 +1625,12 @@ async function renderBankManagerQuestions(){
     const row=document.createElement("article");
     row.className="bank-manager-question";
     const originalPosition=all.indexOf(question)+1;
-    row.innerHTML=`<div class="bank-manager-question-index">${originalPosition}</div><div class="bank-manager-question-copy"><div class="bank-manager-question-tags"><span>ID ${esc(question.id||"—")}</span><span>${esc(question.categoria||"Sem categoria")}</span><span>${esc(questionKindLabel(question))}</span></div><strong>${esc(question.pergunta||"Questão sem enunciado")}</strong></div><button class="btn danger bank-manager-delete" type="button">Excluir questão</button>`;
-    row.querySelector(".bank-manager-delete").onclick=()=>deleteManagedQuestion(String(question.id),row);
+    row.innerHTML=`<div class="bank-manager-question-index">${originalPosition}</div><div class="bank-manager-question-copy"><div class="bank-manager-question-tags"><span>ID ${esc(question.id||"—")}</span><span>${esc(question.categoria||"Sem categoria")}</span><span>${esc(questionKindLabel(question))}</span></div><strong>${esc(question.pergunta||"Questão sem enunciado")}</strong></div><div class="action-menu question-action-menu"><button class="action-menu-trigger" type="button" aria-label="Opções da questão ${esc(question.id||originalPosition)}" aria-expanded="false"><span></span><span></span><span></span></button><div class="action-menu-popover hidden"><button type="button" data-edit><span>✎</span>Editar questão</button><button type="button" data-preview><span>◉</span>Visualizar completa</button><button type="button" class="danger-item" data-delete-question><span>⌫</span>Excluir questão</button></div></div>`;
+    const trigger=row.querySelector(".action-menu-trigger");
+    trigger.onclick=event=>{event.stopPropagation();toggleActionMenu(trigger)};
+    row.querySelector("[data-edit]").onclick=()=>editManagedQuestion(bank.id,String(question.id));
+    row.querySelector("[data-preview]").onclick=()=>previewManagedQuestion(bank.id,String(question.id));
+    row.querySelector("[data-delete-question]").onclick=()=>deleteManagedQuestion(String(question.id),row);
     list.appendChild(row);
   });
 }
@@ -1632,7 +1667,7 @@ async function deleteManagedQuestion(questionId,row){
   if(!question)return renderBankManagerQuestions();
   const preview=String(question.pergunta||"").replace(/\s+/g," ").trim().slice(0,120);
   if(!confirm(`Excluir somente a questão ${question.id}?\n\n${preview}${String(question.pergunta||"").length>120?"…":""}\n\nAs outras questões e o histórico de simulados serão preservados.`))return;
-  const button=row.querySelector(".bank-manager-delete");
+  const button=row.querySelector("[data-delete-question]");
   button.disabled=true;button.textContent="Excluindo...";
   const removedReferences=questionImageReferences(question);
   bank.questions=(bank.questions||[]).filter(item=>String(item.id)!==questionId);
@@ -1766,7 +1801,11 @@ function updateCommonQuestionBankMode(){
 }
 
 function openCommonQuestionBuilder(){
+  editingQuestion=null;
   populateCommonQuestionBankSelect();
+  $("commonQuestionBankSelect").disabled=false;
+  $("commonQuestionBuilderTitle").textContent="Nova questão comum";
+  $("saveCommonQuestionBtn").textContent="Salvar questão";
   $("commonQuestionNewBankName").value="";
   resetCommonQuestionFields();
   $("commonQuestionBuilderModal").classList.remove("hidden");
@@ -1794,6 +1833,11 @@ function resetCommonQuestionFields(){
 function closeCommonQuestionBuilder(){
   $("commonQuestionBuilderModal").classList.add("hidden");
   $("commonQuestionBuilderModal").setAttribute("aria-hidden","true");
+  if(editingQuestion?.type==="common"){
+    const bankId=editingQuestion.bankId;editingQuestion=null;
+    $("commonQuestionBankSelect").disabled=false;
+    openBankManager(bankId);
+  }
 }
 
 function updateCommonQuestionType(){
@@ -1852,7 +1896,8 @@ async function saveCommonQuestion(){
   const questionText=$("commonQuestionText").value.trim();
   const type=$("commonQuestionType").value;
   if(!id)return alert("Informe um ID para a questão.");
-  if((bank.questions||[]).some(question=>String(question.id)===id))return alert(`Já existe uma questão com o ID ${id}.`);
+  const editing=editingQuestion?.type==="common"&&editingQuestion.bankId===bank.id;
+  if((bank.questions||[]).some(question=>String(question.id)===id&&(!editing||String(question.id)!==editingQuestion.originalId)))return alert(`Já existe uma questão com o ID ${id}.`);
   if(!questionText)return alert("Digite o enunciado da questão.");
 
   const usedLetters=LETTERS.filter(letter=>{
@@ -1879,14 +1924,27 @@ async function saveCommonQuestion(){
     if(question[`img_${letter}`])newImages[question[`img_${letter}`]]=image.imageData;
   }
 
-  bank.questions=[...(bank.questions||[]),question];
+  const oldQuestion=editing?(bank.questions||[]).find(item=>String(item.id)===editingQuestion.originalId):null;
+  bank.questions=editing?(bank.questions||[]).map(item=>String(item.id)===editingQuestion.originalId?question:item):[...(bank.questions||[]),question];
   bank.images={...(bank.images||{}),...newImages};
+  if(oldQuestion)pruneUnusedQuestionImages(bank,oldQuestion);
+  bank.updatedAt=new Date().toISOString();
   await put("banks",bank);
-  markCloudDirty("questão comum adicionada");
+  const cleanedProgress=oldQuestion?await cleanProgressAfterQuestionChange(bank,[oldQuestion.id,question.id]):null;
+  markCloudDirty(editing?"questão comum atualizada":"questão comum adicionada");
   if(getCloudUser()){
-    try{await ensureCloudBank(bank)}catch(error){console.error("Sincronização da questão comum pendente",error)}
+    try{await ensureCloudBank(bank);if(cleanedProgress)await pushProgress(bank,cleanedProgress)}catch(error){console.error("Sincronização da questão comum pendente",error)}
   }
   await refreshHome();
+  if(editing){
+    const returnBankId=bank.id;editingQuestion=null;
+    $("commonQuestionBuilderModal").classList.add("hidden");
+    $("commonQuestionBuilderModal").setAttribute("aria-hidden","true");
+    $("commonQuestionBankSelect").disabled=false;
+    await openBankManager(returnBankId);
+    toast(`Questão ${id} atualizada com sucesso.`);
+    return;
+  }
   $("commonQuestionBankSelect").value=bank.id;
   updateCommonQuestionBankMode();
   resetCommonQuestionFields();
@@ -1895,6 +1953,10 @@ async function saveCommonQuestion(){
 
 function openQuestionPreview(kind){
   const question=kind==="dragdrop"?buildDragDropPreviewQuestion():buildCommonPreviewQuestion();
+  showQuestionPreview(question);
+}
+
+function showQuestionPreview(question){
   $("previewCategoryBadge").textContent=question.categoria||"Sem categoria";
   $("previewTypeBadge").textContent=question.tipo==="dragdrop"?"Arrastar e soltar":question.tipo==="multiple"?"Múltiplas respostas":"Resposta única";
   $("previewQuestionText").textContent=question.pergunta||"Digite o enunciado para visualizá-lo aqui.";
@@ -1910,6 +1972,115 @@ function openQuestionPreview(kind){
   $("previewFeedbackText").textContent=question.feedback||"Nenhum feedback foi informado.";
   $("questionPreviewModal").classList.remove("hidden");
   $("questionPreviewModal").setAttribute("aria-hidden","false");
+}
+
+function bankImageData(bank,name){
+  if(!name)return"";
+  const wanted=imagePathVariants(name),matches=new Map();
+  for(const [storedName,data] of Object.entries(bank.images||{})){
+    const stored=imagePathVariants(storedName);
+    if([...stored].some(value=>wanted.has(value)))matches.set(data,storedName);
+  }
+  return matches.size===1?matches.keys().next().value:"";
+}
+
+function materializeQuestionForPreview(bank,question){
+  const copy=structuredClone(question);
+  copy.imagem_pergunta=bankImageData(bank,question.imagem_pergunta);
+  for(const letter of LETTERS)copy[`img_${letter}`]=bankImageData(bank,question[`img_${letter}`]);
+  if(copy.dragdrop){
+    copy.dragdrop.image=bankImageData(bank,question.dragdrop.image);
+    copy.dragdrop.promptImage=bankImageData(bank,question.dragdrop.promptImage);
+  }
+  return copy;
+}
+
+async function previewManagedQuestion(bankId,questionId){
+  closeAllActionMenus();
+  const bank=await get("banks",bankId),question=bank?.questions?.find(item=>String(item.id)===questionId);
+  if(!bank||!question)return alert("A questão não foi encontrada.");
+  showQuestionPreview(materializeQuestionForPreview(bank,question));
+}
+
+async function editManagedQuestion(bankId,questionId){
+  closeAllActionMenus();
+  const bank=await get("banks",bankId),question=bank?.questions?.find(item=>String(item.id)===questionId);
+  if(!bank||!question)return alert("A questão não foi encontrada.");
+  closeBankManager();
+  editingQuestion={bankId,originalId:String(question.id),type:question.tipo==="dragdrop"?"dragdrop":"common"};
+  if(question.tipo==="dragdrop")openDragDropQuestionEditor(bank,question);
+  else openCommonQuestionEditor(bank,question);
+}
+
+function openCommonQuestionEditor(bank,question){
+  populateCommonQuestionBankSelect();resetCommonQuestionFields();
+  $("commonQuestionBankSelect").value=bank.id;$("commonQuestionBankSelect").disabled=true;
+  $("commonQuestionBuilderTitle").textContent=`Editar questão ${question.id}`;
+  $("saveCommonQuestionBtn").textContent="Atualizar questão";
+  $("commonQuestionType").value=question.tipo==="multiple"?"multiple":"single";
+  $("commonQuestionId").value=question.id||"";$("commonQuestionCategory").value=question.categoria||"";
+  $("commonQuestionText").value=question.pergunta||"";$("commonQuestionFeedback").value=question.feedback||"";
+  commonQuestionBuilder.questionImageName=question.imagem_pergunta||"";
+  commonQuestionBuilder.questionImageData=bankImageData(bank,question.imagem_pergunta);
+  for(const letter of LETTERS){
+    const upper=letter.toUpperCase(),imageName=question[`img_${letter}`]||"",imageData=bankImageData(bank,imageName);
+    $("commonAltText"+upper).value=question[`alt_${letter}`]||"";
+    if(imageData){commonQuestionBuilder.alternatives[letter]={imageName,imageData};$("commonAltImageStatus"+upper).textContent="Imagem atual mantida"}
+  }
+  updateCommonQuestionType();
+  const correct=new Set(normAnswers(question.correta));
+  document.querySelectorAll('input[name="commonCorrect"]').forEach(input=>input.checked=correct.has(input.value));
+  $("commonQuestionBuilderModal").classList.remove("hidden");
+  $("commonQuestionBuilderModal").setAttribute("aria-hidden","false");
+}
+
+function openDragDropQuestionEditor(bank,question){
+  populateDragDropBankSelect();resetDragDropQuestionFields();
+  $("dragDropBankSelect").value=bank.id;$("dragDropBankSelect").disabled=true;
+  $("dragDropBuilderTitle").textContent=`Editar questão ${question.id}`;
+  $("saveDragDropQuestionBtn").textContent="Atualizar questão";
+  $("dragDropQuestionId").value=question.id||"";$("dragDropCategory").value=question.categoria||"";
+  $("dragDropQuestionText").value=question.pergunta||"";$("dragDropFeedback").value=question.feedback||"";
+  const definition=question.dragdrop||{};
+  dragDropBuilder.imageName=definition.image||"";dragDropBuilder.imageData=bankImageData(bank,definition.image);
+  dragDropBuilder.promptImageName=question.imagem_pergunta||definition.promptImage||"";
+  dragDropBuilder.promptImageData=bankImageData(bank,dragDropBuilder.promptImageName);
+  dragDropBuilder.zones=(definition.zones||[]).map(zone=>({...zone}));
+  $("dragDropItemsText").value=(definition.items||[]).map(item=>item.text).join("\n");
+  if(dragDropBuilder.imageData){
+    const image=$("dragDropBuilderImage");
+    image.onload=()=>{$("dragDropBuilderEmpty").classList.add("hidden");$("dragDropBuilderStage").classList.remove("hidden");renderDragDropBuilderZones()};
+    image.src=dragDropBuilder.imageData;
+  }
+  renderDragDropBuilderZones();
+  $("dragDropBuilderModal").classList.remove("hidden");
+  $("dragDropBuilderModal").setAttribute("aria-hidden","false");
+}
+
+function pruneUnusedQuestionImages(bank,oldQuestion){
+  const removedReferences=questionImageReferences(oldQuestion),remainingReferences=(bank.questions||[]).flatMap(questionImageReferences);
+  bank.images=Object.fromEntries(Object.entries(bank.images||{}).filter(([storedName])=>{
+    const belongedToOld=removedReferences.some(reference=>imageReferenceMatches(storedName,reference));
+    const stillUsed=remainingReferences.some(reference=>imageReferenceMatches(storedName,reference));
+    return !belongedToOld||stillUsed;
+  }));
+}
+
+async function cleanProgressAfterQuestionChange(bank,affectedIds){
+  const progress=await get("progress",bank.id);if(!progress)return null;
+  const affected=new Set(affectedIds.map(String));
+  progress.order=(bank.questions||[]).map(question=>question.id);
+  progress.answers=Object.fromEntries(Object.entries(progress.answers||{}).filter(([id])=>!affected.has(String(id))));
+  progress.favorites=(progress.favorites||[]).filter(id=>!affected.has(String(id)));
+  progress.marked=(progress.marked||[]).filter(id=>!affected.has(String(id)));
+  progress.notes=Object.fromEntries(Object.entries(progress.notes||{}).filter(([id])=>!affected.has(String(id))));
+  progress.settings={...(progress.settings||{}),__bankSignature:questionsSignature(bank.questions)};
+  progress.settings.limit=progress.order.length;
+  progress.currentIndex=Math.min(Number(progress.currentIndex)||0,Math.max(0,progress.order.length-1));
+  progress.settings.__answerAudit=Array.isArray(progress.settings.__answerAudit)?progress.settings.__answerAudit.filter(item=>!affected.has(String(item.questionId))):[];
+  progress.savedAt=new Date().toISOString();await put("progress",progress);
+  for(const id of affected)await del("questionData",`${bank.id}::${id}`);
+  return progress;
 }
 
 function closeQuestionPreview(){
@@ -2016,7 +2187,11 @@ function populateDragDropBankSelect(){
 }
 
 function openDragDropBuilder(){
+  editingQuestion=null;
   populateDragDropBankSelect();
+  $("dragDropBankSelect").disabled=false;
+  $("dragDropBuilderTitle").textContent="Nova questão drag-and-drop";
+  $("saveDragDropQuestionBtn").textContent="Salvar questão";
   $("dragDropNewBankName").value="";
   resetDragDropQuestionFields();
   $("dragDropBuilderModal").classList.remove("hidden");
@@ -2046,6 +2221,11 @@ function updateDragDropBankMode(){
 function closeDragDropBuilder(){
   $("dragDropBuilderModal").classList.add("hidden");
   $("dragDropBuilderModal").setAttribute("aria-hidden","true");
+  if(editingQuestion?.type==="dragdrop"){
+    const bankId=editingQuestion.bankId;editingQuestion=null;
+    $("dragDropBankSelect").disabled=false;
+    openBankManager(bankId);
+  }
 }
 
 async function loadDragDropBuilderImage(){
@@ -2183,7 +2363,8 @@ async function saveDragDropQuestion(){
   }
   if(!bank)return alert("Selecione um banco válido.");
   if(!id)return alert("Informe um ID para a questão.");
-  if(bank.questions.some(question=>String(question.id)===id))return alert(`Já existe uma questão com o ID ${id}.`);
+  const editing=editingQuestion?.type==="dragdrop"&&editingQuestion.bankId===bank.id;
+  if(bank.questions.some(question=>String(question.id)===id&&(!editing||String(question.id)!==editingQuestion.originalId)))return alert(`Já existe uma questão com o ID ${id}.`);
   if(!questionText)return alert("Digite o enunciado da questão.");
   if(!dragDropBuilder.imageData)return alert("Carregue a imagem da atividade drag-and-drop.");
   if(items.length<2)return alert("Cadastre pelo menos dois cartões.");
@@ -2197,15 +2378,28 @@ async function saveDragDropQuestion(){
     imagem_pergunta:promptImageKey,correta:"",feedback:$("dragDropFeedback").value.trim(),
     dragdrop:{version:2,image:imageKey,promptImage:promptImageKey,items,zones:dragDropBuilder.zones.map(zone=>({...zone}))}
   };
-  bank.questions=[...(bank.questions||[]),question];
+  const oldQuestion=editing?(bank.questions||[]).find(item=>String(item.id)===editingQuestion.originalId):null;
+  bank.questions=editing?(bank.questions||[]).map(item=>String(item.id)===editingQuestion.originalId?question:item):[...(bank.questions||[]),question];
   bank.images={...(bank.images||{}),[imageKey]:dragDropBuilder.imageData};
   if(promptImageKey)bank.images[promptImageKey]=dragDropBuilder.promptImageData;
+  if(oldQuestion)pruneUnusedQuestionImages(bank,oldQuestion);
+  bank.updatedAt=new Date().toISOString();
   await put("banks",bank);
-  markCloudDirty("questão drag-and-drop adicionada");
+  const cleanedProgress=oldQuestion?await cleanProgressAfterQuestionChange(bank,[oldQuestion.id,question.id]):null;
+  markCloudDirty(editing?"questão drag-and-drop atualizada":"questão drag-and-drop adicionada");
   if(getCloudUser()){
-    try{await ensureCloudBank(bank)}catch(error){console.error("Sincronização da questão drag-and-drop pendente",error)}
+    try{await ensureCloudBank(bank);if(cleanedProgress)await pushProgress(bank,cleanedProgress)}catch(error){console.error("Sincronização da questão drag-and-drop pendente",error)}
   }
   await refreshHome();
+  if(editing){
+    const returnBankId=bank.id;editingQuestion=null;
+    $("dragDropBuilderModal").classList.add("hidden");
+    $("dragDropBuilderModal").setAttribute("aria-hidden","true");
+    $("dragDropBankSelect").disabled=false;
+    await openBankManager(returnBankId);
+    toast(`Questão ${id} atualizada com sucesso.`);
+    return;
+  }
   $("dragDropBankSelect").value=bank.id;
   updateDragDropBankMode();
   resetDragDropQuestionFields();
