@@ -1,5 +1,5 @@
 import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.6.1";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.7.0";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -28,6 +28,7 @@ async function init(){
   bind();
   bindAuth();
   bindSidebarNavigation();
+  setupMobileNavigation();
   await initializeAuth(handleAuthChange);
   if("serviceWorker" in navigator) navigator.serviceWorker.register("./service-worker.js").catch(()=>{});
 }
@@ -210,24 +211,59 @@ function setupApplicationPages(){
 }
 
 function bindSidebarNavigation(){
-  document.querySelectorAll(".side-link[data-page]").forEach(button=>{
-    button.onclick=()=>{
-      const page=button.dataset.page;
-      if(page==="import"){showApplicationPage("home","import");return}
-      if(page==="review"){
-        showApplicationPage("review");
-        showReviewLibrary(button.dataset.reviewFilter||"all");
-        return;
-      }
-      showApplicationPage(page);
-    };
+  document.querySelectorAll(".side-link[data-page],.mobile-nav-link[data-page],.mobile-more-link[data-page]").forEach(button=>{
+    button.onclick=()=>openNavigationDestination(button);
   });
 }
 
 function updateSidebarActive(page){
-  document.querySelectorAll(".side-link[data-page]").forEach(button=>{
+  document.querySelectorAll(".side-link[data-page],.mobile-nav-link[data-page]").forEach(button=>{
     button.classList.toggle("active",button.dataset.page===page);
   });
+  const primaryMobilePages=new Set(["home","history","review","stats"]);
+  $("mobileMenuToggle")?.classList.toggle("active",!primaryMobilePages.has(page));
+}
+
+async function openNavigationDestination(button){
+  const page=button.dataset.page||"home";
+  closeMobileNavigation();
+  if(document.body.classList.contains("quiz-mode"))await saveExit();
+  if(page==="import"){showApplicationPage("home","import");return}
+  if(page==="review"){
+    showApplicationPage("review");
+    showReviewLibrary(button.dataset.reviewFilter||"all");
+    return;
+  }
+  showApplicationPage(page);
+}
+
+function setupMobileNavigation(){
+  const nav=$("mobileBottomNav");
+  const menu=$("mobileMoreMenu");
+  const toggle=$("mobileMenuToggle");
+  if(!nav||!menu||!toggle)return;
+  toggle.onclick=()=>{
+    const open=menu.classList.contains("hidden");
+    menu.classList.toggle("hidden",!open);
+    menu.setAttribute("aria-hidden",String(!open));
+    toggle.setAttribute("aria-expanded",String(open));
+    document.body.classList.toggle("mobile-menu-open",open);
+  };
+  $("closeMobileMenuBtn").onclick=closeMobileNavigation;
+  $("mobileTutorialBtn").onclick=()=>{closeMobileNavigation();restartOnboarding()};
+  $("mobileSyncBtn").onclick=()=>{closeMobileNavigation();$("syncNowBtn")?.click()};
+  $("mobileThemeBtn").onclick=()=>{closeMobileNavigation();$("themeKittyBtn")?.click()};
+  $("mobileLogoutBtn").onclick=()=>{closeMobileNavigation();$("logoutBtn")?.click()};
+  document.addEventListener("keydown",event=>{if(event.key==="Escape")closeMobileNavigation()});
+  window.addEventListener("resize",()=>{if(window.innerWidth>760)closeMobileNavigation()});
+}
+
+function closeMobileNavigation(){
+  const menu=$("mobileMoreMenu");
+  const toggle=$("mobileMenuToggle");
+  if(menu){menu.classList.add("hidden");menu.setAttribute("aria-hidden","true")}
+  if(toggle)toggle.setAttribute("aria-expanded","false");
+  document.body.classList.remove("mobile-menu-open");
 }
 
 function showApplicationPage(page="home",scrollTarget=""){
@@ -735,6 +771,8 @@ async function submitAuth(){
 async function handleAuthChange(user){
   $("authScreen").classList.toggle("hidden",!!user);
   document.querySelector(".app-layout").classList.toggle("hidden",!user);
+  $("mobileBottomNav")?.classList.toggle("hidden",!user);
+  if(!user)closeMobileNavigation();
   if(!user){
     authMode="signin";
     $("authTitle").textContent="Entrar";
