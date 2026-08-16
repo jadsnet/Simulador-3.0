@@ -1,5 +1,5 @@
 import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=6.7.0";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=6.8.0";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 let onboardingStep=0,onboardingTarget=null;
@@ -14,6 +14,7 @@ const onboardingSteps=[
 let banks=[],selectedBank=null,questions=[],answers={},currentIndex=0,timerSeconds=0,timerHandle=null,settings={},favorites=new Set(),marked=new Set(),notes={},reviewData=[],answerAudit=[];
 let dragDropBuilder={imageData:"",imageName:"",promptImageData:"",promptImageName:"",zones:[]},activeDragDropTokenId="";
 let commonQuestionBuilder={questionImageData:"",questionImageName:"",alternatives:{}};
+let managedBankId="";
 let authMode="signin",cloudSaveTimer=null,pendingCloudProgress=null,cloudSaveInFlight=false;
 document.addEventListener("DOMContentLoaded",init);
 
@@ -967,6 +968,10 @@ function bind(){
   $("saveDragDropQuestionBtn").onclick=saveDragDropQuestion;
   $("closeQuestionPreviewBtn").onclick=closeQuestionPreview;
   $("questionPreviewModal").onclick=e=>{if(e.target===$("questionPreviewModal"))closeQuestionPreview()};
+  $("closeBankManagerBtn").onclick=closeBankManager;
+  $("bankManagerModal").onclick=e=>{if(e.target===$("bankManagerModal"))closeBankManager()};
+  $("bankManagerSearch").oninput=renderBankManagerQuestions;
+  $("saveBankNameBtn").onclick=saveManagedBankName;
   $("exportBackupBtn").onclick=exportBackup;
   $("importBackupBtn").onclick=importBackup;
   $("backHomeBtn").onclick=showHome;
@@ -1522,7 +1527,8 @@ function renderBanks(){
   for(const bank of banks){
     const el=document.createElement("div");
     el.className="bank-card";
-    el.innerHTML=`<div><h3>${esc(bank.name)}</h3><p>${bank.questions.length} questões · importado em ${new Date(bank.createdAt).toLocaleDateString("pt-BR")}</p></div><div class="bank-actions"><button class="btn primary" data-open>Abrir</button><button class="btn danger" data-delete>Excluir</button></div>`;
+    el.innerHTML=`<div><h3>${esc(bank.name)}</h3><p>${bank.questions.length} questões · importado em ${new Date(bank.createdAt).toLocaleDateString("pt-BR")}</p></div><div class="bank-actions"><button class="btn secondary" data-manage>Gerenciar</button><button class="btn primary" data-open>Abrir</button><button class="btn danger" data-delete>Excluir</button></div>`;
+    el.querySelector("[data-manage]").onclick=()=>openBankManager(bank.id);
     el.querySelector("[data-open]").onclick=()=>showSetup(bank.id);
     el.querySelector("[data-delete]").onclick=async()=>{
       if(!confirm(`Excluir definitivamente "${bank.name}"?\n\nSerão removidos o banco, o progresso, os históricos e as imagens associados, neste dispositivo e na nuvem.`))return;
@@ -1547,6 +1553,128 @@ function renderBanks(){
     };
     list.appendChild(el);
   }
+}
+
+async function openBankManager(bankId){
+  const bank=await get("banks",bankId);
+  if(!bank)return alert("Este banco não foi encontrado.");
+  managedBankId=bank.id;
+  $("bankManagerTitle").textContent=`Questões de ${bank.name}`;
+  $("bankManagerName").value=bank.name||"";
+  $("bankManagerSearch").value="";
+  $("bankManagerModal").classList.remove("hidden");
+  $("bankManagerModal").setAttribute("aria-hidden","false");
+  renderBankManagerQuestions();
+  window.setTimeout(()=>$("bankManagerSearch").focus(),80);
+}
+
+function closeBankManager(){
+  managedBankId="";
+  $("bankManagerModal").classList.add("hidden");
+  $("bankManagerModal").setAttribute("aria-hidden","true");
+}
+
+function questionKindLabel(question){
+  return question.tipo==="dragdrop"?"Drag-and-drop":question.tipo==="multiple"?"Múltipla escolha":"Escolha única";
+}
+
+async function renderBankManagerQuestions(){
+  if(!managedBankId)return;
+  const bank=await get("banks",managedBankId);
+  if(!bank){closeBankManager();return}
+  const query=$("bankManagerSearch").value.trim().toLocaleLowerCase("pt-BR");
+  const all=Array.isArray(bank.questions)?bank.questions:[];
+  const visible=all.filter(question=>!query||[question.id,question.categoria,question.pergunta,questionKindLabel(question)]
+    .some(value=>String(value||"").toLocaleLowerCase("pt-BR").includes(query)));
+  $("bankManagerCount").textContent=query?`${visible.length} de ${all.length} questões`:`${all.length} ${all.length===1?"questão":"questões"}`;
+  const list=$("bankManagerQuestionList");
+  list.innerHTML="";
+  if(!visible.length){list.innerHTML='<div class="empty-state">Nenhuma questão encontrada.</div>';return}
+  visible.forEach((question,index)=>{
+    const row=document.createElement("article");
+    row.className="bank-manager-question";
+    const originalPosition=all.indexOf(question)+1;
+    row.innerHTML=`<div class="bank-manager-question-index">${originalPosition}</div><div class="bank-manager-question-copy"><div class="bank-manager-question-tags"><span>ID ${esc(question.id||"—")}</span><span>${esc(question.categoria||"Sem categoria")}</span><span>${esc(questionKindLabel(question))}</span></div><strong>${esc(question.pergunta||"Questão sem enunciado")}</strong></div><button class="btn danger bank-manager-delete" type="button">Excluir questão</button>`;
+    row.querySelector(".bank-manager-delete").onclick=()=>deleteManagedQuestion(String(question.id),row);
+    list.appendChild(row);
+  });
+}
+
+async function saveManagedBankName(){
+  const bank=await get("banks",managedBankId),name=$("bankManagerName").value.trim();
+  if(!bank)return;
+  if(!name)return alert("Informe um nome para o banco.");
+  bank.name=name;bank.updatedAt=new Date().toISOString();
+  await put("banks",bank);
+  markCloudDirty("nome do banco alterado");
+  if(getCloudUser())try{await ensureCloudBank(bank)}catch(error){console.error("Sincronização do nome pendente",error)}
+  $("bankManagerTitle").textContent=`Questões de ${name}`;
+  await refreshHome();
+  managedBankId=bank.id;
+  toast("Nome do banco atualizado.");
+}
+
+function questionImageReferences(question){
+  const refs=[question.imagem_pergunta,...LETTERS.map(letter=>question[`img_${letter}`])];
+  if(question.dragdrop)refs.push(question.dragdrop.image,question.dragdrop.promptImage);
+  return refs.map(value=>String(value||"").trim()).filter(Boolean);
+}
+
+function imageReferenceMatches(storedName,reference){
+  const stored=imagePathVariants(storedName),wanted=imagePathVariants(reference);
+  return [...stored].some(value=>wanted.has(value));
+}
+
+async function deleteManagedQuestion(questionId,row){
+  const bank=await get("banks",managedBankId);
+  if(!bank)return;
+  const question=(bank.questions||[]).find(item=>String(item.id)===questionId);
+  if(!question)return renderBankManagerQuestions();
+  const preview=String(question.pergunta||"").replace(/\s+/g," ").trim().slice(0,120);
+  if(!confirm(`Excluir somente a questão ${question.id}?\n\n${preview}${String(question.pergunta||"").length>120?"…":""}\n\nAs outras questões e o histórico de simulados serão preservados.`))return;
+  const button=row.querySelector(".bank-manager-delete");
+  button.disabled=true;button.textContent="Excluindo...";
+  const removedReferences=questionImageReferences(question);
+  bank.questions=(bank.questions||[]).filter(item=>String(item.id)!==questionId);
+  const remainingReferences=bank.questions.flatMap(questionImageReferences);
+  bank.images=Object.fromEntries(Object.entries(bank.images||{}).filter(([storedName])=>{
+    const belongedToRemoved=removedReferences.some(reference=>imageReferenceMatches(storedName,reference));
+    const stillUsed=remainingReferences.some(reference=>imageReferenceMatches(storedName,reference));
+    return !belongedToRemoved||stillUsed;
+  }));
+  bank.updatedAt=new Date().toISOString();
+  await put("banks",bank);
+  await del("questionData",`${bank.id}::${question.id}`);
+
+  const progress=await get("progress",bank.id);
+  if(progress){
+    const validIds=new Set(bank.questions.map(item=>String(item.id)));
+    progress.order=(progress.order||[]).filter(id=>validIds.has(String(id)));
+    progress.answers=Object.fromEntries(Object.entries(progress.answers||{}).filter(([id])=>validIds.has(String(id))));
+    progress.favorites=(progress.favorites||[]).filter(id=>validIds.has(String(id)));
+    progress.marked=(progress.marked||[]).filter(id=>validIds.has(String(id)));
+    progress.notes=Object.fromEntries(Object.entries(progress.notes||{}).filter(([id])=>validIds.has(String(id))));
+    progress.currentIndex=Math.min(Number(progress.currentIndex)||0,Math.max(0,progress.order.length-1));
+    progress.settings={...(progress.settings||{}),__bankSignature:questionsSignature(bank.questions)};
+    progress.settings.__answerAudit=Array.isArray(progress.settings.__answerAudit)
+      ?progress.settings.__answerAudit.filter(item=>String(item.questionId)!==questionId):[];
+    progress.savedAt=new Date().toISOString();
+    await put("progress",progress);
+  }
+
+  markCloudDirty("questão excluída do banco");
+  if(getCloudUser())try{
+    await ensureCloudBank(bank);
+    if(progress)await pushProgress(bank,progress);
+  }catch(error){console.error("Sincronização da exclusão pendente",error)}
+  banks=banks.map(item=>item.id===bank.id?bank:item);
+  renderBanks();
+  populateCommonQuestionBankSelect();
+  populateDragDropBankSelect();
+  managedBankId=bank.id;
+  $("bankManagerTitle").textContent=`Questões de ${bank.name}`;
+  await renderBankManagerQuestions();
+  toast(`Questão ${question.id} excluída. As demais foram preservadas.`);
 }
 
 function renderHistory(items){

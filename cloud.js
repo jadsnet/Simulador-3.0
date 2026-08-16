@@ -308,9 +308,17 @@ async function resolveCloudBank(bank,{create=true}={}){
     // Só migra o ID legado quando ainda não existe outro registro estável.
     // Se houver duplicidade, mantém o vínculo do registro que contém respostas.
     if(stableRow&&data.id!==stableRow.id)return data;
-    if(data.local_bank_id===stableId)return data;
+    if(data.local_bank_id===stableId){
+      const refreshed=await supabase.from("question_banks")
+        .update({name:bank.name||data.name,file_name:bank.fileName||data.file_name,
+          question_count:count,updated_at:new Date().toISOString()})
+        .eq("id",data.id).eq("user_id",user.id).select(columns).single();
+      if(refreshed.error)throw refreshed.error;
+      return refreshed.data;
+    }
     const migrated=await supabase.from("question_banks")
-      .update({local_bank_id:stableId,name:bank.name||data.name,updated_at:new Date().toISOString()})
+      .update({local_bank_id:stableId,name:bank.name||data.name,file_name:bank.fileName||data.file_name,
+        question_count:count,updated_at:new Date().toISOString()})
       .eq("id",data.id).eq("user_id",user.id).select(columns).single();
     if(migrated.error)throw migrated.error;
     return migrated.data;

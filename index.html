@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#07111f">
   <meta name="description" content="Plataforma de simulados de certificação.">
-  <title>Simulador Academy V6.7.0</title>
+  <title>Simulador Academy V6.8.0</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%232f7df4'/><text x='32' y='43' text-anchor='middle' font-size='34' font-family='Arial' font-weight='700' fill='white'>S</text></svg>">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=6.7.0">
+  <link rel="stylesheet" href="style.css?v=6.8.0">
   <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script type="module" src="app.js?v=6.7.0"></script>
+  <script type="module" src="app.js?v=6.8.0"></script>
 </head>
 <body>
 
@@ -335,6 +335,23 @@
         <div id="previewQuestionImage"></div>
         <div id="previewAnswerArea" class="options"></div>
         <section class="preview-feedback-panel"><span>FEEDBACK DA REVISÃO</span><strong id="previewCorrectAnswer"></strong><div id="previewFeedbackText"></div></section>
+      </div>
+    </section>
+  </div>
+
+  <div id="bankManagerModal" class="builder-overlay bank-manager-overlay hidden" aria-hidden="true">
+    <section class="bank-manager-dialog" role="dialog" aria-modal="true" aria-labelledby="bankManagerTitle">
+      <header class="builder-head">
+        <div><p class="eyebrow">GERENCIAR BANCO</p><h2 id="bankManagerTitle">Questões do banco</h2></div>
+        <button id="closeBankManagerBtn" class="modal-close" type="button" aria-label="Fechar">×</button>
+      </header>
+      <div class="bank-manager-body">
+        <div class="bank-manager-toolbar">
+          <label class="field bank-manager-name"><span>Nome do banco</span><div class="inline-form"><input id="bankManagerName" maxlength="120"><button id="saveBankNameBtn" class="btn secondary" type="button">Salvar nome</button></div></label>
+          <label class="field bank-manager-search"><span>Localizar questão</span><input id="bankManagerSearch" type="search" placeholder="Buscar por ID, categoria ou enunciado..."></label>
+        </div>
+        <div class="bank-manager-summary"><strong id="bankManagerCount">0 questões</strong><span>Exclua somente a questão desejada; as demais permanecem no banco.</span></div>
+        <div id="bankManagerQuestionList" class="bank-manager-question-list"></div>
       </div>
     </section>
   </div>
