@@ -1,5 +1,5 @@
 import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.7.3";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.7.5";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -252,7 +252,7 @@ function setupMobileNavigation(){
   $("closeMobileMenuBtn").onclick=closeMobileNavigation;
   $("mobileTutorialBtn").onclick=()=>{closeMobileNavigation();restartOnboarding()};
   $("mobileSyncBtn").onclick=()=>{closeMobileNavigation();$("syncNowBtn")?.click()};
-  $("mobileThemeBtn").onclick=()=>{closeMobileNavigation();$("themeKittyBtn")?.click()};
+  $("mobileThemeBtn").onclick=()=>{$("themeKittyBtn")?.click()};
   $("mobileLogoutBtn").onclick=()=>{closeMobileNavigation();$("logoutBtn")?.click()};
   document.addEventListener("keydown",event=>{if(event.key==="Escape")closeMobileNavigation()});
   window.addEventListener("resize",()=>{if(window.innerWidth>760)closeMobileNavigation()});
