@@ -1,5 +1,5 @@
 import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.7.1";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.7.2";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -3420,25 +3420,53 @@ function renderReview(items){
     details.className="review-item-details";
     while(e.firstChild)details.appendChild(e.firstChild);
 
+    const header=document.createElement("div");
+    header.className="review-collapse-header";
+    header.innerHTML=`<span class="review-collapse-copy"><small>${esc(x.q.categoria||"Sem categoria")}</small><strong>Questão ${i+1} — ${x.ok?"Correta":"Incorreta"}</strong><em>${esc((x.q.pergunta||"Questão sem enunciado").replace(/\s+/g," ").trim())}</em></span>`;
     const toggle=document.createElement("button");
     toggle.className="review-collapse-toggle";
     toggle.type="button";
     toggle.setAttribute("aria-expanded","false");
-    toggle.innerHTML=`<span class="review-collapse-copy"><small>${esc(x.q.categoria||"Sem categoria")}</small><strong>Questão ${i+1} — ${x.ok?"Correta":"Incorreta"}</strong><em>${esc((x.q.pergunta||"Questão sem enunciado").replace(/\s+/g," ").trim())}</em></span><span class="review-collapse-action"><b>Ver questão</b><i>⌄</i></span>`;
+    toggle.setAttribute("aria-label",`Expandir questão ${i+1}`);
+    toggle.innerHTML="<i></i>";
     toggle.onclick=()=>setReviewItemExpanded(e,!e.classList.contains("expanded"));
-    e.append(toggle,details);
+    header.appendChild(toggle);
+    e.append(header,details);
     box.appendChild(e);
   });
 }
 
 function setReviewItemExpanded(item,expanded){
   if(!item)return;
-  item.classList.toggle("expanded",expanded);
+  const details=item.querySelector(".review-item-details");
   const button=item.querySelector(".review-collapse-toggle");
+  if(!details||!button){item.classList.toggle("expanded",expanded);return}
+  const mobile=window.matchMedia("(max-width: 760px)").matches;
+  const isOpen=item.classList.contains("expanded");
+  if(!mobile||expanded===isOpen){
+    item.classList.toggle("expanded",expanded);
+  }else{
+    details.getAnimations().forEach(animation=>animation.cancel());
+    if(expanded){
+      item.classList.add("expanded");
+      const targetHeight=details.scrollHeight;
+      const animation=details.animate([
+        {height:"0px",opacity:0,transform:"translateY(-12px)"},
+        {height:`${targetHeight}px`,opacity:1,transform:"translateY(0)"}
+      ],{duration:340,easing:"cubic-bezier(.22,.8,.28,1)"});
+      animation.onfinish=()=>{details.style.height="auto";details.style.opacity="1";details.style.transform="none"};
+    }else{
+      const startHeight=details.getBoundingClientRect().height||details.scrollHeight;
+      const animation=details.animate([
+        {height:`${startHeight}px`,opacity:1,transform:"translateY(0)"},
+        {height:"0px",opacity:0,transform:"translateY(-12px)"}
+      ],{duration:280,easing:"cubic-bezier(.55,0,.78,.2)"});
+      animation.onfinish=()=>{item.classList.remove("expanded");details.style.height="";details.style.opacity="";details.style.transform=""};
+    }
+  }
   if(button){
     button.setAttribute("aria-expanded",String(expanded));
-    const label=button.querySelector(".review-collapse-action b");
-    if(label)label.textContent=expanded?"Recolher":"Ver questão";
+    button.setAttribute("aria-label",`${expanded?"Recolher":"Expandir"} ${button.closest(".review-item")?.querySelector(".review-collapse-copy strong")?.textContent||"questão"}`);
   }
 }
 
