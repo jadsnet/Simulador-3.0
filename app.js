@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.9.7";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.9.8";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -979,7 +979,7 @@ async function renderProfilePage(){
     const heading=$("pageProfile")?.querySelector(".page-heading h2");
     if(heading)heading.textContent=`Perfil de ${name}`;
     const avatar=$("pageProfile")?.querySelector(".profile-avatar");
-    if(avatar){const url=friendVisitData?.profile?.avatarUrl;avatar.innerHTML=url?`<img src="${esc(url)}" alt="Foto de ${esc(name)}">`:esc(name.trim().slice(0,2).toUpperCase()||"AM")}
+    if(avatar){const url=friendVisitData?.profile?.avatarUrl;avatar.classList.toggle("has-image",Boolean(url));avatar.innerHTML=url?`<img src="${esc(url)}" alt="Foto de ${esc(name)}">`:esc(name.trim().slice(0,2).toUpperCase()||"AM")}
   }else{
     const heading=$("pageProfile")?.querySelector(".page-heading h2");
     if(heading)heading.textContent="Perfil e metas";
@@ -990,6 +990,7 @@ async function renderProfilePage(){
     if($("profileDisplayNameInput"))$("profileDisplayNameInput").value=name;
     if(avatar){
       const url=publicProfile.avatar_url||getCloudUser()?.user_metadata?.avatar_url;
+      avatar.classList.toggle("has-image",Boolean(url));
       avatar.innerHTML=url?`<img src="${esc(url)}" alt="Foto de ${esc(name)}">`:esc(name.slice(0,2).toUpperCase());
     }
   }
