@@ -1,5 +1,5 @@
 import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.2.1";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.3.0";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -673,9 +673,9 @@ function applyTheme(theme){
   const button=$("themeKittyBtn");
   if(button){
     button.setAttribute("aria-pressed",String(light));
-    button.title=light?"Ativar tema escuro":"Ativar tema claro";
+    button.title=light?"Desativar tema Hello Kitty":"Ativar tema Hello Kitty";
   }
-  document.querySelector('meta[name="theme-color"]')?.setAttribute("content",light?"#e9edf3":"#07111f");
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content",light?"#f7d2e4":"#07111f");
 }
 
 function toggleTheme(){
@@ -1027,7 +1027,6 @@ function bind(){
   $("onboardingPrevBtn").onclick=previousOnboardingStep;
   $("onboardingSkipBtn").onclick=finishOnboarding;
   $("onboardingExitBtn").onclick=finishOnboarding;
-  $("openTutorialBtn").onclick=restartOnboarding;
   $("sidebarTutorialBtn").onclick=restartOnboarding;
   window.addEventListener("resize",()=>{if(!$("onboardingOverlay").classList.contains("hidden"))positionOnboarding()});
   window.addEventListener("resize",()=>{if(activeApplicationPage==="stats")renderAnalyticsDashboard()});
