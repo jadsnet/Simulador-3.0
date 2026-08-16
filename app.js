@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.9.3";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.9.4";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -37,33 +37,49 @@ async function init(){
 function setupRichTextToolbars(){
   const ids=["commonQuestionText","dragDropQuestionText",...LETTERS.map(letter=>`commonAltText${letter.toUpperCase()}`)];
   ids.forEach(id=>{
-    const textarea=$(id);if(!textarea||textarea.previousElementSibling?.classList.contains("mini-text-toolbar"))return;
-    const bar=document.createElement("div");bar.className="mini-text-toolbar";bar.setAttribute("aria-label","Formatação do texto");
-    bar.innerHTML=`<button type="button" data-wrap="strong" title="Negrito"><b>B</b></button><button type="button" data-wrap="em" title="Itálico"><i>I</i></button><button type="button" data-wrap="u" title="Sublinhado"><u>U</u></button><button type="button" data-list="ul" title="Lista com marcadores">•≡</button><button type="button" data-list="ol" title="Lista numerada">1≡</button><button type="button" data-size="large" title="Aumentar fonte">A+</button><button type="button" data-size="small" title="Diminuir fonte">A−</button><label title="Cor da fonte"><span>A</span><input type="color" value="#e75493"></label>`;
-    textarea.before(bar);
-    bar.querySelectorAll("button").forEach(button=>button.onclick=()=>{
-      const start=textarea.selectionStart,end=textarea.selectionEnd;
-      const selected=textarea.value.slice(start,end)||"texto";
-      let replacement=selected;
-      if(button.dataset.wrap)replacement=`<${button.dataset.wrap}>${selected}</${button.dataset.wrap}>`;
-      if(button.dataset.size)replacement=`<span class="text-${button.dataset.size}">${selected}</span>`;
-      if(button.dataset.list){
-        const rows=selected.split(/\r?\n/).filter(Boolean).map(row=>`<li>${row}</li>`).join("");
-        replacement=`<${button.dataset.list}>${rows}</${button.dataset.list}>`;
-      }
-      textarea.setRangeText(replacement,start,end,"end");textarea.focus();
+    const textarea=$(id);if(!textarea||textarea.dataset.visualEditor)return;
+    textarea.dataset.visualEditor="true";textarea.classList.add("rich-editor-source");
+    const field=textarea.closest(".field"),title=field?.querySelector(":scope > span");
+    const heading=document.createElement("div");heading.className="rich-field-heading";
+    if(title)heading.appendChild(title);
+    const bar=document.createElement("div");bar.className="mini-text-toolbar";bar.setAttribute("role","toolbar");bar.setAttribute("aria-label","Formatar texto");
+    bar.innerHTML=`<button type="button" data-command="bold" title="Negrito" aria-label="Negrito"><b>B</b></button><button type="button" data-command="italic" title="Itálico" aria-label="Itálico"><i>I</i></button><button type="button" data-command="underline" title="Sublinhado" aria-label="Sublinhado"><u>U</u></button><button type="button" data-command="insertUnorderedList" title="Lista com marcadores" aria-label="Lista com marcadores">•≡</button><button type="button" data-command="insertOrderedList" title="Lista numerada" aria-label="Lista numerada">1≡</button><button type="button" data-size="large" title="Aumentar fonte" aria-label="Aumentar fonte">A+</button><button type="button" data-size="small" title="Diminuir fonte" aria-label="Diminuir fonte">A−</button><label class="rich-color-control" title="Cor da fonte" aria-label="Cor da fonte"><span>A</span><input type="color" value="#e75493"></label>`;
+    heading.appendChild(bar);field?.insertBefore(heading,textarea);
+    const editor=document.createElement("div");editor.className="rich-editor-surface";editor.contentEditable="true";editor.setAttribute("role","textbox");editor.setAttribute("aria-multiline","true");editor.dataset.placeholder=textarea.placeholder||"";editor._source=textarea;
+    textarea.after(editor);
+    let savedRange=null;
+    const rememberSelection=()=>{const selection=getSelection();if(selection?.rangeCount&&editor.contains(selection.anchorNode))savedRange=selection.getRangeAt(0).cloneRange()};
+    const restoreSelection=()=>{editor.focus();if(!savedRange)return;const selection=getSelection();selection.removeAllRanges();selection.addRange(savedRange)};
+    const sync=()=>{normalizeVisualEditor(editor);textarea.value=safeRichText(editor.innerHTML);rememberSelection();textarea.dispatchEvent(new Event("input",{bubbles:true}))};
+    ["keyup","mouseup","focus"].forEach(eventName=>editor.addEventListener(eventName,rememberSelection));
+    editor.addEventListener("input",sync);editor.addEventListener("paste",()=>requestAnimationFrame(sync));
+    bar.querySelectorAll("button").forEach(button=>{
+      button.tabIndex=-1;button.addEventListener("mousedown",event=>event.preventDefault());
+      button.addEventListener("click",()=>{restoreSelection();document.execCommand(button.dataset.size?"fontSize":button.dataset.command,false,button.dataset.size?(button.dataset.size==="large"?"5":"2"):null);normalizeVisualEditor(editor,button.dataset.size);sync()});
     });
-    bar.querySelector('input[type="color"]').oninput=event=>{
-      const start=textarea.selectionStart,end=textarea.selectionEnd,selected=textarea.value.slice(start,end)||"texto";
-      textarea.setRangeText(`<span style="color:${event.target.value}">${selected}</span>`,start,end,"end");textarea.focus();
-    };
+    const color=bar.querySelector('input[type="color"]');color.addEventListener("mousedown",rememberSelection);
+    color.addEventListener("input",event=>{restoreSelection();document.execCommand("foreColor",false,event.target.value);normalizeVisualEditor(editor);sync()});
+    refreshRichEditor(textarea);
   });
 }
 
-function richTextEnabled(value){return /<(strong|em|u|ul|ol|li|span)(\s|>)/i.test(String(value||""))}
+function normalizeVisualEditor(editor,size=""){
+  editor.querySelectorAll("font").forEach(font=>{
+    const span=document.createElement("span"),color=font.getAttribute("color"),fontSize=font.getAttribute("size");
+    if(color)span.style.color=color;if(size||fontSize)span.className=`text-${size||(Number(fontSize)>=4?"large":"small")}`;
+    while(font.firstChild)span.appendChild(font.firstChild);font.replaceWith(span);
+  });
+}
+function refreshRichEditor(textarea){
+  const editor=textarea?.nextElementSibling;if(!editor?.classList.contains("rich-editor-surface"))return;
+  if(richTextEnabled(textarea.value))editor.innerHTML=safeRichText(textarea.value);else editor.textContent=textarea.value||"";
+}
+function refreshAllRichEditors(){document.querySelectorAll("textarea.rich-editor-source").forEach(refreshRichEditor)}
+
+function richTextEnabled(value){return /<(strong|em|u|ul|ol|li|span|div|p|br)(\s|>)/i.test(String(value||""))}
 function safeRichText(value){
   const template=document.createElement("template");template.innerHTML=String(value||"");
-  const allowed=new Set(["STRONG","EM","U","UL","OL","LI","SPAN","BR"]);
+  const allowed=new Set(["STRONG","EM","U","UL","OL","LI","SPAN","BR","DIV","P"]);
   [...template.content.querySelectorAll("*")].forEach(node=>{
     if(!allowed.has(node.tagName)){node.replaceWith(document.createTextNode(node.textContent||""));return}
     const originalClass=node.getAttribute("class")||"";
@@ -2317,6 +2333,7 @@ function resetCommonQuestionFields(){
   }
   document.querySelectorAll('input[name="commonCorrect"]').forEach(input=>input.checked=false);
   updateCommonQuestionType();
+  refreshAllRichEditors();
 }
 
 function closeCommonQuestionBuilder(){
@@ -2524,6 +2541,7 @@ function openCommonQuestionEditor(bank,question){
   updateCommonQuestionType();
   const correct=new Set(normAnswers(question.correta));
   document.querySelectorAll('input[name="commonCorrect"]').forEach(input=>input.checked=correct.has(input.value));
+  refreshAllRichEditors();
   $("commonQuestionBuilderModal").classList.remove("hidden");
   $("commonQuestionBuilderModal").setAttribute("aria-hidden","false");
 }
@@ -2551,6 +2569,7 @@ function openDragDropQuestionEditor(bank,question){
     image.src=dragDropBuilder.imageData;
   }
   renderDragDropBuilderZones();
+  refreshAllRichEditors();
   $("dragDropBuilderModal").classList.remove("hidden");
   $("dragDropBuilderModal").setAttribute("aria-hidden","false");
 }
@@ -2712,6 +2731,7 @@ function resetDragDropQuestionFields(){
   $("dragDropBuilderStage").classList.add("hidden");
   $("dragDropBuilderEmpty").classList.remove("hidden");
   renderDragDropBuilderZones();
+  refreshAllRichEditors();
 }
 
 function updateDragDropBankMode(){

@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão" src="https://img.shields.io/badge/versão-V7.9.3-E75493">
+  <img alt="Versão" src="https://img.shields.io/badge/versão-V7.9.4-E75493">
   <img alt="Status" src="https://img.shields.io/badge/status-estável-22C55E">
   <img alt="PWA" src="https://img.shields.io/badge/PWA-ready-8B5CF6">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-cloud-3ECF8E">
@@ -317,7 +317,10 @@ Simulador-3.0-main/
 
 ---
 
-## ✅ Status da V7.9.3
+## ✅ Status da V7.9.4
+
+- Editor visual ao vivo nas telas de criação e edição de questões, sem exibição de tags HTML.
+- Barra de formatação discreta, sem contêiner, posicionada ao lado do título de cada campo.
 
 Inclui edição de nome e foto do perfil, exibição visual do usuário na lista de amigos, barra compacta de formatação nas telas de criação e correção das métricas ao navegar pelas estatísticas do amigo visitado.
 
