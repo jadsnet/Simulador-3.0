@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.1";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.2";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -61,13 +61,28 @@ function setupRichTextToolbars(){
     editor.addEventListener("input",sync);editor.addEventListener("paste",()=>requestAnimationFrame(sync));
     bar.querySelectorAll("button").forEach(button=>{
       button.tabIndex=-1;button.addEventListener("mousedown",event=>event.preventDefault());
-      button.addEventListener("click",()=>{restoreSelection();document.execCommand("styleWithCSS",false,false);document.execCommand(button.dataset.command,false,null);sync();requestAnimationFrame(restoreSelection)});
+      button.addEventListener("click",()=>{
+        restoreSelection();document.execCommand("styleWithCSS",false,false);
+        if(button.dataset.command==="bold")applyBoldToVisualSelection(editor);else document.execCommand(button.dataset.command,false,null);
+        sync();requestAnimationFrame(restoreSelection);
+      });
     });
     const color=bar.querySelector('input[type="color"]');color.addEventListener("mousedown",rememberSelection);
     const applySelectedColor=event=>{restoreSelection();document.execCommand("foreColor",false,event.target.value);normalizeVisualEditor(editor);sync();requestAnimationFrame(restoreSelection)};
     color.addEventListener("input",applySelectedColor);color.addEventListener("change",event=>requestAnimationFrame(()=>{restoreSelection();rememberSelection()}));
     refreshRichEditor(textarea);
   });
+}
+
+function applyBoldToVisualSelection(editor){
+  const selection=getSelection();if(!selection?.rangeCount)return;
+  const range=selection.getRangeAt(0);if(!editor.contains(range.commonAncestorContainer))return;
+  if(range.collapsed){document.execCommand("bold",false,null);return}
+  const startElement=range.startContainer.nodeType===Node.ELEMENT_NODE?range.startContainer:range.startContainer.parentElement;
+  const existingBold=startElement?.closest("strong,b");
+  if(existingBold&&editor.contains(existingBold)&&existingBold.contains(range.endContainer)){document.execCommand("bold",false,null);return}
+  const strong=document.createElement("strong");strong.appendChild(range.extractContents());range.insertNode(strong);
+  const selectedRange=document.createRange();selectedRange.selectNodeContents(strong);selection.removeAllRanges();selection.addRange(selectedRange);
 }
 
 function normalizeVisualEditor(editor,size=""){

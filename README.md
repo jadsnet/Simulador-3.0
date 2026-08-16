@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão" src="https://img.shields.io/badge/versão-V7.10.1-E75493">
+  <img alt="Versão" src="https://img.shields.io/badge/versão-V7.10.2-E75493">
   <img alt="Status" src="https://img.shields.io/badge/status-estável-22C55E">
   <img alt="PWA" src="https://img.shields.io/badge/PWA-ready-8B5CF6">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-cloud-3ECF8E">
@@ -317,7 +317,10 @@ Simulador-3.0-main/
 
 ---
 
-## ✅ Status da V7.10.1
+## ✅ Status da V7.10.2
+
+- Negrito passa a ser aplicado imediatamente à seleção, sem depender do comportamento atrasado do navegador.
+- Seleção permanece ativa depois da formatação e o resultado aparece igual no editor, na pré-visualização e após salvar.
 
 - Índice rolável de questões adicionado ao editor de criação manual.
 - Lista filtrada pelo banco de destino com ID e trecho do enunciado.

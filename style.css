@@ -1445,3 +1445,4 @@ body.theme-light.quiz-mode{background:radial-gradient(circle at 7% -8%,rgba(255,
 
 /* V7.10 — peso normal no enunciado e barra de edição completamente estável */
 #questionText,.preview-question-text{font-weight:400}.mini-text-toolbar button,.mini-text-toolbar label,.mini-text-toolbar button:hover,.mini-text-toolbar button:focus-visible,.mini-text-toolbar label:hover,.mini-text-toolbar button:active{transform:none!important}.mini-text-toolbar button:focus,.mini-text-toolbar button:focus-visible{outline:none}
+.rich-editor-surface strong,.rich-editor-surface b,#questionText strong,#questionText b,.preview-question-text strong,.preview-question-text b,.bank-manager-question-title strong,.bank-manager-question-title b{font-weight:800!important}
