@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.2";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.3";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -1519,7 +1519,7 @@ function bind(){
   $("openCommonQuestionBuilderBtn").onclick=openCommonQuestionBuilder;
   $("closeCommonQuestionBuilderBtn").onclick=closeCommonQuestionBuilder;
   $("commonQuestionBuilderModal").onclick=e=>{if(e.target===$("commonQuestionBuilderModal"))closeCommonQuestionBuilder()};
-  $("commonQuestionBankSelect").onchange=()=>{updateCommonQuestionBankMode();populateCommonQuestionIndex()};
+  $("commonQuestionBankSelect").onchange=changeCommonQuestionBank;
   $("commonQuestionIndex").onchange=selectCommonBuilderQuestion;
   $("commonQuestionType").onchange=updateCommonQuestionType;
   $("commonQuestionImageFile").onchange=loadCommonQuestionImage;
@@ -2403,8 +2403,17 @@ function populateCommonQuestionIndex(selectedId=""){
     const text=richTextPlainText(question.pergunta||"Questão"),snippet=text.slice(0,6)+(text.length>6?"…":"");
     return `<option value="${esc(String(question.id))}">ID ${esc(question.id||"—")} — ${esc(snippet)}</option>`;
   }).join(""):'<option value="" disabled>Nenhuma questão cadastrada</option>');
-  select.disabled=!bank||!items.length;
+  select.disabled=!bank;
   select.value=selectedId&&items.some(question=>String(question.id)===String(selectedId))?String(selectedId):"";
+}
+
+function changeCommonQuestionBank(){
+  editingQuestion=null;
+  updateCommonQuestionBankMode();
+  $("commonQuestionBuilderTitle").textContent="Nova questão comum";
+  $("saveCommonQuestionBtn").textContent="Salvar questão";
+  resetCommonQuestionFields();
+  populateCommonQuestionIndex();
 }
 
 async function selectCommonBuilderQuestion(){
@@ -2648,7 +2657,7 @@ async function editManagedQuestion(bankId,questionId){
 
 function openCommonQuestionEditor(bank,question){
   populateCommonQuestionBankSelect();resetCommonQuestionFields();
-  $("commonQuestionBankSelect").value=bank.id;$("commonQuestionBankSelect").disabled=true;
+  $("commonQuestionBankSelect").value=bank.id;$("commonQuestionBankSelect").disabled=false;
   $("commonQuestionBuilderTitle").textContent=`Editar questão ${question.id}`;
   $("saveCommonQuestionBtn").textContent="Atualizar questão";
   $("commonQuestionType").value=question.tipo==="multiple"?"multiple":"single";

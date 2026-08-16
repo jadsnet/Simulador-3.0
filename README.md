@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão" src="https://img.shields.io/badge/versão-V7.10.2-E75493">
+  <img alt="Versão" src="https://img.shields.io/badge/versão-V7.10.3-E75493">
   <img alt="Status" src="https://img.shields.io/badge/status-estável-22C55E">
   <img alt="PWA" src="https://img.shields.io/badge/PWA-ready-8B5CF6">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-cloud-3ECF8E">
@@ -317,7 +317,11 @@ Simulador-3.0-main/
 
 ---
 
-## ✅ Status da V7.10.2
+## ✅ Status da V7.10.3
+
+- Banco de destino permanece desbloqueado durante a edição.
+- Trocar o banco atualiza imediatamente o índice e prepara uma nova questão no banco escolhido.
+- Barra de rolagem do índice redesenhada nos temas normal e Hello Kitty.
 
 - Negrito passa a ser aplicado imediatamente à seleção, sem depender do comportamento atrasado do navegador.
 - Seleção permanece ativa depois da formatação e o resultado aparece igual no editor, na pré-visualização e após salvar.
