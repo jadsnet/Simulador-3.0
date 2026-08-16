@@ -38,6 +38,41 @@ export async function signUp(email,password){
 }
 export async function signOut(){ await supabase.auth.signOut(); }
 
+export async function ensurePublicProfile(){
+  const user=await requireUser();
+  const email=user.email||"usuario@sem-email.local";
+  const displayName=user.user_metadata?.display_name||email.split("@")[0]||"Usuário";
+  const {error}=await supabase.from("user_profiles").upsert({
+    user_id:user.id,email,display_name:displayName,updated_at:new Date().toISOString()
+  },{onConflict:"user_id"});
+  if(error)throw error;
+}
+
+export async function listFriendProfiles(){
+  await requireUser();
+  const {data,error}=await supabase.from("user_profiles")
+    .select("user_id,email,display_name,created_at")
+    .eq("is_discoverable",true)
+    .order("display_name",{ascending:true})
+    .limit(500);
+  if(error)throw error;
+  return data||[];
+}
+
+export async function getFriendProgressSummary(userId){
+  await requireUser();
+  const {data,error}=await supabase.rpc("get_friend_progress_summary",{target_user_id:userId});
+  if(error)throw error;
+  return data;
+}
+
+export async function updatePublicGoal(dailyGoal){
+  const user=await requireUser();
+  const goal=Math.max(1,Math.min(500,Number(dailyGoal)||20));
+  const {error}=await supabase.from("user_profiles").update({daily_goal:goal,updated_at:new Date().toISOString()}).eq("user_id",user.id);
+  if(error)throw error;
+}
+
 export async function getCloudRevision(){
   const user=await requireUser();
   const [banksResult,progressResult,historyResult]=await Promise.all([

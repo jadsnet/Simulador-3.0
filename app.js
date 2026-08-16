@@ -1,5 +1,5 @@
 import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.7.10";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.8.1";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -253,7 +253,7 @@ function setupMobileNavigation(){
   $("mobileTutorialBtn").onclick=()=>{closeMobileNavigation();restartOnboarding()};
   $("mobileSyncBtn").onclick=()=>{closeMobileNavigation();$("syncNowBtn")?.click()};
   $("mobileThemeBtn").onclick=()=>{$("themeKittyBtn")?.click()};
-  $("mobileLogoutBtn").onclick=()=>{closeMobileNavigation();$("logoutBtn")?.click()};
+  $("mobileAccountBtn").onclick=event=>{event.stopPropagation();closeMobileNavigation();openAccountMenu()};
   document.addEventListener("keydown",event=>{if(event.key==="Escape")closeMobileNavigation()});
   window.addEventListener("resize",()=>{if(window.innerWidth>760)closeMobileNavigation()});
 }
@@ -283,6 +283,7 @@ function showApplicationPage(page="home",scrollTarget=""){
   if(page==="stats")refreshHome().then(renderAnalyticsDashboard);
   if(page==="flashcards")renderFlashcards();
   if(page==="profile")renderProfilePage();
+  if(page==="friends")renderFriendDirectory();
   if(page==="search")renderGlobalSearch();
   if(page==="settings")scanLegacyProgress();
 
@@ -401,6 +402,7 @@ const V6_GOAL_KEY="simulador-academy-v6-goal";
 const V6_PROFILE_KEY="simulador-academy-v6-profile";
 let deferredInstallPrompt=null;
 let flashcardItems=[],flashcardIndex=0,flashcardRevealed=false;
+let friendProfiles=[],selectedFriendId="";
 
 function setupV6Features(){
   const root=$("homeScreen");
@@ -463,6 +465,16 @@ function setupV6Features(){
       <div id="recommendationList" class="recommendation-list"></div>
     </article>`;
 
+  const friends=makeApplicationPage("pageFriends","Visitar amigo","MODO SOMENTE LEITURA");
+  friends.innerHTML+=`
+    <article class="panel friend-browser-panel">
+      <div class="panel-title">
+        <div><p>PERFIL VISITADO</p><h2>Área do amigo</h2></div>
+        <div class="friend-page-actions"><span class="friend-readonly-badge">Somente visualização</span><button id="changeFriendBtn" class="text-btn" type="button">Trocar amigo</button></div>
+      </div>
+      <section id="friendViewer" class="friend-viewer friend-viewer-page"><div class="friend-empty-state"><span>◎</span><strong>Escolha um amigo</strong><p>Abra o menu da conta e selecione “Visualizar amigos”.</p></div></section>
+    </article>`;
+
   const search=makeApplicationPage("pageSearch","Busca global","QUESTÕES E CONTEÚDOS");
   search.innerHTML+=`
     <article class="panel">
@@ -481,7 +493,7 @@ function setupV6Features(){
     </article>
     <div id="globalSearchResults" class="global-search-results"></div>`;
 
-  root.append(flashcards,profile,search);
+  root.append(flashcards,profile,friends,search);
 
   $("shuffleFlashcardsBtn").onclick=()=>{
     flashcardItems=flashcardItems.sort(()=>Math.random()-.5);
@@ -491,6 +503,10 @@ function setupV6Features(){
   $("saveDailyGoalBtn").onclick=saveDailyGoal;
   $("runGlobalSearchBtn").onclick=renderGlobalSearch;
   $("globalSearchInput").onkeydown=e=>{if(e.key==="Enter")renderGlobalSearch()};
+  $("changeFriendBtn").onclick=openFriendPicker;
+  $("friendPickerSearch").oninput=()=>renderFriendPickerList($("friendPickerSearch").value);
+  $("closeFriendPickerBtn").onclick=closeFriendPicker;
+  $("friendPickerBackdrop").onclick=event=>{if(event.target===$("friendPickerBackdrop"))closeFriendPicker()};
 
   const searchBox=$("dashboardSearch");
   if(searchBox){
@@ -579,9 +595,153 @@ function getDailyGoal(){
   return Math.max(1,Number(localStorage.getItem(V6_GOAL_KEY))||20);
 }
 
-function saveDailyGoal(){
+function renderFriendDirectory(){
+  if(!selectedFriendId)openFriendPicker();
+}
+
+async function openFriendPicker(){
+  closeAccountMenu();
+  closeMobileNavigation();
+  const backdrop=$("friendPickerBackdrop"),status=$("friendPickerStatus"),list=$("friendPickerList");
+  if(!backdrop||!status||!list)return;
+  backdrop.classList.remove("hidden");
+  backdrop.setAttribute("aria-hidden","false");
+  document.body.classList.add("friend-picker-open");
+  status.textContent="Carregando usuários cadastrados...";
+  list.innerHTML="";
+  $("friendPickerSearch").value="";
+  try{
+    friendProfiles=await listFriendProfiles();
+    status.textContent=`${friendProfiles.length} usuário${friendProfiles.length===1?"":"s"} disponível${friendProfiles.length===1?"":"is"}`;
+    renderFriendPickerList();
+    window.setTimeout(()=>$("friendPickerSearch")?.focus(),80);
+  }catch(error){
+    console.error("Não foi possível carregar os amigos",error);
+    status.textContent="O recurso precisa ser ativado no Supabase.";
+    list.innerHTML=`<div class="friend-setup-notice"><strong>Configuração necessária</strong><p>Execute novamente <code>supabase/SUPABASE_FRIEND_VISITS_V7_8.sql</code> no SQL Editor do Supabase.</p></div>`;
+  }
+}
+
+function closeFriendPicker(){
+  const backdrop=$("friendPickerBackdrop");
+  if(backdrop){backdrop.classList.add("hidden");backdrop.setAttribute("aria-hidden","true")}
+  document.body.classList.remove("friend-picker-open");
+}
+
+function renderFriendPickerList(query=""){
+  const list=$("friendPickerList");
+  if(!list)return;
+  const needle=String(query).trim().toLocaleLowerCase("pt-BR");
+  const currentId=getCloudUser()?.id;
+  const visible=friendProfiles.filter(profile=>!needle||`${profile.display_name||""} ${profile.email||""}`.toLocaleLowerCase("pt-BR").includes(needle));
+  if(!visible.length){
+    list.innerHTML='<div class="friend-directory-empty">Nenhum usuário encontrado.</div>';
+    return;
+  }
+  list.innerHTML=visible.map(profile=>{
+    const name=profile.display_name||String(profile.email||"Usuário").split("@")[0];
+    const initials=name.trim().slice(0,2).toUpperCase()||"AM";
+    const own=profile.user_id===currentId;
+    return `<button class="friend-profile-item" type="button" data-friend-id="${esc(profile.user_id)}">
+      <span class="friend-avatar">${esc(initials)}</span>
+      <span class="friend-profile-copy"><strong>${esc(name)}${own?' <small>(você)</small>':""}</strong><small>${esc(profile.email||"")}</small></span>
+      <i aria-hidden="true">›</i>
+    </button>`;
+  }).join("");
+  list.querySelectorAll("[data-friend-id]").forEach(button=>button.onclick=()=>{
+    selectedFriendId=button.dataset.friendId;
+    closeFriendPicker();
+    showApplicationPage("friends");
+    openFriendProfile(selectedFriendId);
+  });
+}
+
+function friendDuration(seconds){
+  const total=Math.max(0,Number(seconds)||0);
+  const hours=Math.floor(total/3600),minutes=Math.floor(total%3600/60);
+  return `${String(hours).padStart(2,"0")}h ${String(minutes).padStart(2,"0")}m`;
+}
+
+function friendDate(value){
+  if(!value)return "Sem atividade";
+  const date=new Date(value);
+  return Number.isNaN(date.getTime())?"Sem atividade":date.toLocaleString("pt-BR",{dateStyle:"short",timeStyle:"short"});
+}
+
+async function openFriendProfile(userId){
+  const viewer=$("friendViewer");
+  if(!viewer)return;
+  document.querySelectorAll(".friend-profile-item").forEach(button=>button.classList.toggle("active",button.dataset.friendId===userId));
+  viewer.innerHTML='<div class="friend-loading"><div class="spinner"></div><p>Carregando progresso em modo somente leitura...</p></div>';
+  try{
+    const summary=await getFriendProgressSummary(userId);
+    const profile=summary?.profile||{};
+    const totals=summary?.totals||{};
+    const progress=Array.isArray(summary?.progress)?summary.progress:[];
+    const recent=Array.isArray(summary?.recentHistory)?summary.recentHistory:[];
+    const friendBanks=Array.isArray(summary?.banks)?summary.banks:[];
+    const studyDays=Array.isArray(summary?.studyDays)?summary.studyDays:[];
+    const name=profile.displayName||String(profile.email||"Amigo").split("@")[0];
+    const initials=name.trim().slice(0,2).toUpperCase()||"AM";
+    const totalAnswered=Number(totals.answered)||0,totalCorrect=Number(totals.correct)||0,simulations=Number(totals.simulations)||0;
+    const xp=totalAnswered*5+totalCorrect*5+simulations*20,level=Math.floor(xp/500)+1;
+    let streak=0;const streakCursor=new Date();
+    for(;;){const key=streakCursor.toISOString().slice(0,10);if(studyDays.includes(key)){streak++;streakCursor.setDate(streakCursor.getDate()-1)}else break}
+    viewer.innerHTML=`
+      <header class="friend-viewer-head">
+        <span class="friend-viewer-avatar">${esc(initials)}</span>
+        <div><p>VISITANDO AGORA</p><h2>${esc(name)}</h2><span>${esc(profile.email||"")}</span></div>
+        <b>Somente leitura</b>
+      </header>
+      <div class="friend-stats">
+        <article><span>▣</span><small>Simulados</small><strong>${simulations}</strong></article>
+        <article><span>▤</span><small>Respondidas</small><strong>${totalAnswered.toLocaleString("pt-BR")}</strong></article>
+        <article><span>◉</span><small>Taxa de acerto</small><strong>${Number(totals.accuracy)||0}%</strong></article>
+        <article><span>◷</span><small>Tempo estudado</small><strong>${friendDuration(totals.studySeconds)}</strong></article>
+      </div>
+      <section class="friend-goal-grid">
+        <article><p>META DIÁRIA</p><strong>${Number(profile.dailyGoal)||20} questões</strong><span>objetivo configurado</span></article>
+        <article><p>NÍVEL E XP</p><strong>Nível ${level}</strong><span>${xp.toLocaleString("pt-BR")} XP acumulados</span></article>
+        <article><p>SEQUÊNCIA</p><strong>${streak} dia${streak===1?"":"s"}</strong><span>atividade consecutiva</span></article>
+        <article><p>ÚLTIMA ATIVIDADE</p><strong>${friendDate(totals.lastActivity)}</strong><span>sincronizada na nuvem</span></article>
+      </section>
+      <section class="friend-progress-section">
+        <div class="friend-section-title"><div><p>BIBLIOTECA</p><h3>Bancos de questões</h3></div><span>${friendBanks.length}</span></div>
+        <div class="friend-bank-list">${friendBanks.length?friendBanks.map(bank=>`<article><span>▤</span><div><strong>${esc(bank.name||"Banco de questões")}</strong><small>${Number(bank.questionCount)||0} questões · atualizado em ${friendDate(bank.updatedAt)}</small></div></article>`).join(""):'<div class="friend-list-empty">Nenhum banco sincronizado.</div>'}</div>
+      </section>
+      <section class="friend-progress-section">
+        <div class="friend-section-title"><div><p>EM ANDAMENTO</p><h3>Progresso atual</h3></div><span>${progress.length}</span></div>
+        <div class="friend-progress-list">${progress.length?progress.map(item=>`
+          <article class="friend-progress-row">
+            <div><strong>${esc(item.bankName||"Banco de questões")}</strong><small>${Number(item.answered)||0} de ${Number(item.total)||0} respondidas · ${friendDate(item.savedAt)}</small></div>
+            <span>${Number(item.percent)||0}%</span>
+            <i><b style="width:${Math.min(100,Math.max(0,Number(item.percent)||0))}%"></b></i>
+          </article>`).join(""):'<div class="friend-list-empty">Nenhum simulado em andamento.</div>'}</div>
+      </section>
+      <section class="friend-progress-section">
+        <div class="friend-section-title"><div><p>HISTÓRICO</p><h3>Simulados concluídos</h3></div><span>${recent.length}</span></div>
+        <div class="friend-history-list">${recent.length?recent.map(item=>`
+          <article class="friend-history-row">
+            <div><strong>${esc(item.bankName||"Banco de questões")}</strong><small>${friendDate(item.finishedAt)} · ${friendDuration(item.studySeconds)}</small></div>
+            <span><b>${Number(item.score)||0}%</b><small>${Number(item.correct)||0}/${Number(item.total)||0}</small></span>
+          </article>`).join(""):'<div class="friend-list-empty">Nenhum simulado concluído.</div>'}</div>
+      </section>
+      <section class="friend-performance-summary">
+        <div><span>✓</span><small>Acertos acumulados</small><strong>${totalCorrect.toLocaleString("pt-BR")}</strong></div>
+        <div><span>×</span><small>Erros acumulados</small><strong>${Math.max(0,totalAnswered-totalCorrect).toLocaleString("pt-BR")}</strong></div>
+        <div><span>%</span><small>Aproveitamento geral</small><strong>${Number(totals.accuracy)||0}%</strong></div>
+      </section>
+      <p class="friend-privacy-note">◎ Visualização protegida: respostas, anotações, arquivos e controles de edição não são compartilhados.</p>`;
+  }catch(error){
+    console.error("Não foi possível abrir o perfil do amigo",error);
+    viewer.innerHTML=`<div class="friend-empty-state error"><span>!</span><strong>Não foi possível visitar este perfil</strong><p>${esc(error.message||"Tente novamente em alguns instantes.")}</p></div>`;
+  }
+}
+
+async function saveDailyGoal(){
   const value=Math.max(1,Math.min(500,Number($("dailyGoalInput").value)||20));
   localStorage.setItem(V6_GOAL_KEY,String(value));
+  try{await updatePublicGoal(value)}catch(error){console.warn("A meta pública será sincronizada depois",error)}
   renderProfilePage();
   toast("Meta diária atualizada.");
 }
@@ -702,6 +862,40 @@ async function renderGlobalSearch(){
 }
 
 
+function closeAccountMenu(){
+  const menu=$("accountMenu"),button=$("logoutBtn");
+  if(menu){menu.classList.add("hidden");menu.setAttribute("aria-hidden","true");menu.removeAttribute("style")}
+  button?.setAttribute("aria-expanded","false");
+}
+
+function openAccountMenu(anchor=$("logoutBtn")){
+  const menu=$("accountMenu");
+  if(!menu)return;
+  menu.classList.remove("hidden");
+  menu.setAttribute("aria-hidden","false");
+  $("logoutBtn")?.setAttribute("aria-expanded","true");
+  if(window.innerWidth>760&&anchor){
+    const rect=anchor.getBoundingClientRect();
+    menu.style.position="fixed";
+    menu.style.top=`${rect.bottom+8}px`;
+    menu.style.right=`${Math.max(10,window.innerWidth-rect.right)}px`;
+  }
+}
+
+function toggleAccountMenu(event){
+  event?.stopPropagation();
+  if($("accountMenu")?.classList.contains("hidden"))openAccountMenu(event?.currentTarget||$("logoutBtn"));
+  else closeAccountMenu();
+}
+
+async function performLogout(button){
+  if(button)button.disabled=true;
+  closeAccountMenu();closeFriendPicker();
+  try{await signOut()}
+  catch(error){console.error("Falha ao sair",error);toast("Não foi possível sair. Tente novamente.")}
+  finally{if(button)button.disabled=false}
+}
+
 function bindAuth(){
   const submitBtn=$("authSubmitBtn");
   const toggleBtn=$("authToggleBtn");
@@ -718,12 +912,13 @@ function bindAuth(){
     $("authToggleBtn").textContent=authMode==="signin"?"Criar uma conta":"Já tenho uma conta";
     $("authMessage").textContent="";
   };
-  if(logoutBtn) logoutBtn.onclick=async()=>{
-    logoutBtn.disabled=true;
-    try{await signOut()}
-    catch(error){console.error("Falha ao sair",error);toast("Não foi possível sair. Tente novamente.")}
-    finally{logoutBtn.disabled=false}
-  };
+  if(logoutBtn)logoutBtn.onclick=toggleAccountMenu;
+  $("accountFriendsBtn").onclick=openFriendPicker;
+  $("accountLogoutBtn").onclick=event=>performLogout(event.currentTarget);
+  document.addEventListener("click",event=>{
+    if(!$("accountMenu")?.contains(event.target)&&event.target!==logoutBtn)closeAccountMenu();
+  });
+  document.addEventListener("keydown",event=>{if(event.key==="Escape"){closeAccountMenu();closeFriendPicker()}});
   if(syncBtn) syncBtn.onclick=()=>syncAllNow({force:true});
   if(legacyBtn) legacyBtn.onclick=importLegacyProgress;
   if(themeBtn) themeBtn.onclick=toggleTheme;
@@ -778,7 +973,7 @@ async function handleAuthChange(user){
   $("authScreen").classList.toggle("hidden",!!user);
   document.querySelector(".app-layout").classList.toggle("hidden",!user);
   $("mobileBottomNav")?.classList.toggle("hidden",!user);
-  if(!user)closeMobileNavigation();
+  if(!user){closeMobileNavigation();closeAccountMenu();closeFriendPicker()}
   if(!user){
     authMode="signin";
     $("authTitle").textContent="Entrar";
@@ -792,6 +987,7 @@ async function handleAuthChange(user){
   $("logoutBtn").textContent=(user.email||"U").slice(0,2).toUpperCase();
   setCloudStatus("Sincronizando","syncing");
   try{
+    try{await ensurePublicProfile();await updatePublicGoal(getDailyGoal())}catch(profileError){console.warn("Perfil público ainda não disponível",profileError)}
     await syncAllNow({silent:true});
     populateLegacyBanks();
     setCloudStatus("Nuvem ativa","online");

@@ -5,19 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#07111f">
   <meta name="description" content="Plataforma de simulados de certificação.">
-  <title>Simulador Academy V7.7.10</title>
+  <title>Simulador Academy V7.8.1</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%232f7df4'/><text x='32' y='43' text-anchor='middle' font-size='34' font-family='Arial' font-weight='700' fill='white'>S</text></svg>">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=7.7.10">
+  <link rel="stylesheet" href="style.css?v=7.8.1">
   <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script type="module" src="app.js?v=7.7.10"></script>
+  <script type="module" src="app.js?v=7.8.1"></script>
 </head>
 <body>
 
   <section id="authScreen" class="auth-screen">
     <div class="auth-card">
-      <div class="auth-brand"><div class="brand-mark">S</div><div><strong>Simulador Academy</strong><small>V7.7.10</small></div></div>
+      <div class="auth-brand"><div class="brand-mark">S</div><div><strong>Simulador Academy</strong><small>V7.8.1</small></div></div>
       <h1 id="authTitle">Entrar</h1>
       <p id="authSubtitle">Seu progresso será salvo localmente e no Supabase.</p>
       <label class="field"><span>E-mail</span><input id="authEmail" type="email" autocomplete="email" placeholder="voce@exemplo.com"></label>
@@ -52,7 +52,7 @@
     <main class="content-shell">
       <header class="topbar">
         <div><p class="eyebrow">VISÃO GERAL</p><h1>Bem-vindo de volta!</h1><p>Pronto para continuar seus estudos?</p></div>
-        <div class="top-actions"><label class="search"><span>⌕</span><input id="dashboardSearch" placeholder="Buscar banco..."></label><span id="cloudStatus" class="cloud-status offline">Local</span><button id="installAppBtn" class="round-btn hidden" type="button" title="Instalar aplicativo">⇩</button><button id="syncNowBtn" class="round-btn" type="button" title="Sincronizar agora">↻</button><button id="themeKittyBtn" class="round-btn theme-kitty-btn" type="button" title="Ativar tema Hello Kitty" aria-label="Alternar tema Hello Kitty" aria-pressed="false"><img src="assets/hello-kitty-theme.png" alt="" aria-hidden="true"></button><button id="logoutBtn" class="avatar" type="button" title="Sair">JR</button></div>
+        <div class="top-actions"><label class="search"><span>⌕</span><input id="dashboardSearch" placeholder="Buscar banco..."></label><span id="cloudStatus" class="cloud-status offline">Local</span><button id="installAppBtn" class="round-btn hidden" type="button" title="Instalar aplicativo">⇩</button><button id="syncNowBtn" class="round-btn" type="button" title="Sincronizar agora">↻</button><button id="themeKittyBtn" class="round-btn theme-kitty-btn" type="button" title="Ativar tema Hello Kitty" aria-label="Alternar tema Hello Kitty" aria-pressed="false"><img src="assets/hello-kitty-theme.png" alt="" aria-hidden="true"></button><button id="logoutBtn" class="avatar" type="button" title="Abrir menu da conta" aria-label="Abrir menu da conta" aria-expanded="false">JR</button></div>
       </header>
 
       <section id="homeScreen" class="screen">
@@ -208,6 +208,20 @@
     </main>
   </div>
 
+  <div id="accountMenu" class="account-menu hidden" aria-hidden="true">
+    <button id="accountFriendsBtn" type="button"><span>◎</span><strong>Visualizar amigos</strong></button>
+    <button id="accountLogoutBtn" class="account-logout" type="button"><span>↪</span><strong>Sair</strong></button>
+  </div>
+
+  <div id="friendPickerBackdrop" class="friend-picker-backdrop hidden" aria-hidden="true">
+    <section id="friendPicker" class="friend-picker" role="dialog" aria-modal="true" aria-labelledby="friendPickerTitle">
+      <header><div><p>VISITAR AMIGO</p><h2 id="friendPickerTitle">Usuários cadastrados</h2></div><button id="closeFriendPickerBtn" type="button" aria-label="Fechar">×</button></header>
+      <label class="field"><span>Localizar usuário</span><input id="friendPickerSearch" type="search" placeholder="Nome ou e-mail..."></label>
+      <div id="friendPickerStatus" class="friend-directory-status">Carregando usuários...</div>
+      <div id="friendPickerList" class="friend-directory-list"></div>
+    </section>
+  </div>
+
   <div id="mobileMoreMenu" class="mobile-more-menu hidden" aria-hidden="true">
     <div class="mobile-more-head"><div><span>MENU</span><strong>Mais opções</strong></div><button id="closeMobileMenuBtn" type="button" aria-label="Fechar menu">×</button></div>
     <div class="mobile-more-grid">
@@ -219,7 +233,7 @@
       <button id="mobileTutorialBtn" class="mobile-more-action" type="button"><span>?</span><strong>Guia de uso</strong></button>
       <button id="mobileSyncBtn" class="mobile-more-action" type="button"><span>↻</span><strong>Sincronizar</strong></button>
       <button id="mobileThemeBtn" class="mobile-theme-action" type="button" aria-label="Alternar tema Hello Kitty" aria-pressed="false"><span class="mobile-theme-switch" aria-hidden="true"><b class="mobile-theme-on">ON</b><i><img src="assets/hello-kitty-theme.png" alt=""></i><b class="mobile-theme-off">OFF</b></span></button>
-      <button id="mobileLogoutBtn" class="mobile-more-action mobile-logout-action" type="button"><span>↪</span><strong>Sair</strong></button>
+      <button id="mobileAccountBtn" class="mobile-more-action" type="button"><span>●</span><strong>Conta</strong></button>
     </div>
   </div>
 

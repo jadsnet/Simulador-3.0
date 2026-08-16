@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão" src="https://img.shields.io/badge/versão-V7.7.10-E75493">
+  <img alt="Versão" src="https://img.shields.io/badge/versão-V7.8.1-E75493">
   <img alt="Status" src="https://img.shields.io/badge/status-estável-22C55E">
   <img alt="PWA" src="https://img.shields.io/badge/PWA-ready-8B5CF6">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-cloud-3ECF8E">
@@ -302,6 +302,7 @@ Simulador-3.0-main/
 2. Configure as tabelas e políticas RLS.
 3. Execute `supabase/SUPABASE_STORAGE_SETUP.sql` no SQL Editor.
 4. Em instalações anteriores à V6.4, execute também `supabase/SUPABASE_STORAGE_V6_4_MIGRATION.sql`.
+5. Execute `supabase/SUPABASE_FRIEND_VISITS_V7_8.sql` para ativar o menu **Visualizar amigos** e o acesso somente leitura. Se já executou uma versão anterior desse arquivo, execute-o novamente para adicionar bancos, metas e histórico completo ao perfil visitado.
 5. Confirme o bucket privado `question-images`.
 
 ---
@@ -316,10 +317,15 @@ Simulador-3.0-main/
 
 ---
 
-## ✅ Status da V7.7.10
+## ✅ Status da V7.8.1
 
 - [x] Progresso entre computadores
 - [x] Histórico completo por usuário
+- [x] Diretório de usuários cadastrados e visita segura ao progresso dos amigos
+- [x] Modo visitante somente leitura, sem compartilhar respostas, anotações ou arquivos privados
+- [x] Menu da conta na bolinha do usuário com opções Visualizar amigos e Sair
+- [x] Seletor flutuante de amigos no desktop e em formato de painel inferior no mobile
+- [x] Página completa do amigo com bancos, histórico, estatísticas, progresso, nível, XP e meta diária
 - [x] Imagens sincronizadas pelo Storage
 - [x] Manifesto canônico de imagens
 - [x] Sincronização incremental
