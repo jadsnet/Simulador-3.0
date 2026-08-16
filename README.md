@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão" src="https://img.shields.io/badge/versão-V6.10.0-2F7DF4">
+  <img alt="Versão" src="https://img.shields.io/badge/versão-V6.11.0-2F7DF4">
   <img alt="Status" src="https://img.shields.io/badge/status-estável-22C55E">
   <img alt="PWA" src="https://img.shields.io/badge/PWA-ready-8B5CF6">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-cloud-3ECF8E">
@@ -316,7 +316,7 @@ Simulador-3.0-main/
 
 ---
 
-## ✅ Status da V6.10.0
+## ✅ Status da V6.11.0
 
 - [x] Progresso entre computadores
 - [x] Histórico completo por usuário
@@ -337,6 +337,8 @@ Simulador-3.0-main/
 - [x] Botões rápidos reduzidos para ícones compactos de play e menu
 - [x] Remoção e substituição explícita das imagens durante a edição
 - [x] Criação manual posicionada antes da importação, com título azul padronizado
+- [x] Play e menu sanduíche ultracompactos, com área mínima ao redor dos símbolos
+- [x] Botão X pequeno e centralizado na lateral direita do editor drag-and-drop
 - [x] Revisão inteligente
 - [x] Estatísticas e gráficos
 - [x] Flashcards

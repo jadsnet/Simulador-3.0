@@ -983,3 +983,13 @@ button:disabled{cursor:not-allowed;box-shadow:none!important;filter:saturate(.6)
 /* V6.10 — criação manual em destaque e estado das imagens editáveis */
 .import-section-heading{margin:22px 0 15px;padding-top:17px;border-top:1px solid var(--border)}.import-section-heading p{margin:0 0 5px;color:#60a5fa;font-size:.7rem;font-weight:800;letter-spacing:.14em}.import-section-heading h2{margin:0;font-size:1rem}.import-panel .panel-body>.btn.full:first-child{margin-top:0}
 #commonQuestionImageStatus,#dragDropPromptImageStatus,#dragDropActivityImageStatus{color:#8fb9ec;font-weight:600}
+
+/* V6.11 — controles mínimos e fechamento lateral do editor visual */
+.bank-actions{gap:4px}.compact-play-btn{width:22px;min-width:22px;height:22px;min-height:22px;border-radius:5px}.compact-play-btn span{font-size:.58rem;transform:translateX(.5px)}
+.action-menu-trigger{gap:2px;width:22px;height:22px;border-radius:5px}.action-menu-trigger>span{width:16px;height:1.4px}.action-menu-trigger:hover>span:nth-child(2){width:14px}
+.question-action-menu .action-menu-trigger{width:22px;height:22px}.bank-manager-question{grid-template-columns:42px minmax(0,1fr) 28px}
+#closeDragDropBuilderBtn{position:fixed;z-index:51000;right:8px;top:50%;width:20px;height:20px;min-width:20px;min-height:20px;transform:translateY(-50%);border-radius:5px;background:linear-gradient(145deg,#223a59,#12243a);box-shadow:-2px 4px 7px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.1)}
+#closeDragDropBuilderBtn:before,#closeDragDropBuilderBtn:after{width:8px;height:1.5px}
+#closeDragDropBuilderBtn:hover{transform:translateY(calc(-50% - .3px)) scale(1.02);box-shadow:-2px 5px 8px rgba(0,0,0,.53),inset 0 1px 0 rgba(255,255,255,.13)}
+#closeDragDropBuilderBtn:active{transform:translateY(-50%) scale(.99);box-shadow:-1px 3px 5px rgba(0,0,0,.48),inset 0 1px 0 rgba(255,255,255,.08)}
+@media(max-width:720px){.bank-manager-question{grid-template-columns:36px minmax(0,1fr) 28px}}
