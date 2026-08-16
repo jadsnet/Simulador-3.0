@@ -1417,3 +1417,11 @@ body.theme-light.quiz-mode{background:radial-gradient(circle at 7% -8%,rgba(255,
 @media(max-width:980px){.friend-goal-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.friend-bank-list{grid-template-columns:minmax(0,1fr)}}
 @media(max-width:760px){.account-menu{left:12px!important;right:12px!important;top:auto!important;bottom:calc(92px + env(safe-area-inset-bottom));width:auto;border-radius:17px}.friend-picker-backdrop{align-items:end;padding:0}.friend-picker{width:100%;max-height:84dvh;border-radius:20px 20px 0 0;padding:15px 14px calc(18px + env(safe-area-inset-bottom))}.friend-picker .friend-directory-list{max-height:58dvh}.friend-viewer-page{margin:12px}.friend-page-actions{align-items:stretch;flex-direction:column}.friend-page-actions .text-btn{width:100%}}
 @media(max-width:520px){.friend-goal-grid,.friend-performance-summary{grid-template-columns:minmax(0,1fr)}.friend-viewer-page{margin:10px;padding:11px}.friend-bank-list article{grid-template-columns:32px minmax(0,1fr)}}
+
+/* V7.9 — contexto global de visita: todas as páginas usam o perfil visitado */
+.friend-context-banner{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px;padding:10px 14px;border-radius:13px;color:#d7eaff;background:linear-gradient(145deg,#173454,#0d2036);box-shadow:-2px 6px 15px rgba(0,0,0,.25)}
+.friend-context-banner span{font-size:.78rem}.friend-context-banner .text-btn{color:#fff;background:rgba(255,255,255,.1)}.friend-viewer-actions{display:flex;justify-content:flex-end;margin-top:14px}
+.friend-visit-mode .side-link[data-page="import"],.friend-visit-mode .side-link[data-page="settings"],.friend-visit-mode .mobile-more-link[data-page="import"],.friend-visit-mode .mobile-more-link[data-page="settings"]{display:none!important}
+.friend-visit-mode #saveDailyGoalBtn,.friend-visit-mode #importBankBtn,.friend-visit-mode #importBackupBtn{display:none!important}.friend-readonly-resume{pointer-events:none}
+.theme-light .friend-context-banner{color:#5b243f;background:linear-gradient(145deg,#fff7fb,#f1d4e2);box-shadow:-2px 6px 15px rgba(102,32,65,.14)}.theme-light .friend-context-banner .text-btn{color:#8e2d5b;background:#fff}
+@media(max-width:760px){.friend-context-banner{align-items:stretch;flex-direction:column}.friend-context-banner .text-btn,.friend-viewer-actions .btn{width:100%}}

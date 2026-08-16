@@ -1,5 +1,5 @@
 import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.8.1";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.9.0";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -267,6 +267,13 @@ function closeMobileNavigation(){
 }
 
 function showApplicationPage(page="home",scrollTarget=""){
+  if(friendVisitActive()){
+    if(page==="home")page="friends";
+    if(page==="import"||page==="settings"){
+      toast("Esta área não está disponível durante a visita em modo somente leitura.");
+      page="friends";scrollTarget="";
+    }
+  }
   exitQuizMode();
   stopTimer();
   document.querySelectorAll(".screen").forEach(screen=>screen.classList.add("hidden"));
@@ -278,14 +285,15 @@ function showApplicationPage(page="home",scrollTarget=""){
   activeApplicationPage=page;
   updateSidebarActive(page);
 
-  if(page==="history")refreshHome();
+  if(page==="history")friendVisitActive()?renderHistory(friendHistory()):refreshHome();
   if(page==="review")renderReviewLibrary(reviewLibraryFilter);
-  if(page==="stats")refreshHome().then(renderAnalyticsDashboard);
+  if(page==="stats")friendVisitActive()?renderAnalyticsDashboard(friendHistory()):refreshHome().then(renderAnalyticsDashboard);
   if(page==="flashcards")renderFlashcards();
   if(page==="profile")renderProfilePage();
   if(page==="friends")renderFriendDirectory();
   if(page==="search")renderGlobalSearch();
   if(page==="settings")scanLegacyProgress();
+  applyFriendReadOnlyUi();
 
   window.setTimeout(()=>{
     if(scrollTarget){
@@ -402,7 +410,41 @@ const V6_GOAL_KEY="simulador-academy-v6-goal";
 const V6_PROFILE_KEY="simulador-academy-v6-profile";
 let deferredInstallPrompt=null;
 let flashcardItems=[],flashcardIndex=0,flashcardRevealed=false;
-let friendProfiles=[],selectedFriendId="";
+let friendProfiles=[],selectedFriendId="",friendVisitData=null;
+
+function friendVisitActive(){return Boolean(selectedFriendId&&friendVisitData)}
+function friendHistory(){
+  return (friendVisitData?.recentHistory||[]).map((row,index)=>({
+    id:row.historyId||`friend-history-${index}`,bankId:null,
+    bankName:row.bankName||"Banco de questões",finishedAt:row.finishedAt||new Date().toISOString(),
+    score:Number(row.score)||0,correct:Number(row.correct)||0,total:Number(row.total)||0,
+    unanswered:Math.max(0,(Number(row.total)||0)-(Number(row.total)||0)),time:Number(row.studySeconds)||0,
+    reviewData:Array.isArray(row.reviewData)?row.reviewData:[],
+    answerAudit:Array.isArray(row.answerAudit)?row.answerAudit:[],bankSignature:row.bankSignature||"",
+    __friendReadOnly:true
+  }));
+}
+
+function leaveFriendVisit(){
+  selectedFriendId="";friendVisitData=null;
+  document.body.classList.remove("friend-visit-mode");
+  refreshHome();showApplicationPage("home");toast("Você voltou ao seu perfil.");
+}
+
+function applyFriendReadOnlyUi(){
+  document.body.classList.toggle("friend-visit-mode",friendVisitActive());
+  const title=friendVisitData?.profile?.displayName||friendVisitData?.profile?.email||"amigo";
+  document.querySelectorAll(".app-page .friend-context-banner").forEach(node=>node.remove());
+  if(!friendVisitActive())return;
+  document.querySelectorAll(".app-page").forEach(page=>{
+    if(page.id==="pageFriends")return;
+    const banner=document.createElement("div");
+    banner.className="friend-context-banner";
+    banner.innerHTML=`<span>◎ Visitando <strong>${esc(title)}</strong> · somente leitura</span><button type="button" class="text-btn">Voltar ao meu perfil</button>`;
+    banner.querySelector("button").onclick=leaveFriendVisit;
+    page.prepend(banner);
+  });
+}
 
 function setupV6Features(){
   const root=$("homeScreen");
@@ -535,8 +577,8 @@ function setupV6Features(){
 }
 
 async function collectReviewedQuestions(){
-  const history=await getAll("history");
-  const metadata=await getAll("questionData");
+  const history=friendVisitActive()?friendHistory():await getAll("history");
+  const metadata=friendVisitActive()?[]:await getAll("questionData");
   const metaMap=new Map(metadata.map(item=>[`${item.bankId}::${item.questionId}`,item]));
   const rows=[];
   history.slice().sort((a,b)=>String(b.finishedAt||"").localeCompare(String(a.finishedAt||""))).forEach(record=>{
@@ -675,6 +717,9 @@ async function openFriendProfile(userId){
   viewer.innerHTML='<div class="friend-loading"><div class="spinner"></div><p>Carregando progresso em modo somente leitura...</p></div>';
   try{
     const summary=await getFriendProgressSummary(userId);
+    friendVisitData=summary;
+    selectedFriendId=userId;
+    applyFriendReadOnlyUi();
     const profile=summary?.profile||{};
     const totals=summary?.totals||{};
     const progress=Array.isArray(summary?.progress)?summary.progress:[];
@@ -731,7 +776,9 @@ async function openFriendProfile(userId){
         <div><span>×</span><small>Erros acumulados</small><strong>${Math.max(0,totalAnswered-totalCorrect).toLocaleString("pt-BR")}</strong></div>
         <div><span>%</span><small>Aproveitamento geral</small><strong>${Number(totals.accuracy)||0}%</strong></div>
       </section>
-      <p class="friend-privacy-note">◎ Visualização protegida: respostas, anotações, arquivos e controles de edição não são compartilhados.</p>`;
+      <div class="friend-viewer-actions"><button id="leaveFriendVisitBtn" class="btn secondary" type="button">Voltar ao meu perfil</button></div>
+      <p class="friend-privacy-note">◎ Modo protegido: todo o conteúdo do amigo é exibido somente para leitura; nenhuma alteração é permitida.</p>`;
+    $("leaveFriendVisitBtn").onclick=leaveFriendVisit;
   }catch(error){
     console.error("Não foi possível abrir o perfil do amigo",error);
     viewer.innerHTML=`<div class="friend-empty-state error"><span>!</span><strong>Não foi possível visitar este perfil</strong><p>${esc(error.message||"Tente novamente em alguns instantes.")}</p></div>`;
@@ -739,6 +786,7 @@ async function openFriendProfile(userId){
 }
 
 async function saveDailyGoal(){
+  if(friendVisitActive()){toast("A meta do amigo está disponível somente para visualização.");return}
   const value=Math.max(1,Math.min(500,Number($("dailyGoalInput").value)||20));
   localStorage.setItem(V6_GOAL_KEY,String(value));
   try{await updatePublicGoal(value)}catch(error){console.warn("A meta pública será sincronizada depois",error)}
@@ -747,7 +795,7 @@ async function saveDailyGoal(){
 }
 
 async function renderProfilePage(){
-  const history=await getAll("history");
+  const history=friendVisitActive()?friendHistory():await getAll("history");
   const today=new Date().toISOString().slice(0,10);
   const todayAnswered=history.filter(h=>String(h.finishedAt||"").slice(0,10)===today).reduce((s,h)=>s+(Number(h.total)||0),0);
   const totalAnswered=history.reduce((s,h)=>s+(Number(h.total)||0),0);
@@ -758,12 +806,26 @@ async function renderProfilePage(){
   $("profileLevel").textContent=`Nível ${level}`;
   $("profileXpText").textContent=`${xp} XP · faltam ${500-levelProgress} XP para o próximo nível`;
   $("profileXpBar").style.width=`${levelProgress/5}%`;
+  if(friendVisitActive()){
+    const name=friendVisitData?.profile?.displayName||String(friendVisitData?.profile?.email||"Amigo").split("@")[0];
+    const heading=$("pageProfile")?.querySelector(".page-heading h2");
+    if(heading)heading.textContent=`Perfil de ${name}`;
+    const avatar=$("pageProfile")?.querySelector(".profile-avatar");
+    if(avatar)avatar.textContent=name.trim().slice(0,2).toUpperCase()||"AM";
+  }else{
+    const heading=$("pageProfile")?.querySelector(".page-heading h2");
+    if(heading)heading.textContent="Perfil e metas";
+    const avatar=$("pageProfile")?.querySelector(".profile-avatar");
+    if(avatar)avatar.textContent=(getCloudUser()?.email||"JD").split("@")[0].slice(0,2).toUpperCase();
+  }
 
-  const goal=getDailyGoal();
+  const goal=friendVisitActive()?Math.max(1,Number(friendVisitData?.profile?.dailyGoal)||20):getDailyGoal();
   $("dailyGoalInput").value=goal;
   $("dailyGoalTitle").textContent=`${goal} questões por dia`;
   $("dailyGoalText").textContent=`${todayAnswered} de ${goal} concluídas hoje`;
   $("dailyGoalBar").style.width=`${Math.min(100,todayAnswered/goal*100)}%`;
+  $("dailyGoalInput").disabled=friendVisitActive();
+  $("saveDailyGoalBtn").classList.toggle("hidden",friendVisitActive());
 
   const dates=[...new Set(history.map(h=>String(h.finishedAt||"").slice(0,10)).filter(Boolean))].sort();
   let streak=0;
@@ -1425,6 +1487,13 @@ function finishOnboarding(){
 }
 
 async function refreshHome(){
+  if(friendVisitActive()){
+    const history=friendHistory();
+    renderHistory(history);await renderDashboard(history);
+    if(activeApplicationPage==="review")await renderReviewLibrary(reviewLibraryFilter);
+    if(activeApplicationPage==="stats")await renderAnalyticsDashboard(history);
+    return;
+  }
   showLoading(true,"Carregando biblioteca...");
   banks=await getAll("banks");
   renderBanks();
@@ -1452,7 +1521,7 @@ async function renderDashboard(history){
   if(acc) acc.textContent = total ? Math.round(correct/total*100)+"%" : "0%";
   const time = document.getElementById("dashTime");
   if(time){ const h=Math.floor(seconds/3600), m=Math.floor(seconds%3600/60); time.textContent=String(h).padStart(2,"0")+"h "+String(m).padStart(2,"0")+"m"; }
-  const metadata=await getAll("questionData");
+  const metadata=friendVisitActive()?[]:await getAll("questionData");
   const latest=history.slice().sort((a,b)=>(b.finishedAt||"").localeCompare(a.finishedAt||""))[0];
   const favCount=metadata.filter(x=>x.favorite).length;
   const noteCount=metadata.filter(x=>String(x.note||"").trim()).length;
@@ -1461,10 +1530,15 @@ async function renderDashboard(history){
   if($("dashNotes"))$("dashNotes").textContent=noteCount;
   if($("dashMarked"))$("dashMarked").textContent=latest?.reviewData?.filter(x=>x.marked).length||0;
   if($("dashErrors"))$("dashErrors").textContent=errorCount;
-  const progress = await getAll("progress");
+  const progress = friendVisitActive()?(friendVisitData?.progress||[]):await getAll("progress");
   const area = document.getElementById("continueStudy");
   if(!area) return;
   if(!progress.length){ area.innerHTML='<div class="empty-state">Nenhum simulado em andamento.</div>'; return; }
+  if(friendVisitActive()){
+    const pr=progress.slice().sort((a,b)=>String(b.savedAt||"").localeCompare(String(a.savedAt||"")))[0];
+    area.innerHTML=`<div class="resume-box friend-readonly-resume" style="margin:0"><div><span>Em andamento · somente leitura</span><strong>${esc(pr.bankName||"Banco de questões")}</strong><p>${Number(pr.answered)||0}/${Number(pr.total)||0} respondidas · ${Number(pr.percent)||0}%</p></div></div>`;
+    return;
+  }
   const pr=progress.sort((a,b)=>(b.savedAt||"").localeCompare(a.savedAt||""))[0];
   const bank=await get("banks",pr.bankId);
   if(!bank) return;
@@ -2051,7 +2125,7 @@ function renderHistory(items){
 }
 
 async function openHistoryDetails(historyId){
-  const history=await get("history",historyId);
+  const history=friendVisitActive()?friendHistory().find(item=>String(item.id)===String(historyId)):await get("history",historyId);
 
   if(!history||!Array.isArray(history.reviewData)||!history.reviewData.length){
     alert("Este resultado foi salvo por uma versão anterior e possui apenas o resumo. Os próximos simulados terão revisão completa no histórico.");
@@ -3746,6 +3820,13 @@ function filterReview(f){
 }
 
 async function exportBackup(){
+  if(friendVisitActive()){
+    const safeName=String(friendVisitData?.profile?.displayName||"amigo").replace(/[^a-z0-9_-]+/gi,"-").replace(/^-|-$/g,"");
+    download(`visualizacao-${safeName||"amigo"}.json`,JSON.stringify({
+      version:"7.9.0",exportedAt:new Date().toISOString(),readOnly:true,...friendVisitData
+    },null,2),"application/json");
+    return;
+  }
   const data={
     version:"7.0",
     exportedAt:new Date().toISOString(),

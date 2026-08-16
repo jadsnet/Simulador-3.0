@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão" src="https://img.shields.io/badge/versão-V7.8.1-E75493">
+  <img alt="Versão" src="https://img.shields.io/badge/versão-V7.9.0-E75493">
   <img alt="Status" src="https://img.shields.io/badge/status-estável-22C55E">
   <img alt="PWA" src="https://img.shields.io/badge/PWA-ready-8B5CF6">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-cloud-3ECF8E">
@@ -317,7 +317,9 @@ Simulador-3.0-main/
 
 ---
 
-## ✅ Status da V7.8.1
+## ✅ Status da V7.9.0
+
+O modo **Visitar amigo** agora é um contexto global somente para leitura. Histórico completo, revisão, estatísticas, perfil, metas, calendário, conquistas, recomendações, bancos e progresso passam a usar exclusivamente os dados do perfil visitado. Execute novamente `supabase/SUPABASE_FRIEND_VISITS_V7_8.sql` no SQL Editor após atualizar os arquivos.
 
 - [x] Progresso entre computadores
 - [x] Histórico completo por usuário

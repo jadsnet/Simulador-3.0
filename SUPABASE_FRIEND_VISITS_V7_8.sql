@@ -1,4 +1,4 @@
--- V7.8.1 — Visitar amigo em modo somente leitura
+-- V7.9.0 — Visitar amigo: contexto completo em modo somente leitura
 -- Execute este arquivo uma vez no SQL Editor do Supabase.
 
 create table if not exists public.user_profiles (
@@ -131,26 +131,33 @@ begin
   select coalesce(jsonb_agg(
     jsonb_build_object(
       'bankName',bank_name,
+      'historyId',history_id,
       'score',score,
       'correct',correct_answers,
       'total',total_questions,
       'studySeconds',elapsed_seconds,
-      'finishedAt',finished_at
+      'finishedAt',finished_at,
+      'reviewData',review_data,
+      'answerAudit',answer_audit,
+      'bankSignature',bank_signature
     ) order by finished_at desc
   ),'[]'::jsonb) into recent_history
   from (
-    select coalesce(bank_name,'Banco de questões') bank_name,score,correct_answers,
-      total_questions,elapsed_seconds,finished_at
+    select id history_id,coalesce(bank_name,'Banco de questões') bank_name,score,correct_answers,
+      total_questions,elapsed_seconds,finished_at,
+      coalesce(answers->'reviewData','[]'::jsonb) review_data,
+      coalesce(answers->'answerAudit','[]'::jsonb) answer_audit,
+      coalesce(answers->>'bankSignature','') bank_signature
     from public.quiz_history
     where user_id=target_user_id
     order by finished_at desc
-    limit 100
   ) history_rows;
 
   select coalesce(jsonb_agg(jsonb_build_object(
     'name',coalesce(name,'Banco de questões'),
     'questionCount',coalesce(question_count,0),
-    'updatedAt',updated_at
+    'updatedAt',updated_at,
+    'localBankId',local_bank_id
   ) order by updated_at desc),'[]'::jsonb) into bank_library
   from public.question_banks where user_id=target_user_id;
 
