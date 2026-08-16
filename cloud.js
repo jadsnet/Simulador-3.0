@@ -42,10 +42,11 @@ export async function ensurePublicProfile(){
   const user=await requireUser();
   const email=user.email||"usuario@sem-email.local";
   const displayName=user.user_metadata?.display_name||email.split("@")[0]||"Usuário";
-  const {error}=await supabase.from("user_profiles").upsert({
+  const {data,error}=await supabase.from("user_profiles").upsert({
     user_id:user.id,email,display_name:displayName,updated_at:new Date().toISOString()
-  },{onConflict:"user_id"});
+  },{onConflict:"user_id"}).select("daily_goal,display_name,email").single();
   if(error)throw error;
+  return data;
 }
 
 export async function listFriendProfiles(){

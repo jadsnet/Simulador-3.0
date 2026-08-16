@@ -1,5 +1,5 @@
-import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.9.0";
+import {put,get,getAll,del,setDBUserScope} from "./db.js";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.9.1";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -633,8 +633,9 @@ function renderFlashcardCard(){
   $("revealFlashcardBtn").onclick=()=>{flashcardRevealed=!flashcardRevealed;renderFlashcardCard()};
 }
 
+function dailyGoalStorageKey(){return `${V6_GOAL_KEY}:${getCloudUser()?.id||"anonymous"}`}
 function getDailyGoal(){
-  return Math.max(1,Number(localStorage.getItem(V6_GOAL_KEY))||20);
+  return Math.max(1,Number(localStorage.getItem(dailyGoalStorageKey()))||20);
 }
 
 function renderFriendDirectory(){
@@ -788,7 +789,7 @@ async function openFriendProfile(userId){
 async function saveDailyGoal(){
   if(friendVisitActive()){toast("A meta do amigo está disponível somente para visualização.");return}
   const value=Math.max(1,Math.min(500,Number($("dailyGoalInput").value)||20));
-  localStorage.setItem(V6_GOAL_KEY,String(value));
+  localStorage.setItem(dailyGoalStorageKey(),String(value));
   try{await updatePublicGoal(value)}catch(error){console.warn("A meta pública será sincronizada depois",error)}
   renderProfilePage();
   toast("Meta diária atualizada.");
@@ -1032,6 +1033,11 @@ async function submitAuth(){
 }
 
 async function handleAuthChange(user){
+  setDBUserScope(user?.id||null);
+  banks=[];selectedBank=null;questions=[];answers={};reviewData=[];answerAudit=[];
+  favorites=new Set();marked=new Set();notes={};selectedFriendId="";friendVisitData=null;
+  document.body.classList.remove("friend-visit-mode");
+  clearTimeout(cloudSaveTimer);pendingCloudProgress=null;cloudSaveInFlight=false;
   $("authScreen").classList.toggle("hidden",!!user);
   document.querySelector(".app-layout").classList.toggle("hidden",!user);
   $("mobileBottomNav")?.classList.toggle("hidden",!user);
@@ -1049,8 +1055,15 @@ async function handleAuthChange(user){
   $("logoutBtn").textContent=(user.email||"U").slice(0,2).toUpperCase();
   setCloudStatus("Sincronizando","syncing");
   try{
-    try{await ensurePublicProfile();await updatePublicGoal(getDailyGoal())}catch(profileError){console.warn("Perfil público ainda não disponível",profileError)}
-    await syncAllNow({silent:true});
+    try{
+      const publicProfile=await ensurePublicProfile();
+      const savedGoal=localStorage.getItem(dailyGoalStorageKey());
+      if(savedGoal===null)localStorage.setItem(dailyGoalStorageKey(),String(Math.max(1,Number(publicProfile?.daily_goal)||20)));
+      else await updatePublicGoal(getDailyGoal());
+    }catch(profileError){console.warn("Perfil público ainda não disponível",profileError)}
+    // Cada conta possui seu próprio IndexedDB. A sincronização forçada baixa
+    // exclusivamente a biblioteca, o progresso e o histórico deste usuário.
+    await syncAllNow({silent:true,force:true});
     populateLegacyBanks();
     setCloudStatus("Nuvem ativa","online");
   }catch(error){
