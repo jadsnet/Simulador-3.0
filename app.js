@@ -1,5 +1,5 @@
 import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.7.7";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.7.8";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -1674,12 +1674,24 @@ function toggleActionMenu(trigger){
   closeAllActionMenus(menu);
   menu.removeAttribute("style");
   if(opening){
-    const rect=trigger.getBoundingClientRect(),openAbove=window.innerHeight-rect.bottom<175;
+    const rect=trigger.getBoundingClientRect();
     trigger._actionMenuPopover=menu;menu._actionMenuTrigger=trigger;menu.classList.add("action-menu-portal");document.body.appendChild(menu);
     menu.style.position="fixed";
-    menu.style.right=`${Math.max(8,window.innerWidth-rect.right)}px`;
-    if(openAbove)menu.style.bottom=`${Math.max(8,window.innerHeight-rect.top+6)}px`;
-    else menu.style.top=`${rect.bottom+6}px`;
+    menu.style.maxWidth="calc(100vw - 16px)";
+    menu.style.visibility="hidden";
+    menu.classList.remove("hidden");
+    const viewportWidth=document.documentElement.clientWidth||window.innerWidth;
+    const viewportHeight=window.visualViewport?.height||window.innerHeight;
+    const menuRect=menu.getBoundingClientRect();
+    const menuWidth=Math.min(menuRect.width,viewportWidth-16);
+    const menuHeight=menuRect.height;
+    const left=Math.min(Math.max(8,rect.right-menuWidth),Math.max(8,viewportWidth-menuWidth-8));
+    const openAbove=viewportHeight-rect.bottom<menuHeight+14;
+    menu.style.left=`${left}px`;
+    menu.style.right="auto";
+    if(openAbove)menu.style.top=`${Math.max(8,rect.top-menuHeight-6)}px`;
+    else menu.style.top=`${Math.min(rect.bottom+6,Math.max(8,viewportHeight-menuHeight-8))}px`;
+    menu.style.visibility="";
   }
   menu.classList.toggle("hidden",!opening);
   trigger.setAttribute("aria-expanded",String(opening));
