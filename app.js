@@ -1,5 +1,5 @@
 import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.7.0";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.7.1";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -385,6 +385,7 @@ async function renderReviewLibrary(filter="all"){
         const reviewItems=[...document.querySelectorAll("#reviewList .review-item")];
         const target=reviewItems[item.originalIndex];
         if(target){
+          setReviewItemExpanded(target,true);
           target.scrollIntoView({behavior:"smooth",block:"start"});
           target.classList.add("review-highlight");
           window.setTimeout(()=>target.classList.remove("review-highlight"),1800);
@@ -740,6 +741,11 @@ function applyTheme(theme){
   if(button){
     button.setAttribute("aria-pressed",String(light));
     button.title=light?"Desativar tema Hello Kitty":"Ativar tema Hello Kitty";
+  }
+  const mobileButton=$("mobileThemeBtn");
+  if(mobileButton){
+    mobileButton.setAttribute("aria-pressed",String(light));
+    mobileButton.title=light?"Desativar tema Hello Kitty":"Ativar tema Hello Kitty";
   }
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content",light?"#f7d2e4":"#07111f");
 }
@@ -3410,8 +3416,30 @@ function renderReview(items){
       e.appendChild(f);
     }
 
+    const details=document.createElement("div");
+    details.className="review-item-details";
+    while(e.firstChild)details.appendChild(e.firstChild);
+
+    const toggle=document.createElement("button");
+    toggle.className="review-collapse-toggle";
+    toggle.type="button";
+    toggle.setAttribute("aria-expanded","false");
+    toggle.innerHTML=`<span class="review-collapse-copy"><small>${esc(x.q.categoria||"Sem categoria")}</small><strong>Questão ${i+1} — ${x.ok?"Correta":"Incorreta"}</strong><em>${esc((x.q.pergunta||"Questão sem enunciado").replace(/\s+/g," ").trim())}</em></span><span class="review-collapse-action"><b>Ver questão</b><i>⌄</i></span>`;
+    toggle.onclick=()=>setReviewItemExpanded(e,!e.classList.contains("expanded"));
+    e.append(toggle,details);
     box.appendChild(e);
   });
+}
+
+function setReviewItemExpanded(item,expanded){
+  if(!item)return;
+  item.classList.toggle("expanded",expanded);
+  const button=item.querySelector(".review-collapse-toggle");
+  if(button){
+    button.setAttribute("aria-expanded",String(expanded));
+    const label=button.querySelector(".review-collapse-action b");
+    if(label)label.textContent=expanded?"Recolher":"Ver questão";
+  }
 }
 
 function makeDragDropReview(q,userAnswer,correctAnswer){
@@ -3477,6 +3505,7 @@ function filterReview(f){
       f==="notes"&&e.dataset.notes==="true";
 
     e.classList.toggle("hidden",!show);
+    if(show&&window.matchMedia("(max-width: 760px)").matches)setReviewItemExpanded(e,false);
   });
 }
 
