@@ -1,5 +1,5 @@
 import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=6.9.0";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=6.10.0";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 let onboardingStep=0,onboardingTarget=null;
@@ -1529,7 +1529,7 @@ function renderBanks(){
   for(const bank of banks){
     const el=document.createElement("div");
     el.className="bank-card";
-    el.innerHTML=`<div><h3>${esc(bank.name)}</h3><p>${bank.questions.length} questões · importado em ${new Date(bank.createdAt).toLocaleDateString("pt-BR")}</p></div><div class="bank-actions"><button class="btn primary compact-play-btn" data-open aria-label="Abrir banco"><span aria-hidden="true">▶</span> Abrir</button><div class="action-menu"><button class="action-menu-trigger" data-menu type="button" aria-label="Mais opções" aria-expanded="false"><span></span><span></span><span></span></button><div class="action-menu-popover hidden"><button type="button" data-menu-open><span>▶</span>Abrir</button><button type="button" data-manage><span>✎</span>Gerenciar</button><button type="button" class="danger-item" data-delete><span>⌫</span>Excluir banco</button></div></div></div>`;
+    el.innerHTML=`<div><h3>${esc(bank.name)}</h3><p>${bank.questions.length} questões · importado em ${new Date(bank.createdAt).toLocaleDateString("pt-BR")}</p></div><div class="bank-actions"><button class="btn primary compact-play-btn" data-open aria-label="Abrir banco" title="Abrir banco"><span aria-hidden="true">▶</span></button><div class="action-menu"><button class="action-menu-trigger" data-menu type="button" aria-label="Mais opções" title="Mais opções" aria-expanded="false"><span></span><span></span><span></span></button><div class="action-menu-popover hidden"><button type="button" data-menu-open><span>▶</span>Abrir</button><button type="button" data-manage><span>✎</span>Gerenciar</button><button type="button" class="danger-item" data-delete><span>⌫</span>Excluir banco</button></div></div></div>`;
     el.querySelector("[data-open]").onclick=()=>showSetup(bank.id);
     el.querySelector("[data-menu-open]").onclick=()=>showSetup(bank.id);
     el.querySelector("[data-manage]").onclick=()=>openBankManager(bank.id);
@@ -1820,6 +1820,7 @@ function resetCommonQuestionFields(){
   $("commonQuestionText").value="";
   $("commonQuestionFeedback").value="";
   $("commonQuestionImageFile").value="";
+  $("commonQuestionImageStatus").textContent="Ex.: exhibit, topologia, comando ou diagrama apresentado na questão.";
   for(const letter of LETTERS){
     const upper=letter.toUpperCase();
     $("commonAltText"+upper).value="";
@@ -1855,12 +1856,14 @@ async function loadCommonQuestionImage(){
   if(!file){commonQuestionBuilder.questionImageData="";commonQuestionBuilder.questionImageName="";return}
   commonQuestionBuilder.questionImageData=await fileToDataURL(file);
   commonQuestionBuilder.questionImageName=`manual-enunciado-${Date.now()}-${normPath(file.name).split("/").pop()}`;
+  $("commonQuestionImageStatus").textContent=`Nova imagem selecionada: ${file.name}`;
 }
 
 function clearCommonQuestionImage(){
   $("commonQuestionImageFile").value="";
   commonQuestionBuilder.questionImageData="";
   commonQuestionBuilder.questionImageName="";
+  $("commonQuestionImageStatus").textContent="Sem imagem no enunciado. A alteração será aplicada ao atualizar a questão.";
   toast("Imagem do enunciado removida.");
 }
 
@@ -2022,6 +2025,8 @@ function openCommonQuestionEditor(bank,question){
   $("commonQuestionText").value=question.pergunta||"";$("commonQuestionFeedback").value=question.feedback||"";
   commonQuestionBuilder.questionImageName=question.imagem_pergunta||"";
   commonQuestionBuilder.questionImageData=bankImageData(bank,question.imagem_pergunta);
+  $("commonQuestionImageStatus").textContent=commonQuestionBuilder.questionImageData
+    ?"Imagem atual carregada — clique no X para removê-la.":"Esta questão não possui imagem no enunciado.";
   for(const letter of LETTERS){
     const upper=letter.toUpperCase(),imageName=question[`img_${letter}`]||"",imageData=bankImageData(bank,imageName);
     $("commonAltText"+upper).value=question[`alt_${letter}`]||"";
@@ -2045,6 +2050,10 @@ function openDragDropQuestionEditor(bank,question){
   dragDropBuilder.imageName=definition.image||"";dragDropBuilder.imageData=bankImageData(bank,definition.image);
   dragDropBuilder.promptImageName=question.imagem_pergunta||definition.promptImage||"";
   dragDropBuilder.promptImageData=bankImageData(bank,dragDropBuilder.promptImageName);
+  $("dragDropPromptImageStatus").textContent=dragDropBuilder.promptImageData
+    ?"Imagem atual carregada — clique no X para removê-la.":"Esta questão não possui imagem ilustrativa no enunciado.";
+  $("dragDropActivityImageStatus").textContent=dragDropBuilder.imageData
+    ?"Imagem atual carregada — clique no X para removê-la ou escolha outra.":"A imagem atual não foi encontrada. Selecione outra antes de atualizar.";
   dragDropBuilder.zones=(definition.zones||[]).map(zone=>({...zone}));
   $("dragDropItemsText").value=(definition.items||[]).map(item=>item.text).join("\n");
   if(dragDropBuilder.imageData){
@@ -2207,6 +2216,8 @@ function resetDragDropQuestionFields(){
   $("dragDropFeedback").value="";
   $("dragDropPromptFile").value="";
   $("dragDropBackgroundFile").value="";
+  $("dragDropPromptImageStatus").textContent="Ex.: topologia, diagrama ou exhibit exibido antes da atividade.";
+  $("dragDropActivityImageStatus").textContent="Use a imagem que contém os espaços onde os cartões serão colocados.";
   $("dragDropBuilderImage").removeAttribute("src");
   $("dragDropBuilderStage").classList.add("hidden");
   $("dragDropBuilderEmpty").classList.remove("hidden");
@@ -2234,6 +2245,7 @@ async function loadDragDropBuilderImage(){
   dragDropBuilder.zones=[];
   dragDropBuilder.imageData=await fileToDataURL(file);
   dragDropBuilder.imageName=`manual-dragdrop-${Date.now()}-${normPath(file.name).split("/").pop()}`;
+  $("dragDropActivityImageStatus").textContent=`Nova imagem selecionada: ${file.name}`;
   const image=$("dragDropBuilderImage");
   image.onload=()=>{
     $("dragDropBuilderEmpty").classList.add("hidden");
@@ -2251,6 +2263,7 @@ function clearDragDropActivityImage(){
   $("dragDropBuilderImage").removeAttribute("src");
   $("dragDropBuilderStage").classList.add("hidden");
   $("dragDropBuilderEmpty").classList.remove("hidden");
+  $("dragDropActivityImageStatus").textContent="Imagem removida. Selecione outra imagem para poder atualizar a questão.";
   renderDragDropBuilderZones();
   toast("Imagem da atividade e áreas de resposta removidas.");
 }
@@ -2264,12 +2277,14 @@ async function loadDragDropPromptImage(){
   }
   dragDropBuilder.promptImageData=await fileToDataURL(file);
   dragDropBuilder.promptImageName=`manual-dragdrop-enunciado-${Date.now()}-${normPath(file.name).split("/").pop()}`;
+  $("dragDropPromptImageStatus").textContent=`Nova imagem selecionada: ${file.name}`;
 }
 
 function clearDragDropPromptImage(){
   $("dragDropPromptFile").value="";
   dragDropBuilder.promptImageData="";
   dragDropBuilder.promptImageName="";
+  $("dragDropPromptImageStatus").textContent="Sem imagem ilustrativa. A alteração será aplicada ao atualizar a questão.";
   toast("Imagem ilustrativa do enunciado removida.");
 }
 

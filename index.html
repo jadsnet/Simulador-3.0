@@ -5,13 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#07111f">
   <meta name="description" content="Plataforma de simulados de certificação.">
-  <title>Simulador Academy V6.9.0</title>
+  <title>Simulador Academy V6.10.0</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%232f7df4'/><text x='32' y='43' text-anchor='middle' font-size='34' font-family='Arial' font-weight='700' fill='white'>S</text></svg>">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=6.9.0">
+  <link rel="stylesheet" href="style.css?v=6.10.0">
   <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script type="module" src="app.js?v=6.9.0"></script>
+  <script type="module" src="app.js?v=6.10.0"></script>
 </head>
 <body>
 
@@ -87,17 +87,17 @@
           </article>
 
           <article id="import" class="panel import-panel">
-            <div class="panel-title"><div><p>IMPORTAÇÃO</p><h2>Adicionar banco</h2></div></div>
+            <div class="panel-title"><div><p>CRIAÇÃO MANUAL</p><h2>Criar nova questão</h2></div></div>
             <div class="panel-body">
+              <button id="openCommonQuestionBuilderBtn" class="btn secondary full" type="button">Criar questão comum</button>
+              <button id="openDragDropBuilderBtn" class="btn secondary full" type="button">Montar questão drag-and-drop</button>
+              <div class="import-section-heading"><p>IMPORTAÇÃO</p><h2>Adicionar banco</h2></div>
               <label class="field"><span>Nome do banco</span><input id="bankName" placeholder="Ex.: Cisco SD-WAN"></label>
               <label class="field"><span>CSV</span><input id="csvFile" type="file" accept=".csv,text/csv"></label>
               <label class="field"><span>Pasta de imagens</span><input id="imageFolder" type="file" webkitdirectory directory multiple></label>
               <div class="or"><span>ou</span></div>
               <label class="field"><span>Pacote ZIP</span><input id="zipFile" type="file" accept=".zip,application/zip"></label>
               <button id="importBankBtn" class="btn primary full">Importar banco</button>
-              <div class="or"><span>criação manual</span></div>
-              <button id="openCommonQuestionBuilderBtn" class="btn secondary full" type="button">Criar questão comum</button>
-              <button id="openDragDropBuilderBtn" class="btn secondary full" type="button">Montar questão drag-and-drop</button>
               <details class="help"><summary>Formato do CSV</summary><pre>id;categoria;tipo;pergunta;imagem_pergunta;alt_a;img_a;alt_b;img_b;alt_c;img_c;alt_d;img_d;alt_e;img_e;correta;feedback</pre></details>
             </div>
           </article>
@@ -261,8 +261,8 @@
             <label class="field"><span>Categoria</span><input id="dragDropCategory" placeholder="Ex.: Policies"></label>
           </div>
           <label class="field"><span>Enunciado em texto</span><textarea id="dragDropQuestionText" rows="5" placeholder="Digite o enunciado completo..."></textarea></label>
-          <label class="field"><span>1. Imagem ilustrativa do enunciado (opcional)</span><div class="image-picker-row"><input id="dragDropPromptFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><button id="clearDragDropPromptImageBtn" class="clear-image-btn" type="button" aria-label="Remover imagem" title="Remover imagem">×</button></div><small>Ex.: topologia, diagrama ou exhibit exibido antes da atividade.</small></label>
-          <label class="field"><span>2. Imagem da atividade drag-and-drop</span><div class="image-picker-row"><input id="dragDropBackgroundFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><button id="clearDragDropActivityImageBtn" class="clear-image-btn" type="button" aria-label="Remover imagem" title="Remover imagem">×</button></div><small>Use a imagem que contém os espaços onde os cartões serão colocados.</small></label>
+          <label class="field"><span>1. Imagem ilustrativa do enunciado (opcional)</span><div class="image-picker-row"><input id="dragDropPromptFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><button id="clearDragDropPromptImageBtn" class="clear-image-btn" type="button" aria-label="Remover imagem" title="Remover imagem">×</button></div><small id="dragDropPromptImageStatus">Ex.: topologia, diagrama ou exhibit exibido antes da atividade.</small></label>
+          <label class="field"><span>2. Imagem da atividade drag-and-drop</span><div class="image-picker-row"><input id="dragDropBackgroundFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><button id="clearDragDropActivityImageBtn" class="clear-image-btn" type="button" aria-label="Remover imagem" title="Remover imagem">×</button></div><small id="dragDropActivityImageStatus">Use a imagem que contém os espaços onde os cartões serão colocados.</small></label>
           <label class="field"><span>Cartões para arrastar — um por linha</span><textarea id="dragDropItemsText" rows="7" placeholder="reject&#10;tloc&#10;accept&#10;route&#10;drop"></textarea></label>
           <p class="builder-help">A imagem 1 aparece junto ao enunciado. Na imagem 2, clique em “Adicionar área de resposta”, posicione e redimensione cada área sobre o espaço correto e vincule o cartão esperado.</p>
           <div class="builder-actions">
@@ -300,7 +300,7 @@
             <label class="field"><span>Categoria</span><input id="commonQuestionCategory" placeholder="Ex.: Policies"></label>
           </div>
           <label class="field"><span>Enunciado em texto</span><textarea id="commonQuestionText" rows="5" placeholder="Digite o enunciado completo..."></textarea></label>
-          <label class="field"><span>Imagem do enunciado (opcional)</span><div class="image-picker-row"><input id="commonQuestionImageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><button id="clearCommonQuestionImageBtn" class="clear-image-btn" type="button" aria-label="Remover imagem" title="Remover imagem">×</button></div><small>Ex.: exhibit, topologia, comando ou diagrama apresentado na questão.</small></label>
+          <label class="field"><span>Imagem do enunciado (opcional)</span><div class="image-picker-row"><input id="commonQuestionImageFile" type="file" accept="image/png,image/jpeg,image/webp,image/gif"><button id="clearCommonQuestionImageBtn" class="clear-image-btn" type="button" aria-label="Remover imagem" title="Remover imagem">×</button></div><small id="commonQuestionImageStatus">Ex.: exhibit, topologia, comando ou diagrama apresentado na questão.</small></label>
 
           <div class="common-alternatives-head">
             <div><strong>Alternativas</strong><small>O texto e a imagem são opcionais individualmente, mas cada alternativa utilizada precisa ter pelo menos um deles.</small></div>
