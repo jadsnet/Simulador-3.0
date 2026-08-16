@@ -1148,3 +1148,14 @@ input[type="file"]::file-selector-button{margin:-5px 10px -5px -7px;padding:7px 
 .theme-light .action-menu-popover{background:#fff7fb;box-shadow:-7px 16px 34px rgba(92,26,57,.2)}.theme-light .action-menu-popover button{color:#5f2942}.theme-light .action-menu-popover button:hover{background:#fbdce9}
 .theme-light .round-btn:not(.theme-kitty-btn),.theme-light .help-tour-btn{color:#8b2b58!important;background:linear-gradient(145deg,#fff,#f7dce8)!important}.theme-light .toast{color:#fff;background:linear-gradient(145deg,#9b2d63,#681b43)}
 .theme-light input[type="checkbox"],.theme-light input[type="radio"]{accent-color:#d94b8b}
+
+/* V7.3.1 — alternativas rosadas e campos com profundidade visível */
+.theme-light .field input,.theme-light .field textarea,.theme-light .field select,.theme-light .inline-form input,.theme-light .inline-form select,.theme-light .builder-form input,.theme-light .builder-form textarea,.theme-light .builder-form select,.theme-light .common-alternative textarea,.theme-light .search{color:#4b1d35;background:linear-gradient(145deg,#f3dce7,#efd3e1)!important;box-shadow:inset 0 3px 7px rgba(116,42,77,.17),0 2px 6px rgba(127,47,85,.08)!important}
+.theme-light .field input:hover,.theme-light .field textarea:hover,.theme-light .field select:hover,.theme-light .inline-form input:hover,.theme-light .inline-form select:hover,.theme-light .builder-form input:hover,.theme-light .builder-form textarea:hover,.theme-light .builder-form select:hover{background:#f0d4e1!important}
+.theme-light .field input:focus,.theme-light .field textarea:focus,.theme-light .field select:focus,.theme-light .inline-form input:focus,.theme-light .inline-form select:focus,.theme-light .builder-form input:focus,.theme-light .builder-form textarea:focus,.theme-light .builder-form select:focus,.theme-light .common-alternative textarea:focus{background:#f8e7ef!important;box-shadow:0 0 0 2px rgba(211,58,126,.55),inset 0 3px 7px rgba(116,42,77,.13),0 5px 12px rgba(116,42,77,.1)!important}
+.theme-light input[type="file"]::file-selector-button{color:#fff;background:linear-gradient(145deg,#e768a1,#b93271);box-shadow:-2px 5px 10px rgba(104,28,64,.25),inset 0 1px 1px rgba(255,255,255,.24)}
+.theme-light .common-correct{color:#fff;background:linear-gradient(145deg,#db5b94,#a92865);box-shadow:-3px 7px 14px rgba(91,23,55,.25),inset 0 1px 1px rgba(255,255,255,.2)}
+.theme-light .common-correct:hover{background:linear-gradient(145deg,#e66da4,#b93271)}.theme-light .common-correct:has(input:checked){background:linear-gradient(145deg,#f080b1,#c43677);box-shadow:0 0 0 3px rgba(222,73,140,.2),-3px 7px 14px rgba(91,23,55,.25)}
+.theme-light .common-correct input{accent-color:#fff}.theme-light .common-correct span{color:#fff}
+.theme-light .common-alternative{background:linear-gradient(145deg,#fff8fb,#fbe6ef);box-shadow:-2px 6px 15px rgba(122,39,78,.13),inset 0 1px 0 rgba(255,255,255,.8)}
+.theme-light select option{color:#4b1d35;background:#f8e7ef}
