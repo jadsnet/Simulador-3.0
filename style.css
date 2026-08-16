@@ -1187,3 +1187,10 @@ body.theme-light.quiz-mode{background:radial-gradient(circle at 7% -8%,rgba(255,
 .theme-light .flashcard-question{color:#581f3c;text-shadow:none}.theme-light .flashcard-answer{color:#5c2340;background:linear-gradient(145deg,#f1cfdf,#e9bed2);box-shadow:inset 0 3px 8px rgba(105,31,67,.12),0 5px 13px rgba(105,31,67,.08)}.theme-light .flashcard-answer strong{color:#8f285c}.theme-light .flashcard-answer p{margin:5px 0;line-height:1.65}
 .theme-light .flashcard-actions .btn.secondary{color:#79284e;background:linear-gradient(145deg,#fff,#f3d7e4)}.theme-light .flashcard-actions .btn.primary{color:#fff;background:linear-gradient(145deg,#e864a0,#b93271)}
 @media(max-width:640px){.theme-light .flashcard-stage{padding:8px}.theme-light .flashcard{padding:18px}.theme-light .flashcard-question{min-height:170px;padding:18px 8px}.theme-light .flashcard-top{gap:8px;flex-wrap:wrap}}
+
+/* V7.4.2 — centralização geométrica da letra no histórico */
+.review-correct-option{display:flex;align-items:center;min-height:54px;padding:11px 14px}
+.review-correct-option-text{display:grid;grid-template-columns:30px minmax(0,1fr);align-items:center;width:100%;gap:12px;line-height:1.45}
+.review-correct-option-text .option-letter{display:grid;align-self:center;justify-self:center;width:30px;height:30px;min-width:30px;min-height:30px;margin:0;padding:0;place-items:center;text-align:center;line-height:30px;font-size:.88rem;font-weight:800}
+.review-correct-option-text>span:last-child{align-self:center;min-width:0;line-height:1.45}
+@media(max-width:700px){.review-correct-option-text{grid-template-columns:28px minmax(0,1fr);align-items:center}.review-correct-option-text .option-letter{width:28px;height:28px;min-width:28px;min-height:28px;line-height:28px}}
