@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão" src="https://img.shields.io/badge/versão-V7.9.2-E75493">
+  <img alt="Versão" src="https://img.shields.io/badge/versão-V7.9.3-E75493">
   <img alt="Status" src="https://img.shields.io/badge/status-estável-22C55E">
   <img alt="PWA" src="https://img.shields.io/badge/PWA-ready-8B5CF6">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-cloud-3ECF8E">
@@ -317,7 +317,9 @@ Simulador-3.0-main/
 
 ---
 
-## ✅ Status da V7.9.2
+## ✅ Status da V7.9.3
+
+Inclui edição de nome e foto do perfil, exibição visual do usuário na lista de amigos, barra compacta de formatação nas telas de criação e correção das métricas ao navegar pelas estatísticas do amigo visitado.
 
 Os bancos completos agora são salvos na nuvem imediatamente ao sincronizar, mesmo antes de o usuário iniciar um simulado. Execute `supabase/SUPABASE_ACCOUNT_SYNC_V7_9_2.sql` no SQL Editor para adicionar o snapshot e reinstalar as políticas RLS multiusuário.
 

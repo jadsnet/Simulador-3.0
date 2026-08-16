@@ -44,7 +44,7 @@ export async function ensurePublicProfile(){
   const displayName=user.user_metadata?.display_name||email.split("@")[0]||"Usuário";
   const {data,error}=await supabase.from("user_profiles").upsert({
     user_id:user.id,email,display_name:displayName,updated_at:new Date().toISOString()
-  },{onConflict:"user_id"}).select("daily_goal,display_name,email").single();
+  },{onConflict:"user_id"}).select("daily_goal,display_name,email,avatar_url").single();
   if(error)throw error;
   return data;
 }
@@ -52,12 +52,35 @@ export async function ensurePublicProfile(){
 export async function listFriendProfiles(){
   await requireUser();
   const {data,error}=await supabase.from("user_profiles")
-    .select("user_id,email,display_name,created_at")
+    .select("user_id,email,display_name,avatar_url,created_at")
     .eq("is_discoverable",true)
     .order("display_name",{ascending:true})
     .limit(500);
   if(error)throw error;
   return data||[];
+}
+
+export async function updatePublicProfile({displayName,avatarFile}={}){
+  const user=await requireUser();
+  const name=String(displayName||"").trim().slice(0,80)||String(user.email||"Usuário").split("@")[0];
+  let avatarUrl;
+  if(avatarFile){
+    if(!/^image\/(png|jpeg|webp|gif)$/i.test(avatarFile.type))throw new Error("Escolha uma imagem PNG, JPG, WEBP ou GIF.");
+    if(avatarFile.size>5*1024*1024)throw new Error("A foto deve ter no máximo 5 MB.");
+    const extension=(avatarFile.name.split(".").pop()||"png").replace(/[^a-z0-9]/gi,"").toLowerCase();
+    const path=`${user.id}/avatar.${extension}`;
+    const uploaded=await supabase.storage.from("profile-avatars").upload(path,avatarFile,{upsert:true,contentType:avatarFile.type,cacheControl:"3600"});
+    if(uploaded.error)throw uploaded.error;
+    const publicResult=supabase.storage.from("profile-avatars").getPublicUrl(path);
+    avatarUrl=`${publicResult.data.publicUrl}?v=${Date.now()}`;
+  }
+  const payload={display_name:name,updated_at:new Date().toISOString()};
+  if(avatarUrl)payload.avatar_url=avatarUrl;
+  const result=await supabase.from("user_profiles").update(payload).eq("user_id",user.id)
+    .select("daily_goal,display_name,email,avatar_url").single();
+  if(result.error)throw result.error;
+  await supabase.auth.updateUser({data:{display_name:name,avatar_url:result.data.avatar_url||null}});
+  return result.data;
 }
 
 export async function getFriendProgressSummary(userId){

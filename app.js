@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.9.2";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.9.3";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -25,12 +25,64 @@ async function init(){
   initializeTheme();
   setupApplicationPages();
   setupV6Features();
+  setupRichTextToolbars();
   bind();
   bindAuth();
   bindSidebarNavigation();
   setupMobileNavigation();
   await initializeAuth(handleAuthChange);
   if("serviceWorker" in navigator) navigator.serviceWorker.register("./service-worker.js").catch(()=>{});
+}
+
+function setupRichTextToolbars(){
+  const ids=["commonQuestionText","dragDropQuestionText",...LETTERS.map(letter=>`commonAltText${letter.toUpperCase()}`)];
+  ids.forEach(id=>{
+    const textarea=$(id);if(!textarea||textarea.previousElementSibling?.classList.contains("mini-text-toolbar"))return;
+    const bar=document.createElement("div");bar.className="mini-text-toolbar";bar.setAttribute("aria-label","Formatação do texto");
+    bar.innerHTML=`<button type="button" data-wrap="strong" title="Negrito"><b>B</b></button><button type="button" data-wrap="em" title="Itálico"><i>I</i></button><button type="button" data-wrap="u" title="Sublinhado"><u>U</u></button><button type="button" data-list="ul" title="Lista com marcadores">•≡</button><button type="button" data-list="ol" title="Lista numerada">1≡</button><button type="button" data-size="large" title="Aumentar fonte">A+</button><button type="button" data-size="small" title="Diminuir fonte">A−</button><label title="Cor da fonte"><span>A</span><input type="color" value="#e75493"></label>`;
+    textarea.before(bar);
+    bar.querySelectorAll("button").forEach(button=>button.onclick=()=>{
+      const start=textarea.selectionStart,end=textarea.selectionEnd;
+      const selected=textarea.value.slice(start,end)||"texto";
+      let replacement=selected;
+      if(button.dataset.wrap)replacement=`<${button.dataset.wrap}>${selected}</${button.dataset.wrap}>`;
+      if(button.dataset.size)replacement=`<span class="text-${button.dataset.size}">${selected}</span>`;
+      if(button.dataset.list){
+        const rows=selected.split(/\r?\n/).filter(Boolean).map(row=>`<li>${row}</li>`).join("");
+        replacement=`<${button.dataset.list}>${rows}</${button.dataset.list}>`;
+      }
+      textarea.setRangeText(replacement,start,end,"end");textarea.focus();
+    });
+    bar.querySelector('input[type="color"]').oninput=event=>{
+      const start=textarea.selectionStart,end=textarea.selectionEnd,selected=textarea.value.slice(start,end)||"texto";
+      textarea.setRangeText(`<span style="color:${event.target.value}">${selected}</span>`,start,end,"end");textarea.focus();
+    };
+  });
+}
+
+function richTextEnabled(value){return /<(strong|em|u|ul|ol|li|span)(\s|>)/i.test(String(value||""))}
+function safeRichText(value){
+  const template=document.createElement("template");template.innerHTML=String(value||"");
+  const allowed=new Set(["STRONG","EM","U","UL","OL","LI","SPAN","BR"]);
+  [...template.content.querySelectorAll("*")].forEach(node=>{
+    if(!allowed.has(node.tagName)){node.replaceWith(document.createTextNode(node.textContent||""));return}
+    const originalClass=node.getAttribute("class")||"";
+    const originalStyle=node.getAttribute("style")||"";
+    [...node.attributes].forEach(attribute=>node.removeAttribute(attribute.name));
+    if(node.tagName==="SPAN"){
+      const classMatch=originalClass.match(/\b(text-(?:large|small))\b/i);
+      const colorMatch=originalStyle.match(/color:\s*(#[0-9a-f]{6})/i);
+      if(classMatch)node.className=classMatch[1];
+      if(colorMatch)node.style.color=colorMatch[1];
+    }
+  });
+  return template.innerHTML;
+}
+
+function setRichContent(element,value,enabled=false){
+  if(!element)return;
+  if(enabled||richTextEnabled(value))element.innerHTML=safeRichText(value);
+  else element.textContent=value||"";
 }
 
 function initializeKittyRain(){
@@ -287,7 +339,12 @@ function showApplicationPage(page="home",scrollTarget=""){
 
   if(page==="history")friendVisitActive()?renderHistory(friendHistory()):refreshHome();
   if(page==="review")renderReviewLibrary(reviewLibraryFilter);
-  if(page==="stats")friendVisitActive()?renderAnalyticsDashboard(friendHistory()):refreshHome().then(renderAnalyticsDashboard);
+  if(page==="stats"){
+    if(friendVisitActive()){
+      const visitedHistory=friendHistory();
+      renderDashboard(visitedHistory).then(()=>renderAnalyticsDashboard(visitedHistory));
+    }else refreshHome().then(renderAnalyticsDashboard);
+  }
   if(page==="flashcards")renderFlashcards();
   if(page==="profile")renderProfilePage();
   if(page==="friends")renderFriendDirectory();
@@ -475,6 +532,11 @@ function setupV6Features(){
           <div class="xp-track"><i id="profileXpBar"></i></div>
           <span id="profileXpText">0 XP</span>
         </div>
+        <div class="profile-edit-controls">
+          <label class="field compact-field"><span>Nome do perfil</span><input id="profileDisplayNameInput" maxlength="80" placeholder="Como você quer aparecer"></label>
+          <label class="profile-photo-picker"><span>Escolher foto</span><input id="profileAvatarInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
+          <button id="saveProfileBtn" class="btn primary" type="button">Salvar perfil</button>
+        </div>
       </article>
       <article class="panel goal-card">
         <div class="panel-body">
@@ -512,7 +574,7 @@ function setupV6Features(){
     <article class="panel friend-browser-panel">
       <div class="panel-title">
         <div><p>PERFIL VISITADO</p><h2>Área do amigo</h2></div>
-        <div class="friend-page-actions"><span class="friend-readonly-badge">Somente visualização</span><button id="changeFriendBtn" class="text-btn" type="button">Trocar amigo</button></div>
+        <div class="friend-page-actions"><span class="friend-readonly-badge">Somente visualização</span><button id="leaveFriendHeaderBtn" class="text-btn" type="button">Voltar ao meu perfil</button></div>
       </div>
       <section id="friendViewer" class="friend-viewer friend-viewer-page"><div class="friend-empty-state"><span>◎</span><strong>Escolha um amigo</strong><p>Abra o menu da conta e selecione “Visualizar amigos”.</p></div></section>
     </article>`;
@@ -545,7 +607,8 @@ function setupV6Features(){
   $("saveDailyGoalBtn").onclick=saveDailyGoal;
   $("runGlobalSearchBtn").onclick=renderGlobalSearch;
   $("globalSearchInput").onkeydown=e=>{if(e.key==="Enter")renderGlobalSearch()};
-  $("changeFriendBtn").onclick=openFriendPicker;
+  $("leaveFriendHeaderBtn").onclick=leaveFriendVisit;
+  $("saveProfileBtn").onclick=savePublicProfile;
   $("friendPickerSearch").oninput=()=>renderFriendPickerList($("friendPickerSearch").value);
   $("closeFriendPickerBtn").onclick=closeFriendPicker;
   $("friendPickerBackdrop").onclick=event=>{if(event.target===$("friendPickerBackdrop"))closeFriendPicker()};
@@ -686,7 +749,7 @@ function renderFriendPickerList(query=""){
     const initials=name.trim().slice(0,2).toUpperCase()||"AM";
     const own=profile.user_id===currentId;
     return `<button class="friend-profile-item" type="button" data-friend-id="${esc(profile.user_id)}">
-      <span class="friend-avatar">${esc(initials)}</span>
+      <span class="friend-avatar">${profile.avatar_url?`<img src="${esc(profile.avatar_url)}" alt="Foto de ${esc(name)}">`:esc(initials)}</span>
       <span class="friend-profile-copy"><strong>${esc(name)}${own?' <small>(você)</small>':""}</strong><small>${esc(profile.email||"")}</small></span>
       <i aria-hidden="true">›</i>
     </button>`;
@@ -735,7 +798,7 @@ async function openFriendProfile(userId){
     for(;;){const key=streakCursor.toISOString().slice(0,10);if(studyDays.includes(key)){streak++;streakCursor.setDate(streakCursor.getDate()-1)}else break}
     viewer.innerHTML=`
       <header class="friend-viewer-head">
-        <span class="friend-viewer-avatar">${esc(initials)}</span>
+        <span class="friend-viewer-avatar">${profile.avatarUrl?`<img src="${esc(profile.avatarUrl)}" alt="Foto de ${esc(name)}">`:esc(initials)}</span>
         <div><p>VISITANDO AGORA</p><h2>${esc(name)}</h2><span>${esc(profile.email||"")}</span></div>
         <b>Somente leitura</b>
       </header>
@@ -795,6 +858,23 @@ async function saveDailyGoal(){
   toast("Meta diária atualizada.");
 }
 
+async function savePublicProfile(){
+  if(friendVisitActive()){toast("O perfil do amigo é somente para visualização.");return}
+  const button=$("saveProfileBtn");
+  try{
+    button.disabled=true;button.textContent="Salvando...";
+    const profile=await updatePublicProfile({
+      displayName:$("profileDisplayNameInput").value,
+      avatarFile:$("profileAvatarInput").files[0]||null
+    });
+    localStorage.setItem(`simulador-public-profile:${getCloudUser()?.id}`,JSON.stringify(profile));
+    $("profileAvatarInput").value="";
+    await renderProfilePage();
+    toast("Perfil atualizado.");
+  }catch(error){alert(error.message||"Não foi possível atualizar o perfil.")}
+  finally{button.disabled=false;button.textContent="Salvar perfil"}
+}
+
 async function renderProfilePage(){
   const history=friendVisitActive()?friendHistory():await getAll("history");
   const today=new Date().toISOString().slice(0,10);
@@ -817,7 +897,14 @@ async function renderProfilePage(){
     const heading=$("pageProfile")?.querySelector(".page-heading h2");
     if(heading)heading.textContent="Perfil e metas";
     const avatar=$("pageProfile")?.querySelector(".profile-avatar");
-    if(avatar)avatar.textContent=(getCloudUser()?.email||"JD").split("@")[0].slice(0,2).toUpperCase();
+    let publicProfile={};
+    try{publicProfile=JSON.parse(localStorage.getItem(`simulador-public-profile:${getCloudUser()?.id}`)||"{}")}catch{}
+    const name=publicProfile.display_name||getCloudUser()?.user_metadata?.display_name||String(getCloudUser()?.email||"Usuário").split("@")[0];
+    if($("profileDisplayNameInput"))$("profileDisplayNameInput").value=name;
+    if(avatar){
+      const url=publicProfile.avatar_url||getCloudUser()?.user_metadata?.avatar_url;
+      avatar.innerHTML=url?`<img src="${esc(url)}" alt="Foto de ${esc(name)}">`:esc(name.slice(0,2).toUpperCase());
+    }
   }
 
   const goal=friendVisitActive()?Math.max(1,Number(friendVisitData?.profile?.dailyGoal)||20):getDailyGoal();
@@ -1062,6 +1149,7 @@ async function handleAuthChange(user){
   try{
     try{
       const publicProfile=await ensurePublicProfile();
+      localStorage.setItem(`simulador-public-profile:${user.id}`,JSON.stringify(publicProfile||{}));
       const savedGoal=localStorage.getItem(dailyGoalStorageKey());
       if(savedGoal===null)localStorage.setItem(dailyGoalStorageKey(),String(Math.max(1,Number(publicProfile?.daily_goal)||20)));
       else await updatePublicGoal(getDailyGoal());
@@ -2316,7 +2404,7 @@ async function saveCommonQuestion(){
   const questionImageKey=commonQuestionBuilder.questionImageData?normPath(commonQuestionBuilder.questionImageName):"";
   const question={
     id,categoria:$("commonQuestionCategory").value.trim(),tipo:type,pergunta:questionText,
-    imagem_pergunta:questionImageKey,correta:correct.join(","),feedback:$("commonQuestionFeedback").value.trim()
+    imagem_pergunta:questionImageKey,correta:correct.join(","),feedback:$("commonQuestionFeedback").value.trim(),rich_text:false
   };
   const newImages={};
   if(questionImageKey)newImages[questionImageKey]=commonQuestionBuilder.questionImageData;
@@ -2326,6 +2414,7 @@ async function saveCommonQuestion(){
     question[`img_${letter}`]=image?.imageData?normPath(image.imageName):"";
     if(question[`img_${letter}`])newImages[question[`img_${letter}`]]=image.imageData;
   }
+  question.rich_text=richTextEnabled(question.pergunta)||LETTERS.some(letter=>richTextEnabled(question[`alt_${letter}`]));
 
   const oldQuestion=editing?(bank.questions||[]).find(item=>String(item.id)===editingQuestion.originalId):null;
   bank.questions=editing?(bank.questions||[]).map(item=>String(item.id)===editingQuestion.originalId?question:item):[...(bank.questions||[]),question];
@@ -2362,7 +2451,7 @@ function openQuestionPreview(kind){
 function showQuestionPreview(question){
   $("previewCategoryBadge").textContent=question.categoria||"Sem categoria";
   $("previewTypeBadge").textContent=question.tipo==="dragdrop"?"Arrastar e soltar":question.tipo==="multiple"?"Múltiplas respostas":"Resposta única";
-  $("previewQuestionText").textContent=question.pergunta||"Digite o enunciado para visualizá-lo aqui.";
+  setRichContent($("previewQuestionText"),question.pergunta||"Digite o enunciado para visualizá-lo aqui.",question.rich_text);
   const questionImage=$("previewQuestionImage"),answerArea=$("previewAnswerArea");
   questionImage.innerHTML="";answerArea.innerHTML="";
   if(question.imagem_pergunta)appendPreviewImage(questionImage,question.imagem_pergunta,"Imagem do enunciado");
@@ -2503,13 +2592,14 @@ function buildCommonPreviewQuestion(){
     tipo:$("commonQuestionType").value,pergunta:$("commonQuestionText").value.trim(),
     imagem_pergunta:commonQuestionBuilder.questionImageData,
     correta:[...document.querySelectorAll('input[name="commonCorrect"]:checked')].map(input=>input.value).join(","),
-    feedback:$("commonQuestionFeedback").value.trim()
+    feedback:$("commonQuestionFeedback").value.trim(),rich_text:false
   };
   for(const letter of LETTERS){
     const upper=letter.toUpperCase();
     question[`alt_${letter}`]=$("commonAltText"+upper).value.trim();
     question[`img_${letter}`]=commonQuestionBuilder.alternatives[letter]?.imageData||"";
   }
+  question.rich_text=richTextEnabled(question.pergunta)||LETTERS.some(letter=>richTextEnabled(question[`alt_${letter}`]));
   return question;
 }
 
@@ -2517,7 +2607,7 @@ function buildDragDropPreviewQuestion(){
   return {
     id:$("dragDropQuestionId").value.trim(),categoria:$("dragDropCategory").value.trim(),tipo:"dragdrop",
     pergunta:$("dragDropQuestionText").value.trim(),imagem_pergunta:dragDropBuilder.promptImageData,
-    feedback:$("dragDropFeedback").value.trim(),
+    feedback:$("dragDropFeedback").value.trim(),rich_text:richTextEnabled($("dragDropQuestionText").value),
     dragdrop:{image:dragDropBuilder.imageData,items:dragDropBuilderItems(),zones:dragDropBuilder.zones.map(zone=>({...zone}))}
   };
 }
@@ -2537,7 +2627,7 @@ function renderCommonQuestionPreview(container,question){
     input.onchange=()=>container.querySelectorAll(".preview-option").forEach(option=>option.classList.toggle("selected",option.querySelector("input").checked));
     const content=document.createElement("div");content.className="option-content";
     const line=document.createElement("div"),badge=document.createElement("span");badge.className="option-letter";badge.textContent=`${upper})`;
-    line.appendChild(badge);line.append(document.createTextNode(text||""));content.appendChild(line);
+    line.appendChild(badge);const textNode=document.createElement("span");setRichContent(textNode,text||"",question.rich_text);line.appendChild(textNode);content.appendChild(line);
     if(image)appendPreviewImage(content,image,`Imagem da alternativa ${upper}`);
     label.append(input,content);container.appendChild(label);
   }
@@ -2791,6 +2881,7 @@ async function saveDragDropQuestion(){
   const question={
     id,categoria:$("dragDropCategory").value.trim(),tipo:"dragdrop",pergunta:questionText,
     imagem_pergunta:promptImageKey,correta:"",feedback:$("dragDropFeedback").value.trim(),
+    rich_text:richTextEnabled(questionText),
     dragdrop:{version:2,image:imageKey,promptImage:promptImageKey,items,zones:dragDropBuilder.zones.map(zone=>({...zone}))}
   };
   const oldQuestion=editing?(bank.questions||[]).find(item=>String(item.id)===editingQuestion.originalId):null;
@@ -3083,7 +3174,7 @@ function renderQuestion(){
   $("totalQuestions").textContent=questions.length;
   $("answeredCount").textContent=questions.filter(question=>isQuestionAnswered(question,answers[question.id])).length;
   $("progressBar").style.width=`${(currentIndex+1)/questions.length*100}%`;
-  $("questionText").textContent=q.pergunta||"";
+  setRichContent($("questionText"),q.pergunta||"",q.rich_text);
   $("categoryBadge").textContent=q.categoria||"";
   $("categoryBadge").classList.toggle("hidden",!q.categoria);
   $("typeBadge").textContent=q.tipo==="dragdrop"?"Arrastar e soltar":q.tipo==="multiple"?"Múltiplas respostas":"Resposta única";
@@ -3130,7 +3221,9 @@ function renderOptions(q){
 
     const content=document.createElement("div");
     content.className="option-content";
-    content.innerHTML=`<div><span class="option-letter">${U})</span>${esc(t||"")}</div>`;
+    const line=document.createElement("div");
+    line.innerHTML=`<span class="option-letter">${U})</span>`;
+    const text=document.createElement("span");setRichContent(text,t||"",q.rich_text);line.appendChild(text);content.appendChild(line);
 
     const url=resolveImage(img);
     if(url)content.appendChild(makeImageBlock(url,`Imagem da alternativa ${U}`));
@@ -3647,7 +3740,7 @@ function renderReview(items){
 
     const qt=document.createElement("div");
     qt.className="review-question";
-    qt.textContent=x.q.pergunta||"";
+    setRichContent(qt,x.q.pergunta||"",x.q.rich_text);
 
     const ua=document.createElement("div");
     ua.className="review-answer user";
@@ -3687,7 +3780,7 @@ function renderReview(items){
         optionText.appendChild(optionLetter);
 
         const text=document.createElement("span");
-        text.textContent=x.q[`alt_${key}`]||"Alternativa apresentada somente como imagem";
+        setRichContent(text,x.q[`alt_${key}`]||"Alternativa apresentada somente como imagem",x.q.rich_text);
         optionText.appendChild(text);
         option.appendChild(optionText);
 

@@ -11,6 +11,7 @@ create table if not exists public.user_profiles (
 );
 
 alter table public.user_profiles add column if not exists daily_goal integer not null default 20;
+alter table public.user_profiles add column if not exists avatar_url text;
 
 alter table public.user_profiles enable row level security;
 
@@ -169,6 +170,7 @@ begin
       'userId',target_profile.user_id,
       'displayName',target_profile.display_name,
       'email',target_profile.email,
+      'avatarUrl',target_profile.avatar_url,
       'dailyGoal',target_profile.daily_goal,
       'createdAt',target_profile.created_at
     ),
