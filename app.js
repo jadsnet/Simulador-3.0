@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.9.5";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.9.7";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -44,7 +44,7 @@ function setupRichTextToolbars(){
     const heading=document.createElement("div");heading.className="rich-field-heading";
     if(title)heading.appendChild(title);
     const bar=document.createElement("div");bar.className="mini-text-toolbar";bar.setAttribute("role","toolbar");bar.setAttribute("aria-label","Formatar texto");
-    bar.innerHTML=`<button type="button" data-command="bold" title="Negrito" aria-label="Negrito"><b>B</b></button><button type="button" data-command="italic" title="Itálico" aria-label="Itálico"><i>I</i></button><button type="button" data-command="underline" title="Sublinhado" aria-label="Sublinhado"><u>U</u></button><button type="button" data-command="insertUnorderedList" title="Lista com marcadores" aria-label="Lista com marcadores">•≡</button><button type="button" data-command="insertOrderedList" title="Lista numerada" aria-label="Lista numerada">1≡</button><button type="button" data-size="large" title="Aumentar fonte" aria-label="Aumentar fonte">A+</button><button type="button" data-size="small" title="Diminuir fonte" aria-label="Diminuir fonte">A−</button><label class="rich-color-control" title="Cor da fonte" aria-label="Cor da fonte"><span>A</span><input type="color" value="#e75493"></label>`;
+    bar.innerHTML=`<button type="button" data-command="bold" title="Negrito" aria-label="Negrito"><b>B</b></button><button type="button" data-command="italic" title="Itálico" aria-label="Itálico"><i>I</i></button><button type="button" data-command="underline" title="Sublinhado" aria-label="Sublinhado"><u>U</u></button><button type="button" data-command="insertUnorderedList" title="Lista com marcadores" aria-label="Lista com marcadores">•≡</button><button type="button" data-command="insertOrderedList" title="Lista numerada" aria-label="Lista numerada">1≡</button><label class="rich-color-control" title="Cor da fonte" aria-label="Cor da fonte"><span>A</span><input type="color" value="#e75493"></label>`;
     heading.appendChild(bar);field?.insertBefore(heading,textarea);
     const editor=document.createElement("div");editor.className="rich-editor-surface";editor.contentEditable="true";editor.setAttribute("role","textbox");editor.setAttribute("aria-multiline","true");editor.dataset.placeholder=textarea.placeholder||"";editor._source=textarea;
     textarea.after(editor);
@@ -56,15 +56,20 @@ function setupRichTextToolbars(){
     editor.addEventListener("input",sync);editor.addEventListener("paste",()=>requestAnimationFrame(sync));
     bar.querySelectorAll("button").forEach(button=>{
       button.tabIndex=-1;button.addEventListener("mousedown",event=>event.preventDefault());
-      button.addEventListener("click",()=>{restoreSelection();document.execCommand(button.dataset.size?"fontSize":button.dataset.command,false,button.dataset.size?(button.dataset.size==="large"?"5":"2"):null);normalizeVisualEditor(editor,button.dataset.size);sync()});
+      button.addEventListener("click",()=>{restoreSelection();document.execCommand(button.dataset.command,false,null);normalizeVisualEditor(editor);sync()});
     });
     const color=bar.querySelector('input[type="color"]');color.addEventListener("mousedown",rememberSelection);
-    color.addEventListener("input",event=>{restoreSelection();document.execCommand("foreColor",false,event.target.value);normalizeVisualEditor(editor);sync()});
+    const applySelectedColor=event=>{restoreSelection();document.execCommand("foreColor",false,event.target.value);normalizeVisualEditor(editor);sync();requestAnimationFrame(restoreSelection)};
+    color.addEventListener("input",applySelectedColor);color.addEventListener("change",event=>requestAnimationFrame(()=>{restoreSelection();rememberSelection()}));
     refreshRichEditor(textarea);
   });
 }
 
 function normalizeVisualEditor(editor,size=""){
+  editor.querySelectorAll("b").forEach(node=>{const strong=document.createElement("strong");while(node.firstChild)strong.appendChild(node.firstChild);node.replaceWith(strong)});
+  editor.querySelectorAll("i").forEach(node=>{const emphasis=document.createElement("em");while(node.firstChild)emphasis.appendChild(node.firstChild);node.replaceWith(emphasis)});
+  editor.querySelectorAll('span[style*="font-weight"]').forEach(node=>{if(!/font-weight:\s*(bold|[6-9]00)/i.test(node.getAttribute("style")||""))return;const strong=document.createElement("strong");while(node.firstChild)strong.appendChild(node.firstChild);node.replaceWith(strong)});
+  editor.querySelectorAll('span[style*="font-style"]').forEach(node=>{if(!/font-style:\s*italic/i.test(node.getAttribute("style")||""))return;const emphasis=document.createElement("em");while(node.firstChild)emphasis.appendChild(node.firstChild);node.replaceWith(emphasis)});
   editor.querySelectorAll("font").forEach(font=>{
     const span=document.createElement("span"),color=font.getAttribute("color"),fontSize=font.getAttribute("size");
     if(color)span.style.color=color;if(size||fontSize)span.className=`text-${size||(Number(fontSize)>=4?"large":"small")}`;
@@ -73,7 +78,7 @@ function normalizeVisualEditor(editor,size=""){
 }
 function refreshRichEditor(textarea){
   const editor=textarea?.nextElementSibling;if(!editor?.classList.contains("rich-editor-surface"))return;
-  if(richTextEnabled(textarea.value))editor.innerHTML=safeRichText(textarea.value);else editor.textContent=textarea.value||"";
+  if(richTextEnabled(textarea.value)){const cleaned=safeRichText(textarea.value);textarea.value=cleaned;editor.innerHTML=cleaned}else editor.textContent=textarea.value||"";
 }
 function refreshAllRichEditors(){document.querySelectorAll("textarea.rich-editor-source").forEach(refreshRichEditor)}
 
@@ -87,14 +92,15 @@ function safeRichText(value){
     const originalStyle=node.getAttribute("style")||"";
     [...node.attributes].forEach(attribute=>node.removeAttribute(attribute.name));
     if(node.tagName==="SPAN"){
-      const classMatch=originalClass.match(/\b(text-(?:large|small))\b/i);
       const colorMatch=originalStyle.match(/color:\s*(#[0-9a-f]{6})/i);
-      if(classMatch)node.className=classMatch[1];
       if(colorMatch)node.style.color=colorMatch[1];
     }
   });
+  template.content.querySelectorAll("span:not([style])").forEach(span=>span.replaceWith(...span.childNodes));
   return template.innerHTML;
 }
+
+function richTextPlainText(value){const template=document.createElement("template");template.innerHTML=safeRichText(value);return(template.content.textContent||"").replace(/\s+/g," ").trim()}
 
 function setRichContent(element,value,enabled=false){
   if(!element)return;
@@ -456,12 +462,13 @@ async function renderReviewLibrary(filter="all"){
           ${item.marked?'<span title="Marcada">⚑</span>':""}
           ${item.note?'<span title="Com anotação">📝</span>':""}
         </div>
-        <h3>${esc(item.q.pergunta||"Questão sem enunciado")}</h3>
+        <h3 class="review-library-question"></h3>
         <p><strong>Sua resposta:</strong> ${esc(formatAnswerForDisplay(item.q,item.u)||"Não respondida")}</p>
         <p><strong>Resposta correta:</strong> ${esc(formatAnswerForDisplay(item.q,item.r)||"Não informada")}</p>
         ${item.note?`<div class="library-note"><strong>Minha anotação:</strong> ${esc(item.note)}</div>`:""}
       </div>
       <button class="btn secondary open-reviewed-question" type="button">Abrir questão</button>`;
+    setRichContent(card.querySelector(".review-library-question"),item.q.pergunta||"Questão sem enunciado",item.q.rich_text);
     card.querySelector(".open-reviewed-question").onclick=async()=>{
       await openHistoryDetails(item.historyId);
       window.setTimeout(()=>{
@@ -698,7 +705,7 @@ function renderFlashcardCard(){
         <span>${esc(item.q.categoria||"Sem categoria")}</span>
         <strong>${flashcardIndex+1} / ${flashcardItems.length}</strong>
       </div>
-      <div class="flashcard-question">${esc(item.q.pergunta||"")}</div>
+      <div class="flashcard-question"></div>
       <div class="flashcard-answer ${flashcardRevealed?"":"hidden"}">
         <p><strong>Resposta correta:</strong> ${esc(formatAnswerForDisplay(item.q,item.r))}</p>
         ${item.q.feedback?`<p>${esc(item.q.feedback)}</p>`:""}
@@ -709,6 +716,7 @@ function renderFlashcardCard(){
         <button id="nextFlashcardBtn" class="btn secondary">Próximo</button>
       </div>
     </article>`;
+  setRichContent(stage.querySelector(".flashcard-question"),item.q.pergunta||"",item.q.rich_text);
   $("prevFlashcardBtn").onclick=()=>{flashcardIndex=(flashcardIndex-1+flashcardItems.length)%flashcardItems.length;flashcardRevealed=false;renderFlashcardCard()};
   $("nextFlashcardBtn").onclick=()=>{flashcardIndex=(flashcardIndex+1)%flashcardItems.length;flashcardRevealed=false;renderFlashcardCard()};
   $("revealFlashcardBtn").onclick=()=>{flashcardRevealed=!flashcardRevealed;renderFlashcardCard()};
@@ -1082,12 +1090,13 @@ async function renderGlobalSearch(){
     <article class="panel global-search-card">
       <div>
         <span class="review-category">${esc(item.q.categoria||"Sem categoria")}</span>
-        <h3>${esc(item.q.pergunta||"")}</h3>
+        <h3 class="global-search-question"></h3>
         <p>${item.ok?"✓ Respondida corretamente":"✕ Respondida incorretamente"} · correta: ${esc(formatAnswerForDisplay(item.q,item.r))}</p>
       </div>
       <button class="btn secondary search-open-question" data-history="${esc(item.historyId)}">Abrir</button>
     </article>`).join(""):'<div class="empty-state">Nenhum resultado encontrado.</div>';
   host.querySelectorAll(".search-open-question").forEach(btn=>btn.onclick=()=>openHistoryDetails(btn.dataset.history));
+  host.querySelectorAll(".global-search-question").forEach((element,index)=>setRichContent(element,filtered[index]?.q?.pergunta||"",filtered[index]?.q?.rich_text));
 }
 
 
@@ -2184,7 +2193,7 @@ async function renderBankManagerQuestions(){
   if(!bank){closeBankManager();return}
   const query=$("bankManagerSearch").value.trim().toLocaleLowerCase("pt-BR");
   const all=Array.isArray(bank.questions)?bank.questions:[];
-  const visible=all.filter(question=>!query||[question.id,question.categoria,question.pergunta,questionKindLabel(question)]
+  const visible=all.filter(question=>!query||[question.id,question.categoria,richTextPlainText(question.pergunta),questionKindLabel(question)]
     .some(value=>String(value||"").toLocaleLowerCase("pt-BR").includes(query)));
   $("bankManagerCount").textContent=query?`${visible.length} de ${all.length} questões`:`${all.length} ${all.length===1?"questão":"questões"}`;
   const list=$("bankManagerQuestionList");
@@ -2194,7 +2203,8 @@ async function renderBankManagerQuestions(){
     const row=document.createElement("article");
     row.className="bank-manager-question";
     const originalPosition=all.indexOf(question)+1;
-    row.innerHTML=`<div class="bank-manager-question-index">${originalPosition}</div><div class="bank-manager-question-copy"><div class="bank-manager-question-tags"><span>ID ${esc(question.id||"—")}</span><span>${esc(question.categoria||"Sem categoria")}</span><span>${esc(questionKindLabel(question))}</span></div><strong>${esc(question.pergunta||"Questão sem enunciado")}</strong></div><div class="action-menu question-action-menu"><button class="action-menu-trigger" type="button" aria-label="Opções da questão ${esc(question.id||originalPosition)}" aria-expanded="false"><span></span><span></span><span></span></button><div class="action-menu-popover hidden"><button type="button" data-edit><span>✎</span>Editar questão</button><button type="button" data-preview><span>◉</span>Visualizar completa</button><button type="button" class="danger-item" data-delete-question><span>⌫</span>Excluir questão</button></div></div>`;
+    row.innerHTML=`<div class="bank-manager-question-index">${originalPosition}</div><div class="bank-manager-question-copy"><div class="bank-manager-question-tags"><span>ID ${esc(question.id||"—")}</span><span>${esc(question.categoria||"Sem categoria")}</span><span>${esc(questionKindLabel(question))}</span></div><div class="bank-manager-question-title"></div></div><div class="action-menu question-action-menu"><button class="action-menu-trigger" type="button" aria-label="Opções da questão ${esc(question.id||originalPosition)}" aria-expanded="false"><span></span><span></span><span></span></button><div class="action-menu-popover hidden"><button type="button" data-edit><span>✎</span>Editar questão</button><button type="button" data-preview><span>◉</span>Visualizar completa</button><button type="button" class="danger-item" data-delete-question><span>⌫</span>Excluir questão</button></div></div>`;
+    setRichContent(row.querySelector(".bank-manager-question-title"),question.pergunta||"Questão sem enunciado",question.rich_text);
     const trigger=row.querySelector(".action-menu-trigger");
     trigger.onclick=event=>{event.stopPropagation();toggleActionMenu(trigger)};
     row.querySelector("[data-edit]").onclick=()=>editManagedQuestion(bank.id,String(question.id));
@@ -2234,8 +2244,8 @@ async function deleteManagedQuestion(questionId,row){
   if(!bank)return;
   const question=(bank.questions||[]).find(item=>String(item.id)===questionId);
   if(!question)return renderBankManagerQuestions();
-  const preview=String(question.pergunta||"").replace(/\s+/g," ").trim().slice(0,120);
-  if(!confirm(`Excluir somente a questão ${question.id}?\n\n${preview}${String(question.pergunta||"").length>120?"…":""}\n\nAs outras questões e o histórico de simulados serão preservados.`))return;
+  const plainQuestion=richTextPlainText(question.pergunta||""),preview=plainQuestion.slice(0,120);
+  if(!confirm(`Excluir somente a questão ${question.id}?\n\n${preview}${plainQuestion.length>120?"…":""}\n\nAs outras questões e o histórico de simulados serão preservados.`))return;
   const button=row.querySelector("[data-delete-question]");
   button.disabled=true;button.textContent="Excluindo...";
   const removedReferences=questionImageReferences(question);
@@ -3584,7 +3594,7 @@ function toggleNavigator(){
 
 function openNoteModal(){
   const q=questions[currentIndex];
-  $("noteQuestionPreview").textContent=`Questão ${currentIndex+1}: ${q.pergunta||""}`;
+  $("noteQuestionPreview").textContent=`Questão ${currentIndex+1}: ${richTextPlainText(q.pergunta||"")}`;
   $("noteTextarea").value=notes[q.id]||"";
   updateNoteCounter();
   $("noteModal").classList.remove("hidden");
