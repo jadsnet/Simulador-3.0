@@ -1111,3 +1111,15 @@ input[type="file"]::file-selector-button{margin:-5px 10px -5px -7px;padding:7px 
 .theme-light .field input::placeholder,.theme-light .field textarea::placeholder,.theme-light .search input::placeholder{color:#7d8797}
 .theme-light .quick-list button,.theme-light .text-btn{color:#36577f}.theme-light .quick-list small{color:#7b8797}
 .theme-light .action-menu-popover{background:#fff;box-shadow:-7px 16px 34px rgba(52,62,76,.22)}.theme-light .action-menu-popover button{color:#33425b}.theme-light .action-menu-popover button:hover{background:#edf3fa}
+
+/* V7.2.1 — seletor deslizante de tema com Hello Kitty sempre visível */
+.top-actions .theme-kitty-btn{position:relative;display:block!important;flex:0 0 65px;width:65px!important;min-width:65px!important;max-width:65px!important;height:32px!important;min-height:32px!important;max-height:32px!important;padding:0!important;overflow:hidden;border:0!important;border-radius:999px!important;background:linear-gradient(145deg,#222b39,#101722)!important;box-shadow:-3px 6px 13px rgba(0,0,0,.42),inset 0 2px 5px rgba(0,0,0,.3),inset 0 1px 0 rgba(255,255,255,.07)!important}
+.top-actions .theme-kitty-btn:before{content:"☾";position:absolute;right:10px;top:50%;color:#d9e6f6;font-size:15px;line-height:1;transform:translateY(-50%);transition:left .22s ease,right .22s ease,color .22s ease}
+.top-actions .theme-kitty-btn img{position:absolute;z-index:2;left:3px;top:3px;display:block;box-sizing:border-box;width:26px;height:26px;padding:2px;object-fit:contain;border-radius:50%;background:#fff;filter:drop-shadow(-1px 2px 2px rgba(0,0,0,.25));transform:translateX(0);transition:transform .22s cubic-bezier(.22,.7,.25,1),filter .16s ease}
+.top-actions .theme-kitty-btn[aria-pressed="true"]{background:linear-gradient(145deg,#ecf3fb,#cddaea)!important;box-shadow:-3px 6px 13px rgba(0,0,0,.3),inset 0 2px 5px rgba(65,81,103,.16),inset 0 1px 0 rgba(255,255,255,.8)!important}
+.top-actions .theme-kitty-btn[aria-pressed="true"]:before{content:"☀";left:10px;right:auto;color:#d78a16}
+.top-actions .theme-kitty-btn[aria-pressed="true"] img{transform:translateX(33px)}
+.top-actions .theme-kitty-btn:hover img{filter:drop-shadow(-1px 2px 3px rgba(0,0,0,.32)) brightness(1.03);transform:translateX(0) scale(1.025)}
+.top-actions .theme-kitty-btn[aria-pressed="true"]:hover img{transform:translateX(33px) scale(1.025)}
+.top-actions .theme-kitty-btn:active img{transform:translateX(0) scale(.995)}
+.top-actions .theme-kitty-btn[aria-pressed="true"]:active img{transform:translateX(33px) scale(.995)}
