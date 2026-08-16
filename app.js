@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.9.4";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.9.5";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -17,6 +17,7 @@ let dragDropBuilder={imageData:"",imageName:"",promptImageData:"",promptImageNam
 let commonQuestionBuilder={questionImageData:"",questionImageName:"",alternatives:{}};
 let managedBankId="";
 let editingQuestion=null;
+let profileCrop={file:null,image:null,zoom:1,x:0,y:0,dragging:false,startX:0,startY:0,originX:0,originY:0};
 let authMode="signin",cloudSaveTimer=null,pendingCloudProgress=null,cloudSaveInFlight=false;
 document.addEventListener("DOMContentLoaded",init);
 
@@ -548,11 +549,6 @@ function setupV6Features(){
           <div class="xp-track"><i id="profileXpBar"></i></div>
           <span id="profileXpText">0 XP</span>
         </div>
-        <div class="profile-edit-controls">
-          <label class="field compact-field"><span>Nome do perfil</span><input id="profileDisplayNameInput" maxlength="80" placeholder="Como você quer aparecer"></label>
-          <label class="profile-photo-picker"><span>Escolher foto</span><input id="profileAvatarInput" type="file" accept="image/png,image/jpeg,image/webp,image/gif"></label>
-          <button id="saveProfileBtn" class="btn primary" type="button">Salvar perfil</button>
-        </div>
       </article>
       <article class="panel goal-card">
         <div class="panel-body">
@@ -625,6 +621,12 @@ function setupV6Features(){
   $("globalSearchInput").onkeydown=e=>{if(e.key==="Enter")renderGlobalSearch()};
   $("leaveFriendHeaderBtn").onclick=leaveFriendVisit;
   $("saveProfileBtn").onclick=savePublicProfile;
+  $("closeProfileEditorBtn").onclick=closeProfileEditor;
+  $("cancelProfileEditorBtn").onclick=closeProfileEditor;
+  $("profileEditorBackdrop").onclick=event=>{if(event.target===$("profileEditorBackdrop"))closeProfileEditor()};
+  $("profileAvatarInput").onchange=loadProfileCropImage;
+  $("profileCropZoom").oninput=event=>{profileCrop.zoom=Number(event.target.value)||1;updateProfileCropPreview()};
+  bindProfileCropDragging();
   $("friendPickerSearch").oninput=()=>renderFriendPickerList($("friendPickerSearch").value);
   $("closeFriendPickerBtn").onclick=closeFriendPicker;
   $("friendPickerBackdrop").onclick=event=>{if(event.target===$("friendPickerBackdrop"))closeFriendPicker()};
@@ -879,16 +881,77 @@ async function savePublicProfile(){
   const button=$("saveProfileBtn");
   try{
     button.disabled=true;button.textContent="Salvando...";
+    const croppedAvatar=profileCrop.image?await createCroppedProfileFile():null;
     const profile=await updatePublicProfile({
       displayName:$("profileDisplayNameInput").value,
-      avatarFile:$("profileAvatarInput").files[0]||null
+      avatarFile:croppedAvatar
     });
     localStorage.setItem(`simulador-public-profile:${getCloudUser()?.id}`,JSON.stringify(profile));
+    $("logoutBtn").innerHTML=profile?.avatar_url?`<img src="${esc(profile.avatar_url)}" alt="Foto do perfil">`:esc(String(profile?.display_name||"U").slice(0,2).toUpperCase());
     $("profileAvatarInput").value="";
+    if(profileCrop.url)URL.revokeObjectURL(profileCrop.url);
+    profileCrop={file:null,image:null,zoom:1,x:0,y:0,dragging:false,startX:0,startY:0,originX:0,originY:0};
     await renderProfilePage();
+    closeProfileEditor();
     toast("Perfil atualizado.");
   }catch(error){alert(error.message||"Não foi possível atualizar o perfil.")}
   finally{button.disabled=false;button.textContent="Salvar perfil"}
+}
+
+function openProfileEditor(){
+  closeAccountMenu();
+  if(friendVisitActive()){toast("Volte ao seu perfil para editar seus dados.");return}
+  let profile={};try{profile=JSON.parse(localStorage.getItem(`simulador-public-profile:${getCloudUser()?.id}`)||"{}")}catch{}
+  const name=profile.display_name||getCloudUser()?.user_metadata?.display_name||String(getCloudUser()?.email||"Usuário").split("@")[0];
+  $("profileDisplayNameInput").value=name;
+  const avatarUrl=profile.avatar_url||getCloudUser()?.user_metadata?.avatar_url||"";
+  $("profileEditorCurrentAvatar").innerHTML=avatarUrl?`<img src="${esc(avatarUrl)}" alt="Foto atual">`:esc(name.slice(0,2).toUpperCase());
+  if(profileCrop.url)URL.revokeObjectURL(profileCrop.url);
+  $("profileAvatarInput").value="";$("profileCropArea").classList.add("hidden");
+  profileCrop={file:null,image:null,zoom:1,x:0,y:0,dragging:false,startX:0,startY:0,originX:0,originY:0};
+  $("profileCropZoom").value="1";
+  $("profileEditorBackdrop").classList.remove("hidden");$("profileEditorBackdrop").setAttribute("aria-hidden","false");document.body.classList.add("profile-editor-open");
+}
+
+function closeProfileEditor(){
+  $("profileEditorBackdrop")?.classList.add("hidden");$("profileEditorBackdrop")?.setAttribute("aria-hidden","true");document.body.classList.remove("profile-editor-open");
+}
+
+function loadProfileCropImage(){
+  const file=$("profileAvatarInput").files[0];if(!file)return;
+  if(!/^image\/(png|jpeg|webp|gif)$/i.test(file.type)){alert("Escolha uma imagem PNG, JPG, WEBP ou GIF.");return}
+  if(profileCrop.url)URL.revokeObjectURL(profileCrop.url);
+  const image=new Image(),url=URL.createObjectURL(file);
+  image.onload=()=>{profileCrop={file,image,url,zoom:1,x:0,y:0,dragging:false,startX:0,startY:0,originX:0,originY:0};$("profileCropZoom").value="1";$("profileCropImage").src=url;$("profileCropArea").classList.remove("hidden");updateProfileCropPreview()};
+  image.onerror=()=>{URL.revokeObjectURL(url);alert("Não foi possível abrir essa imagem.")};image.src=url;
+}
+
+function profileCropMetrics(){
+  const stage=$("profileCropStage"),image=profileCrop.image;if(!stage||!image)return null;
+  const size=stage.clientWidth||260,scale=Math.max(size/image.naturalWidth,size/image.naturalHeight)*profileCrop.zoom;
+  const maxX=Math.max(0,(image.naturalWidth*scale-size)/2),maxY=Math.max(0,(image.naturalHeight*scale-size)/2);
+  profileCrop.x=Math.max(-maxX,Math.min(maxX,profileCrop.x));profileCrop.y=Math.max(-maxY,Math.min(maxY,profileCrop.y));
+  return{size,scale};
+}
+
+function updateProfileCropPreview(){
+  const metrics=profileCropMetrics(),preview=$("profileCropImage");if(!metrics||!preview)return;
+  preview.style.width=`${profileCrop.image.naturalWidth}px`;preview.style.height=`${profileCrop.image.naturalHeight}px`;
+  preview.style.transform=`translate(-50%,-50%) translate(${profileCrop.x}px,${profileCrop.y}px) scale(${metrics.scale})`;
+}
+
+function bindProfileCropDragging(){
+  const stage=$("profileCropStage");if(!stage)return;
+  stage.addEventListener("pointerdown",event=>{if(!profileCrop.image)return;profileCrop.dragging=true;profileCrop.startX=event.clientX;profileCrop.startY=event.clientY;profileCrop.originX=profileCrop.x;profileCrop.originY=profileCrop.y;stage.setPointerCapture(event.pointerId);stage.classList.add("dragging")});
+  stage.addEventListener("pointermove",event=>{if(!profileCrop.dragging)return;profileCrop.x=profileCrop.originX+event.clientX-profileCrop.startX;profileCrop.y=profileCrop.originY+event.clientY-profileCrop.startY;updateProfileCropPreview()});
+  const finish=()=>{profileCrop.dragging=false;stage.classList.remove("dragging")};stage.addEventListener("pointerup",finish);stage.addEventListener("pointercancel",finish);
+}
+
+async function createCroppedProfileFile(){
+  const metrics=profileCropMetrics();if(!metrics)return null;
+  const canvas=document.createElement("canvas"),output=512,ratio=output/metrics.size;canvas.width=output;canvas.height=output;
+  const context=canvas.getContext("2d");context.fillStyle="#fff";context.fillRect(0,0,output,output);context.translate(output/2+profileCrop.x*ratio,output/2+profileCrop.y*ratio);context.scale(metrics.scale*ratio,metrics.scale*ratio);context.drawImage(profileCrop.image,-profileCrop.image.naturalWidth/2,-profileCrop.image.naturalHeight/2);
+  const blob=await new Promise(resolve=>canvas.toBlob(resolve,"image/jpeg",.9));if(!blob)throw new Error("Não foi possível recortar a foto.");return new File([blob],"avatar.jpg",{type:"image/jpeg"});
 }
 
 async function renderProfilePage(){
@@ -908,7 +971,7 @@ async function renderProfilePage(){
     const heading=$("pageProfile")?.querySelector(".page-heading h2");
     if(heading)heading.textContent=`Perfil de ${name}`;
     const avatar=$("pageProfile")?.querySelector(".profile-avatar");
-    if(avatar)avatar.textContent=name.trim().slice(0,2).toUpperCase()||"AM";
+    if(avatar){const url=friendVisitData?.profile?.avatarUrl;avatar.innerHTML=url?`<img src="${esc(url)}" alt="Foto de ${esc(name)}">`:esc(name.trim().slice(0,2).toUpperCase()||"AM")}
   }else{
     const heading=$("pageProfile")?.querySelector(".page-heading h2");
     if(heading)heading.textContent="Perfil e metas";
@@ -1080,11 +1143,12 @@ function bindAuth(){
   };
   if(logoutBtn)logoutBtn.onclick=toggleAccountMenu;
   $("accountFriendsBtn").onclick=openFriendPicker;
+  $("accountProfileBtn").onclick=openProfileEditor;
   $("accountLogoutBtn").onclick=event=>performLogout(event.currentTarget);
   document.addEventListener("click",event=>{
     if(!$("accountMenu")?.contains(event.target)&&event.target!==logoutBtn)closeAccountMenu();
   });
-  document.addEventListener("keydown",event=>{if(event.key==="Escape"){closeAccountMenu();closeFriendPicker()}});
+  document.addEventListener("keydown",event=>{if(event.key==="Escape"){closeAccountMenu();closeFriendPicker();closeProfileEditor()}});
   if(syncBtn) syncBtn.onclick=()=>syncAllNow({force:true});
   if(legacyBtn) legacyBtn.onclick=importLegacyProgress;
   if(themeBtn) themeBtn.onclick=toggleTheme;
@@ -1166,6 +1230,7 @@ async function handleAuthChange(user){
     try{
       const publicProfile=await ensurePublicProfile();
       localStorage.setItem(`simulador-public-profile:${user.id}`,JSON.stringify(publicProfile||{}));
+      $("logoutBtn").innerHTML=publicProfile?.avatar_url?`<img src="${esc(publicProfile.avatar_url)}" alt="Foto do perfil">`:esc(String(publicProfile?.display_name||user.email||"U").slice(0,2).toUpperCase());
       const savedGoal=localStorage.getItem(dailyGoalStorageKey());
       if(savedGoal===null)localStorage.setItem(dailyGoalStorageKey(),String(Math.max(1,Number(publicProfile?.daily_goal)||20)));
       else await updatePublicGoal(getDailyGoal());
