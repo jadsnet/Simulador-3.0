@@ -1,5 +1,5 @@
 import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.7.2";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.7.3";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -3422,7 +3422,7 @@ function renderReview(items){
 
     const header=document.createElement("div");
     header.className="review-collapse-header";
-    header.innerHTML=`<span class="review-collapse-copy"><small>${esc(x.q.categoria||"Sem categoria")}</small><strong>Questão ${i+1} — ${x.ok?"Correta":"Incorreta"}</strong><em>${esc((x.q.pergunta||"Questão sem enunciado").replace(/\s+/g," ").trim())}</em></span>`;
+    header.innerHTML=`<span class="review-collapse-copy"><small>${esc(x.q.categoria||"Sem categoria")}</small><strong>Questão ${i+1} — ${x.ok?"Correta":"Incorreta"}</strong></span>`;
     const toggle=document.createElement("button");
     toggle.className="review-collapse-toggle";
     toggle.type="button";
