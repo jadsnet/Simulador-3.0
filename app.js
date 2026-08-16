@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.9.1";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.9.2";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -1028,7 +1028,12 @@ async function submitAuth(){
       await signUp(email,password);
       $("authMessage").textContent="Cadastro criado. Confirme o e-mail e depois entre.";
     }
-  }catch(e){$("authMessage").textContent=e.message||"Falha na autenticação."}
+  }catch(e){
+    const message=String(e?.message||"");
+    $("authMessage").textContent=/email rate limit exceeded|rate limit/i.test(message)
+      ?"O limite temporário de e-mails do Supabase foi atingido. Aguarde a liberação ou crie o usuário de teste pelo painel do Supabase."
+      :message||"Falha na autenticação.";
+  }
   finally{$("authSubmitBtn").disabled=false;}
 }
 

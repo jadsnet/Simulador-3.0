@@ -375,6 +375,11 @@ async function resolveCloudBank(bank,{create=true}={}){
 
 export async function ensureCloudBank(bank){
   const data=await resolveCloudBank(bank);
+  const snapshot=await cloudBankSnapshot(bank);
+  const saved=await supabase.from("question_banks")
+    .update({snapshot,updated_at:new Date().toISOString()})
+    .eq("id",data.id).eq("user_id",(await requireUser()).id);
+  if(saved.error)throw saved.error;
   return data.id;
 }
 
@@ -488,11 +493,13 @@ export async function pushHistory(bank,h){
 export async function pullCloudState(options={}){
   const user=await requireUser();
   storageReport={found:storageReport.found,catalog:storageReport.catalog,uploaded:storageReport.uploaded,downloaded:0,skipped:storageReport.skipped,error:storageReport.error};
-  const [progressResult,historyResult]=await Promise.all([
+  const [banksResult,progressResult,historyResult]=await Promise.all([
+    supabase.from("question_banks").select("id,snapshot").eq("user_id",user.id).limit(1000),
     supabase.from("quiz_progress").select("*").eq("user_id",user.id).limit(200),
     supabase.from("quiz_history").select("*").eq("user_id",user.id)
       .order("finished_at",{ascending:false}).limit(1000)
   ]);
+  if(banksResult.error)throw banksResult.error;
   if(progressResult.error)throw progressResult.error;
   if(historyResult.error)throw historyResult.error;
 
@@ -522,6 +529,7 @@ export async function pullCloudState(options={}){
     return bank.id;
   };
 
+  for(const row of banksResult.data||[])await addSnapshot(row.snapshot,row.id);
   for(const row of progressResult.data||[])await addSnapshot(row.settings?.__cloudBank,row.bank_id);
   for(const row of historyResult.data||[]){
     let localId=await addSnapshot(row.settings?.__cloudBank,row.bank_id);
