@@ -1,5 +1,5 @@
 import {put,get,getAll,del} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.4.3";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.5.0";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -21,6 +21,7 @@ let authMode="signin",cloudSaveTimer=null,pendingCloudProgress=null,cloudSaveInF
 document.addEventListener("DOMContentLoaded",init);
 
 async function init(){
+  initializeKittyRain();
   initializeTheme();
   setupApplicationPages();
   setupV6Features();
@@ -29,6 +30,35 @@ async function init(){
   bindSidebarNavigation();
   await initializeAuth(handleAuthChange);
   if("serviceWorker" in navigator) navigator.serviceWorker.register("./service-worker.js").catch(()=>{});
+}
+
+function initializeKittyRain(){
+  if($("kittyRain"))return;
+  const layer=document.createElement("div");
+  layer.id="kittyRain";
+  layer.className="kitty-rain";
+  layer.setAttribute("aria-hidden","true");
+  const drops=[
+    [2,82,42,-8,-5,.065],[10,150,51,-37,16,.05],[18,270,58,-12,-22,.045],
+    [29,96,36,-25,10,.085],[37,210,55,-48,-18,.055],[48,70,31,-6,8,.09],
+    [56,340,64,-41,24,.035],[66,125,44,-19,-12,.075],[75,185,53,-47,18,.055],
+    [84,88,34,-14,-8,.09],[91,245,61,-33,-20,.04],[6,310,68,-56,26,.035],
+    [24,62,29,-18,7,.095],[43,140,47,-29,-15,.065],[63,230,59,-5,21,.045],
+    [80,105,39,-34,-10,.078]
+  ];
+  for(const [left,size,duration,delay,drift,opacity] of drops){
+    const image=document.createElement("img");
+    image.src="assets/hello-kitty-theme.png";
+    image.alt="";
+    image.style.setProperty("--kitty-left",left+"%");
+    image.style.setProperty("--kitty-size",size+"px");
+    image.style.setProperty("--kitty-duration",duration+"s");
+    image.style.setProperty("--kitty-delay",delay+"s");
+    image.style.setProperty("--kitty-drift",drift+"vw");
+    image.style.setProperty("--kitty-opacity",opacity);
+    layer.appendChild(image);
+  }
+  document.body.prepend(layer);
 }
 
 
