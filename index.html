@@ -5,19 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="theme-color" content="#07111f">
   <meta name="description" content="Plataforma de simulados de certificação.">
-  <title>Simulador Academy V7.10.3</title>
+  <title>Simulador Academy V7.10.4</title>
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='16' fill='%232f7df4'/><text x='32' y='43' text-anchor='middle' font-size='34' font-family='Arial' font-weight='700' fill='white'>S</text></svg>">
   <link rel="manifest" href="manifest.webmanifest">
-  <link rel="stylesheet" href="style.css?v=7.10.3">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css?v=7.10.4">
   <script defer src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script type="module" src="app.js?v=7.10.3"></script>
+  <script type="module" src="app.js?v=7.10.4"></script>
 </head>
 <body>
 
   <section id="authScreen" class="auth-screen">
     <div class="auth-card">
-      <div class="auth-brand"><div class="brand-mark">S</div><div><strong>Simulador Academy</strong><small>V7.10.3</small></div></div>
+      <div class="auth-brand"><div class="brand-mark">S</div><div><strong>Simulador Academy</strong><small>V7.10.4</small></div></div>
       <h1 id="authTitle">Entrar</h1>
       <p id="authSubtitle">Seu progresso será salvo localmente e no Supabase.</p>
       <label class="field"><span>E-mail</span><input id="authEmail" type="email" autocomplete="email" placeholder="voce@exemplo.com"></label>
@@ -204,7 +207,7 @@
         </nav>
       </section>
 
-<section id="resultScreen" class="screen hidden"><article class="panel result-card"><div class="panel-title"><div><p>RESULTADO</p><h2>Simulado concluído</h2></div><span id="resultTime" class="time-chip"></span></div><div class="stats"><div class="stat success-bg"><span>Acertos</span><strong id="correctCount">0</strong></div><div class="stat danger-bg"><span>Erros</span><strong id="wrongCount">0</strong></div><div class="stat info-bg"><span>Aproveitamento</span><strong id="scorePercent">0%</strong></div></div><div class="filters"><button data-filter="all" class="filter-btn review-filter">Todas</button><button data-filter="wrong" class="filter-btn review-filter">Erradas</button><button data-filter="correct" class="filter-btn review-filter">Corretas</button><button data-filter="unanswered" class="filter-btn review-filter">Não respondidas</button><button data-filter="favorite" class="filter-btn review-filter">Favoritas</button><button data-filter="marked" class="filter-btn review-filter">Marcadas</button><button data-filter="notes" class="filter-btn review-filter">Com anotações</button></div><div id="categoryStats" class="category-stats"></div><div id="reviewList" class="review-list"></div><div class="result-actions"><button id="newQuizBtn" class="btn primary">Novo simulado</button><button id="goHomeBtn" class="btn secondary">Início</button></div></article></section>
+<section id="resultScreen" class="screen hidden"><article class="panel result-card"><div class="panel-title"><div><p>RESULTADO</p><h2>Simulado concluído</h2></div><span id="resultTime" class="time-chip"></span></div><div class="stats"><div class="stat success-bg"><span>Acertos</span><strong id="correctCount">0</strong></div><div class="stat danger-bg"><span>Erros</span><strong id="wrongCount">0</strong></div><div class="stat info-bg"><span>Aproveitamento</span><strong id="scorePercent">0%</strong></div></div><div class="filters"><button data-filter="all" class="filter-btn review-filter">Todas</button><button data-filter="wrong" class="filter-btn review-filter">Erradas</button><button data-filter="correct" class="filter-btn review-filter">Corretas</button><button data-filter="unanswered" class="filter-btn review-filter">Não respondidas</button><button data-filter="favorite" class="filter-btn review-filter">Favoritas</button><button data-filter="marked" class="filter-btn review-filter">Marcadas</button><button data-filter="notes" class="filter-btn review-filter">Com anotações</button></div><div id="reviewList" class="review-list"></div><div class="result-actions"><button id="newQuizBtn" class="btn primary">Novo simulado</button><button id="goHomeBtn" class="btn secondary">Início</button></div></article></section>
     </main>
   </div>
 

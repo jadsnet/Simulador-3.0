@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.3";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.4";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -2372,7 +2372,6 @@ async function openHistoryDetails(historyId){
   $("wrongCount").textContent=Math.max(0,(history.total||reviewData.length)-(history.correct||0));
   $("scorePercent").textContent=(history.score||0)+"%";
 
-  renderCategoryStats(reviewData);
   renderReview(reviewData);
   filterReview("wrong");
 
@@ -3832,7 +3831,6 @@ async function finish(){
   animateNumber("wrongCount",questions.length-correct,"");
   animateNumber("scorePercent",score,"%");
 
-  renderCategoryStats(reviewData);
   renderReview(reviewData);
   filterReview("wrong");
 }
@@ -3850,27 +3848,6 @@ function animateNumber(id,target,suffix){
   }
 
   requestAnimationFrame(frame);
-}
-
-function renderCategoryStats(items){
-  const map={};
-
-  for(const x of items){
-    const c=x.q.categoria||"Sem categoria";
-    map[c]??={ok:0,total:0};
-    map[c].total++;
-    if(x.ok)map[c].ok++;
-  }
-
-  const box=$("categoryStats");
-  box.innerHTML="";
-
-  Object.entries(map).forEach(([c,v])=>{
-    const e=document.createElement("div");
-    e.className="category-card";
-    e.innerHTML=`<strong>${esc(c)}</strong><p>${Math.round(v.ok/v.total*100)}% · ${v.ok}/${v.total}</p>`;
-    box.appendChild(e);
-  });
 }
 
 function renderReview(items){
