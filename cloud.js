@@ -11,6 +11,7 @@ let currentUser = null;
 const IMAGE_BUCKET="question-images";
 const imageManifestCache=new Map();
 const storageManifestCache=new Map();
+const storageUploadPromises=new Map();
 let storageDisabledForSession=false;
 let storageReport={found:0,catalog:0,uploaded:0,downloaded:0,skipped:0,error:""};
 export function getCloudUser(){ return currentUser; }
@@ -180,13 +181,15 @@ function imageExtension(blob){
 
 async function runPool(items,limit,task){
   let next=0;
+  let stopped=false,firstError=null;
   async function worker(){
-    while(next<items.length){
+    while(!stopped&&next<items.length){
       const index=next++;
-      await task(items[index],index);
+      try{await task(items[index],index)}catch(error){stopped=true;firstError=firstError||error}
     }
   }
   await Promise.all(Array.from({length:Math.min(limit,items.length)},()=>worker()));
+  if(firstError)throw firstError;
 }
 
 async function readStorageManifest(userId,stableId){
@@ -219,6 +222,14 @@ async function writeStorageManifest(userId,stableId,manifest){
 }
 
 async function uploadBankImages(bank){
+  const stableId=stableBankId(bank);
+  if(storageUploadPromises.has(stableId))return storageUploadPromises.get(stableId);
+  const uploadPromise=uploadBankImagesInternal(bank);
+  storageUploadPromises.set(stableId,uploadPromise);
+  try{return await uploadPromise}finally{storageUploadPromises.delete(stableId)}
+}
+
+async function uploadBankImagesInternal(bank){
   const stableId=stableBankId(bank);
   const images=bank.images&&typeof bank.images==="object"?bank.images:{};
   const localEntries=Object.entries(images)
@@ -259,7 +270,7 @@ async function uploadBankImages(bank){
       if(listed.error)throw listed.error;
       const existingFiles=new Set((listed.data||[]).map(item=>item.name));
       const missing=[...uniqueImages.values()].filter(item=>!existingFiles.has(item.fileName));
-      await runPool(missing,6,async item=>{
+      await runPool(missing,1,async item=>{
         const {error}=await supabase.storage.from(IMAGE_BUCKET).upload(item.objectPath,item.blob,{upsert:false,contentType:item.blob.type,cacheControl:"31536000"});
         const conflict=error&&(String(error.statusCode||error.status||"")==="409"||/already exists|duplicate/i.test(error.message||""));
         if(error&&!conflict)throw error;

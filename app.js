@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.4";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.5";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -2779,10 +2779,11 @@ function renderCommonQuestionPreview(container,question){
     const input=document.createElement("input");input.type=question.tipo==="multiple"?"checkbox":"radio";input.name="previewAnswer";
     input.onchange=()=>container.querySelectorAll(".preview-option").forEach(option=>option.classList.toggle("selected",option.querySelector("input").checked));
     const content=document.createElement("div");content.className="option-content";
-    const line=document.createElement("div"),badge=document.createElement("span");badge.className="option-letter";badge.textContent=`${upper})`;
-    line.appendChild(badge);const textNode=document.createElement("span");setRichContent(textNode,text||"",question.rich_text);line.appendChild(textNode);content.appendChild(line);
+    const selector=document.createElement("span");selector.className="option-selector";
+    const badge=document.createElement("span");badge.className="option-letter";badge.textContent=upper;selector.append(badge,input);
+    const line=document.createElement("div");const textNode=document.createElement("span");setRichContent(textNode,text||"",question.rich_text);line.appendChild(textNode);content.appendChild(line);
     if(image)appendPreviewImage(content,image,`Imagem da alternativa ${upper}`);
-    label.append(input,content);container.appendChild(label);
+    label.append(selector,content);container.appendChild(label);
   }
   if(!container.children.length){
     const empty=document.createElement("div");empty.className="notice";empty.textContent="Preencha as alternativas para vê-las aqui.";container.appendChild(empty);
@@ -3322,7 +3323,16 @@ function openQuiz(){
 }
 
 function renderQuestion(){
+  if(!Array.isArray(questions)||!questions.length){
+    console.warn("Renderização ignorada: nenhuma questão disponível no simulado atual.");
+    return;
+  }
+  currentIndex=Math.max(0,Math.min(Number(currentIndex)||0,questions.length-1));
   const q=questions[currentIndex];
+  if(!q||typeof q!=="object"){
+    console.warn("Renderização ignorada: questão atual inválida.",{currentIndex,total:questions.length});
+    return;
+  }
 
   $("currentQuestion").textContent=currentIndex+1;
   $("totalQuestions").textContent=questions.length;
@@ -3373,16 +3383,20 @@ function renderOptions(q){
     input.checked=(answers[q.id]||[]).includes(U);
     input.onchange=()=>selectAnswer(q,U);
 
+    const selector=document.createElement("span");
+    selector.className="option-selector";
+    const badge=document.createElement("span");badge.className="option-letter";badge.textContent=U;
+    selector.append(badge,input);
+
     const content=document.createElement("div");
     content.className="option-content";
     const line=document.createElement("div");
-    line.innerHTML=`<span class="option-letter">${U})</span>`;
     const text=document.createElement("span");setRichContent(text,t||"",q.rich_text);line.appendChild(text);content.appendChild(line);
 
     const url=resolveImage(img);
     if(url)content.appendChild(makeImageBlock(url,`Imagem da alternativa ${U}`));
 
-    label.append(input,content);
+    label.append(selector,content);
     c.appendChild(label);
   }
 }
@@ -3503,6 +3517,7 @@ function clearDragDropZone(q,zoneId){
 }
 
 function selectAnswer(q,a){
+  if(!q||q.id===undefined||q.id===null)return;
   let arr=[...(answers[q.id]||[])];
 
   if(q.tipo==="multiple")arr=arr.includes(a)?arr.filter(x=>x!==a):[...arr,a];
