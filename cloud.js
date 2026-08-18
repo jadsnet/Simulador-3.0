@@ -12,7 +12,10 @@ const IMAGE_BUCKET="question-images";
 const imageManifestCache=new Map();
 const storageManifestCache=new Map();
 const storageUploadPromises=new Map();
+const STORAGE_DISABLED_KEY="simulador-storage-disabled-v7106";
+let storageUploadQueue=Promise.resolve();
 let storageDisabledForSession=false;
+try{storageDisabledForSession=sessionStorage.getItem(STORAGE_DISABLED_KEY)==="1"}catch{}
 let storageReport={found:0,catalog:0,uploaded:0,downloaded:0,skipped:0,error:""};
 export function getCloudUser(){ return currentUser; }
 
@@ -224,7 +227,8 @@ async function writeStorageManifest(userId,stableId,manifest){
 async function uploadBankImages(bank){
   const stableId=stableBankId(bank);
   if(storageUploadPromises.has(stableId))return storageUploadPromises.get(stableId);
-  const uploadPromise=uploadBankImagesInternal(bank);
+  const uploadPromise=storageUploadQueue.then(()=>uploadBankImagesInternal(bank));
+  storageUploadQueue=uploadPromise.catch(()=>({}));
   storageUploadPromises.set(stableId,uploadPromise);
   try{return await uploadPromise}finally{storageUploadPromises.delete(stableId)}
 }
@@ -282,7 +286,8 @@ async function uploadBankImagesInternal(bank){
     return manifest;
   }catch(error){
     storageDisabledForSession=true;
-    storageReport.error=error.message||"Storage indisponível";
+    try{sessionStorage.setItem(STORAGE_DISABLED_KEY,"1")}catch{}
+    storageReport.error=`Envio de imagens bloqueado nesta sessão. Execute SUPABASE_STORAGE_REPAIR_V7_10_6.sql no Supabase. ${error.message||"Storage indisponível"}`;
     console.warn("Imagens não foram enviadas ao Storage",error);
     return {};
   }

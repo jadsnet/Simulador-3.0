@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão" src="https://img.shields.io/badge/versão-V7.10.5-E75493">
+  <img alt="Versão" src="https://img.shields.io/badge/versão-V7.10.6-E75493">
   <img alt="Status" src="https://img.shields.io/badge/status-estável-22C55E">
   <img alt="PWA" src="https://img.shields.io/badge/PWA-ready-8B5CF6">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-cloud-3ECF8E">
@@ -317,7 +317,12 @@ Simulador-3.0-main/
 
 ---
 
-## ✅ Status da V7.10.5
+## ✅ Status da V7.10.6
+
+- Espaçamento horizontal ampliado em toda a interface, eliminando o aspecto comprimido.
+- Uploads de imagens serializados globalmente, inclusive entre bancos diferentes.
+- Após a primeira rejeição do Storage, novas tentativas são bloqueadas durante a sessão.
+- Diagnóstico indica explicitamente o SQL necessário para reparar o bucket.
 
 - Roboto Regular aplicada aos enunciados com espaçamento e largura normais.
 - Letra e rádio reunidos em um seletor vertical compacto, sem parênteses.
