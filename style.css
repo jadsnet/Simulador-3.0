@@ -1455,3 +1455,8 @@ body.theme-light.quiz-mode{background:radial-gradient(circle at 7% -8%,rgba(255,
 /* V7.10.6 — largura visual mais confortável em toda a tipografia */
 body,button,input,select,textarea{letter-spacing:.018em}
 #questionText,.preview-question-text,.review-question,.flashcard-question{letter-spacing:.012em}
+
+/* V7.10.7 — Roboto Flex mais aberta, sem comprimir o desenho das letras */
+body,button,input,select,textarea{font-family:"Roboto Flex",Roboto,Inter,"Segoe UI",Arial,sans-serif;font-optical-sizing:auto;font-stretch:108%;letter-spacing:.022em}
+#questionText,.preview-question-text,.review-question,.flashcard-question{font-family:"Roboto Flex",Roboto,"Segoe UI",Arial,sans-serif;font-optical-sizing:auto;font-stretch:112%;font-variation-settings:"opsz" 28,"wdth" 112;letter-spacing:.018em;line-height:1.66}
+#questionText strong,#questionText b,.preview-question-text strong,.preview-question-text b,.review-question strong,.review-question b,.flashcard-question strong,.flashcard-question b{font-variation-settings:"opsz" 28,"wdth" 112,"wght" 750}

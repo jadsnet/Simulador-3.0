@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.6";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.7";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -1385,7 +1385,7 @@ async function syncAllNow(options={}){
           // A cópia local é a fonte mais recente quando o usuário reimporta
           // imagens corrigidas. Um manifesto remoto antigo não pode
           // sobrescrever silenciosamente essas imagens.
-          const preservedImages={...(remoteBank.images||{}),...(match.images||{})};
+          const preservedImages=cleanBankImageMap({...(remoteBank.images||{}),...(match.images||{})});
           match.images=preservedImages;
           await put("banks",{...remoteBank,id:match.id,createdAt:match.createdAt||remoteBank.createdAt,images:preservedImages});
         }
@@ -2621,7 +2621,8 @@ function bankImageData(bank,name){
   const wanted=imagePathVariants(name),matches=new Map();
   for(const [storedName,data] of Object.entries(bank.images||{})){
     const stored=imagePathVariants(storedName);
-    if([...stored].some(value=>wanted.has(value)))matches.set(data,storedName);
+    const source=safeStoredImage(data);
+    if(source&&[...stored].some(value=>wanted.has(value)))matches.set(source,storedName);
   }
   return matches.size===1?matches.keys().next().value:"";
 }
@@ -3543,11 +3544,35 @@ function renderImage(wrapId,imgId,name){
   w.classList.remove("hidden");
 }
 
+function isLegacyPrivateStorageUrl(value){
+  const raw=String(value||"").trim();
+  if(!/^https?:\/\//i.test(raw))return false;
+  try{
+    const url=new URL(raw);
+    return /\.supabase\.co$/i.test(url.hostname)
+      && /\/storage\/v1\/object\/(?:public\/|sign\/|authenticated\/)?question-images\//i.test(url.pathname);
+  }catch{return false}
+}
+
+function safeStoredImage(value){
+  // Snapshots antigos guardavam a URL HTTP do bucket privado. Essas URLs não
+  // podem ser usadas diretamente em <img>; cloud.js baixa os objetos usando a
+  // sessão autenticada e converte o resultado em data URL.
+  return isLegacyPrivateStorageUrl(value)?"":String(value||"");
+}
+
+function cleanBankImageMap(images){
+  return Object.fromEntries(Object.entries(images||{}).filter(([,value])=>Boolean(safeStoredImage(value))));
+}
+
 function resolveImage(name){
   if(!name)return"";
   const images=selectedBank?.images||{};
   const variants=imagePathVariants(name);
-  for(const key of variants)if(images[key])return images[key];
+  for(const key of variants){
+    const source=safeStoredImage(images[key]);
+    if(source)return source;
+  }
 
   // Compatibilidade com ZIPs/pastas que acrescentaram diretórios ao nome.
   // O fallback só é aceito quando o basename identifica uma única imagem.
@@ -3557,7 +3582,8 @@ function resolveImage(name){
   for(const [storedName,url] of Object.entries(images)){
     const storedVariants=imagePathVariants(storedName);
     if([...storedVariants].some(key=>variants.has(key)||key.split("/").pop()===wantedBase)){
-      matches.set(url,storedName);
+      const source=safeStoredImage(url);
+      if(source)matches.set(source,storedName);
     }
   }
   if(matches.size===1)return matches.keys().next().value;

@@ -320,6 +320,20 @@ async function downloadBankImages(manifest){
   return images;
 }
 
+function cleanSnapshotImages(images){
+  if(!images||typeof images!=="object")return {};
+  return Object.fromEntries(Object.entries(images).filter(([,value])=>{
+    const raw=String(value||"").trim();
+    if(!raw)return false;
+    if(!/^https?:\/\//i.test(raw))return true;
+    try{
+      const url=new URL(raw);
+      return !(/\.supabase\.co$/i.test(url.hostname)
+        && /\/storage\/v1\/object\/(?:public\/|sign\/|authenticated\/)?question-images\//i.test(url.pathname));
+    }catch{return true}
+  }));
+}
+
 async function cloudBankSnapshot(bank){
   const cloudImages=await uploadBankImages(bank);
   return {
@@ -561,7 +575,10 @@ export async function pullCloudState(options={}){
       return snapshotId;
     }
     const downloadedImages=options.downloadImages===false?{}:await downloadBankImages(effectiveManifest);
-    const bank={...snapshot,id:snapshotId,images:{...(snapshot.images||{}),...downloadedImages}};
+    // URLs diretas de snapshots antigos apontavam para um bucket privado e
+    // geravam GET 400. Só preserva dados locais/externos válidos; os objetos do
+    // Supabase entram pelo download autenticado acima.
+    const bank={...snapshot,id:snapshotId,images:{...cleanSnapshotImages(snapshot.images),...downloadedImages}};
     delete bank.cloudImages;
     banks.set(bank.id,bank);
     if(cloudBankId)cloudBankIds.set(cloudBankId,bank.id);
