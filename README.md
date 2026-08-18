@@ -9,7 +9,7 @@
 </p>
 
 <p align="center">
-  <img alt="Versão" src="https://img.shields.io/badge/versão-V7.10.7-E75493">
+  <img alt="Versão" src="https://img.shields.io/badge/versão-V7.10.8-E75493">
   <img alt="Status" src="https://img.shields.io/badge/status-estável-22C55E">
   <img alt="PWA" src="https://img.shields.io/badge/PWA-ready-8B5CF6">
   <img alt="Supabase" src="https://img.shields.io/badge/Supabase-cloud-3ECF8E">
@@ -317,7 +317,11 @@ Simulador-3.0-main/
 
 ---
 
-## ✅ Status da V7.10.7
+## ✅ Status da V7.10.8
+
+- [x] Pré-validação do Storage evita dezenas de downloads 400 para arquivos órfãos
+- [x] Sincronização baixa somente imagens realmente existentes no bucket
+- [x] Botão de sincronização usa ícone vetorial de nuvem com fundo transparente
 
 - [x] URLs legadas do bucket privado não são mais usadas diretamente em imagens
 - [x] Imagens da nuvem continuam sendo reconstruídas pelo download autenticado

@@ -297,8 +297,28 @@ async function downloadBankImages(manifest){
   if(!manifest||typeof manifest!=="object"||storageDisabledForSession)return {};
   const images={};
   const downloadedByPath=new Map();
-  const uniquePaths=[...new Set(Object.values(manifest))];
+  const declaredPaths=[...new Set(Object.values(manifest).map(value=>String(value||"").trim()).filter(value=>value&&!/^https?:\/\//i.test(value)))];
+  const pathsByFolder=new Map();
+  for(const objectPath of declaredPaths){
+    const slash=objectPath.lastIndexOf("/");
+    if(slash<1){storageReport.skipped++;continue}
+    const folder=objectPath.slice(0,slash),fileName=objectPath.slice(slash+1);
+    if(!pathsByFolder.has(folder))pathsByFolder.set(folder,[]);
+    pathsByFolder.get(folder).push({objectPath,fileName});
+  }
+  // O manifesto pode conservar referências de imagens removidas. Listar a
+  // pasta primeiro evita uma requisição GET 400 para cada arquivo órfão.
+  const uniquePaths=[];
   let firstError=null;
+  for(const [folder,candidates] of pathsByFolder){
+    const listed=await supabase.storage.from(IMAGE_BUCKET).list(folder,{limit:1000,sortBy:{column:"name",order:"asc"}});
+    if(listed.error){firstError=firstError||listed.error;storageReport.skipped+=candidates.length;continue}
+    const available=new Set((listed.data||[]).filter(item=>!item.id||item.name).map(item=>item.name));
+    for(const candidate of candidates){
+      if(available.has(candidate.fileName))uniquePaths.push(candidate.objectPath);
+      else storageReport.skipped++;
+    }
+  }
   await runPool(uniquePaths,6,async objectPath=>{
     try{
         const {data,error}=await supabase.storage.from(IMAGE_BUCKET).download(objectPath);
@@ -314,7 +334,7 @@ async function downloadBankImages(manifest){
     if(downloadedByPath.has(objectPath))images[logicalName]=downloadedByPath.get(objectPath);
   }
   if(firstError){
-    storageReport.error=`${downloadedByPath.size}/${uniquePaths.length} imagens baixadas. ${firstError.message||"Falha em um arquivo"}`;
+    storageReport.error=`${downloadedByPath.size}/${uniquePaths.length} imagens existentes baixadas. ${firstError.message||"Falha em um arquivo"}`;
     console.warn("Algumas imagens não foram baixadas do Storage",firstError);
   }
   return images;
