@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.8";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.9";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -507,7 +507,8 @@ async function renderReviewLibrary(filter="all"){
 const V6_GOAL_KEY="simulador-academy-v6-goal";
 const V6_PROFILE_KEY="simulador-academy-v6-profile";
 let deferredInstallPrompt=null;
-let flashcardItems=[],flashcardIndex=0,flashcardRevealed=false;
+let flashcardRows=[],flashcardItems=[],flashcardIndex=0,flashcardRevealed=false;
+let flashcardSelectedBanks=new Set(),flashcardBankSelectionLoaded=false,flashcardBankSelectionScope="";
 let friendProfiles=[],selectedFriendId="",friendVisitData=null;
 
 function friendVisitActive(){return Boolean(selectedFriendId&&friendVisitData)}
@@ -556,7 +557,14 @@ function setupV6Features(){
         <h2>Revisão rápida</h2>
       </div>
       <div class="v6-toolbar-actions">
-        <select id="flashcardCategoryFilter" class="v6-select"><option value="">Todas as categorias</option></select>
+        <div id="flashcardBankPicker" class="flashcard-bank-picker">
+          <button id="flashcardBankPickerBtn" class="btn secondary flashcard-bank-picker-btn" type="button" aria-expanded="false"><span>▤</span><strong>Todos os bancos</strong><i></i></button>
+          <div id="flashcardBankPopover" class="flashcard-bank-popover hidden" aria-hidden="true">
+            <header><div><small>BANCOS DE QUESTÕES</small><strong>Adicionar aos flashcards</strong></div><button id="closeFlashcardBankPickerBtn" type="button" aria-label="Fechar">×</button></header>
+            <div class="flashcard-bank-shortcuts"><button id="selectAllFlashcardBanksBtn" type="button">Selecionar todos</button><button id="clearFlashcardBanksBtn" type="button">Limpar</button></div>
+            <div id="flashcardBankOptions" class="flashcard-bank-options"></div>
+          </div>
+        </div>
         <button id="shuffleFlashcardsBtn" class="btn secondary">Embaralhar</button>
       </div>
     </article>
@@ -639,7 +647,11 @@ function setupV6Features(){
     flashcardItems=flashcardItems.sort(()=>Math.random()-.5);
     flashcardIndex=0;flashcardRevealed=false;renderFlashcardCard();
   };
-  $("flashcardCategoryFilter").onchange=renderFlashcards;
+  $("flashcardBankPickerBtn").onclick=event=>{event.stopPropagation();toggleFlashcardBankPicker()};
+  $("closeFlashcardBankPickerBtn").onclick=closeFlashcardBankPicker;
+  $("selectAllFlashcardBanksBtn").onclick=()=>setAllFlashcardBanks(true);
+  $("clearFlashcardBanksBtn").onclick=()=>setAllFlashcardBanks(false);
+  document.addEventListener("click",event=>{if(!$("flashcardBankPicker")?.contains(event.target))closeFlashcardBankPicker()});
   $("saveDailyGoalBtn").onclick=saveDailyGoal;
   $("runGlobalSearchBtn").onclick=renderGlobalSearch;
   $("globalSearchInput").onkeydown=e=>{if(e.key==="Enter")renderGlobalSearch()};
@@ -684,27 +696,99 @@ function setupV6Features(){
 async function collectReviewedQuestions(){
   const history=friendVisitActive()?friendHistory():await getAll("history");
   const metadata=friendVisitActive()?[]:await getAll("questionData");
+  const availableBanks=friendVisitActive()?[]:await getAll("banks");
+  const bankMap=new Map(availableBanks.map(bank=>[String(bank.id),bank]));
   const metaMap=new Map(metadata.map(item=>[`${item.bankId}::${item.questionId}`,item]));
   const rows=[];
   history.slice().sort((a,b)=>String(b.finishedAt||"").localeCompare(String(a.finishedAt||""))).forEach(record=>{
     (record.reviewData||[]).forEach(item=>{
       if(!item?.q)return;
       const meta=metaMap.get(`${record.bankId}::${item.q.id}`)||{};
-      rows.push({...item,bankId:record.bankId,historyId:record.id,favorite:Boolean(meta.favorite||item.favorite),note:meta.note||item.note||""});
+      const bankId=String(record.bankId||"");
+      const bankName=record.bankName||bankMap.get(bankId)?.name||"Banco de questões";
+      rows.push({...item,bankId,bankName,bankKey:bankId||`name:${bankName}`,bank:bankMap.get(bankId)||null,
+        historyId:record.id,favorite:Boolean(meta.favorite||item.favorite),note:meta.note||item.note||""});
     });
   });
   return rows;
 }
 
 async function renderFlashcards(){
-  const rows=await collectReviewedQuestions();
-  const categories=[...new Set(rows.map(x=>x.q.categoria||"Sem categoria"))].sort();
-  const select=$("flashcardCategoryFilter");
-  const selected=select.value;
-  select.innerHTML='<option value="">Todas as categorias</option>'+categories.map(c=>`<option value="${esc(c)}">${esc(c)}</option>`).join("");
-  select.value=selected;
-  flashcardItems=rows.filter(item=>!item.ok&&(!selected||(item.q.categoria||"Sem categoria")===selected));
+  flashcardRows=(await collectReviewedQuestions()).filter(item=>!item.ok);
+  const options=flashcardBankChoices();
+  const scope=friendVisitActive()?`friend:${selectedFriendId}`:`user:${getCloudUser()?.id||"anonymous"}`;
+  if(scope!==flashcardBankSelectionScope){
+    flashcardBankSelectionScope=scope;flashcardBankSelectionLoaded=false;flashcardSelectedBanks=new Set();
+  }
+  if(!flashcardBankSelectionLoaded){
+    flashcardBankSelectionLoaded=true;
+    try{
+      const stored=JSON.parse(localStorage.getItem(flashcardBankStorageKey())||"null");
+      flashcardSelectedBanks=new Set(Array.isArray(stored)?stored:options.map(option=>option.key));
+    }catch{flashcardSelectedBanks=new Set(options.map(option=>option.key))}
+  }
+  const availableKeys=new Set(options.map(option=>option.key));
+  flashcardSelectedBanks=new Set([...flashcardSelectedBanks].filter(key=>availableKeys.has(key)));
+  renderFlashcardBankOptions(options);
+  applyFlashcardBankFilter();
+}
+
+function flashcardBankStorageKey(){return `simulador-flashcard-banks:${flashcardBankSelectionScope||`user:${getCloudUser()?.id||"anonymous"}`}`}
+
+function flashcardBankChoices(){
+  const choices=new Map();
+  for(const item of flashcardRows){
+    if(!choices.has(item.bankKey))choices.set(item.bankKey,{key:item.bankKey,name:item.bankName,count:0});
+    choices.get(item.bankKey).count++;
+  }
+  return [...choices.values()].sort((a,b)=>a.name.localeCompare(b.name,"pt-BR"));
+}
+
+function renderFlashcardBankOptions(options=flashcardBankChoices()){
+  const host=$("flashcardBankOptions");if(!host)return;
+  host.innerHTML=options.length?options.map(option=>`
+    <label class="flashcard-bank-option">
+      <input type="checkbox" value="${esc(option.key)}" ${flashcardSelectedBanks.has(option.key)?"checked":""}>
+      <span><strong>${esc(option.name)}</strong><small>${option.count} flashcard${option.count===1?"":"s"}</small></span><i>✓</i>
+    </label>`).join(""):'<div class="flashcard-bank-empty">Nenhum banco com erros disponível.</div>';
+  host.querySelectorAll('input[type="checkbox"]').forEach(input=>input.onchange=()=>{
+    if(input.checked)flashcardSelectedBanks.add(input.value);else flashcardSelectedBanks.delete(input.value);
+    persistFlashcardBankSelection();applyFlashcardBankFilter();renderFlashcardBankOptions(options);
+  });
+  updateFlashcardBankPickerLabel(options);
+}
+
+function persistFlashcardBankSelection(){
+  localStorage.setItem(flashcardBankStorageKey(),JSON.stringify([...flashcardSelectedBanks]));
+}
+
+function updateFlashcardBankPickerLabel(options=flashcardBankChoices()){
+  const label=$("flashcardBankPickerBtn")?.querySelector("strong");if(!label)return;
+  const selected=options.filter(option=>flashcardSelectedBanks.has(option.key));
+  label.textContent=!selected.length?"Selecionar bancos":selected.length===options.length?"Todos os bancos":selected.length===1?selected[0].name:`${selected.length} bancos`;
+}
+
+function setAllFlashcardBanks(select){
+  const options=flashcardBankChoices();
+  flashcardSelectedBanks=new Set(select?options.map(option=>option.key):[]);
+  persistFlashcardBankSelection();renderFlashcardBankOptions(options);applyFlashcardBankFilter();
+}
+
+function toggleFlashcardBankPicker(){
+  const popover=$("flashcardBankPopover"),button=$("flashcardBankPickerBtn");if(!popover||!button)return;
+  const open=popover.classList.contains("hidden");popover.classList.toggle("hidden",!open);
+  popover.setAttribute("aria-hidden",String(!open));button.setAttribute("aria-expanded",String(open));
+}
+
+function closeFlashcardBankPicker(){
+  $("flashcardBankPopover")?.classList.add("hidden");$("flashcardBankPopover")?.setAttribute("aria-hidden","true");
+  $("flashcardBankPickerBtn")?.setAttribute("aria-expanded","false");
+}
+
+function applyFlashcardBankFilter(){
+  flashcardItems=flashcardRows.filter(item=>flashcardSelectedBanks.has(item.bankKey));
   flashcardIndex=0;flashcardRevealed=false;
+  updateFlashcardBankPickerLabel();
   renderFlashcardCard();
 }
 
@@ -723,20 +807,85 @@ function renderFlashcardCard(){
         <strong>${flashcardIndex+1} / ${flashcardItems.length}</strong>
       </div>
       <div class="flashcard-question"></div>
+      <div class="flashcard-question-media"></div>
       <div class="flashcard-answer ${flashcardRevealed?"":"hidden"}">
-        <p><strong>Resposta correta:</strong> ${esc(formatAnswerForDisplay(item.q,item.r))}</p>
-        ${item.q.feedback?`<p>${esc(item.q.feedback)}</p>`:""}
+        <strong class="flashcard-answer-title">Resposta correta</strong>
+        <div class="flashcard-correct-content"></div>
+        ${item.q.feedback?`<div class="flashcard-feedback"><small>FEEDBACK</small><p>${esc(item.q.feedback)}</p></div>`:""}
       </div>
       <div class="flashcard-actions">
-        <button id="prevFlashcardBtn" class="btn secondary">Anterior</button>
+        <button id="prevFlashcardBtn" class="btn secondary flashcard-direction-btn">Anterior</button>
         <button id="revealFlashcardBtn" class="btn primary">${flashcardRevealed?"Ocultar resposta":"Mostrar resposta"}</button>
-        <button id="nextFlashcardBtn" class="btn secondary">Próximo</button>
+        <button id="nextFlashcardBtn" class="btn secondary flashcard-direction-btn">Próximo</button>
       </div>
+      <div class="flashcard-swipe-hint" aria-hidden="true"><span>‹</span> Deslize para navegar <span>›</span></div>
     </article>`;
   setRichContent(stage.querySelector(".flashcard-question"),item.q.pergunta||"",item.q.rich_text);
-  $("prevFlashcardBtn").onclick=()=>{flashcardIndex=(flashcardIndex-1+flashcardItems.length)%flashcardItems.length;flashcardRevealed=false;renderFlashcardCard()};
-  $("nextFlashcardBtn").onclick=()=>{flashcardIndex=(flashcardIndex+1)%flashcardItems.length;flashcardRevealed=false;renderFlashcardCard()};
+  renderFlashcardQuestionImages(stage.querySelector(".flashcard-question-media"),item);
+  if(flashcardRevealed)renderFlashcardCorrectContent(stage.querySelector(".flashcard-correct-content"),item);
+  $("prevFlashcardBtn").onclick=()=>moveFlashcard(-1);
+  $("nextFlashcardBtn").onclick=()=>moveFlashcard(1);
   $("revealFlashcardBtn").onclick=()=>{flashcardRevealed=!flashcardRevealed;renderFlashcardCard()};
+  bindFlashcardSwipe(stage.querySelector(".flashcard"));
+}
+
+function resolveFlashcardImage(item,reference){
+  if(!reference)return"";
+  const direct=safeStoredImage(reference);
+  if(/^(data:|blob:|https?:\/\/)/i.test(direct))return direct;
+  return item.bank?bankImageData(item.bank,reference):"";
+}
+
+function renderFlashcardQuestionImages(host,item){
+  if(!host)return;
+  const definition=item.q.tipo==="dragdrop"?dragDropDefinition(item.q):null;
+  const prompt=resolveFlashcardImage(item,item.q.imagem_pergunta);
+  const activity=definition?resolveFlashcardImage(item,definition.image):"";
+  const sources=[prompt,activity].filter((source,index,list)=>source&&list.indexOf(source)===index);
+  for(const source of sources)host.appendChild(makeImageBlock(source,"Imagem do enunciado"));
+  host.classList.toggle("hidden",!sources.length);
+}
+
+function renderFlashcardCorrectContent(host,item){
+  if(!host)return;
+  if(item.q.tipo==="dragdrop"){
+    const block=document.createElement("div");block.className="flashcard-correct-option";
+    block.textContent=formatAnswerForDisplay(item.q,item.r);host.appendChild(block);return;
+  }
+  const correct=Array.isArray(item.r)?item.r:normAnswers(item.r);
+  for(const letter of correct){
+    const key=String(letter).toLowerCase(),block=document.createElement("div");block.className="flashcard-correct-option";
+    const text=document.createElement("div");text.className="flashcard-correct-text";
+    setRichContent(text,item.q[`alt_${key}`]||"Alternativa apresentada somente como imagem",item.q.rich_text);
+    block.appendChild(text);
+    const source=resolveFlashcardImage(item,item.q[`img_${key}`]);
+    if(source)block.appendChild(makeImageBlock(source,"Imagem da resposta correta"));
+    host.appendChild(block);
+  }
+  if(!correct.length){const empty=document.createElement("div");empty.className="flashcard-correct-option";empty.textContent="Resposta não informada.";host.appendChild(empty)}
+}
+
+function moveFlashcard(direction,animate=false){
+  if(!flashcardItems.length)return;
+  const update=()=>{flashcardIndex=(flashcardIndex+direction+flashcardItems.length)%flashcardItems.length;flashcardRevealed=false;renderFlashcardCard()};
+  const card=$("flashcardStage")?.querySelector(".flashcard");
+  if(!animate||!card||!card.animate){update();return}
+  const outgoing=card.animate([{transform:"translateX(0)",opacity:1},{transform:`translateX(${direction>0?"-24%":"24%"})`,opacity:0}],{duration:170,easing:"ease-in"});
+  outgoing.onfinish=()=>{update();const incoming=$("flashcardStage")?.querySelector(".flashcard");incoming?.animate([{transform:`translateX(${direction>0?"24%":"-24%"})`,opacity:0},{transform:"translateX(0)",opacity:1}],{duration:220,easing:"cubic-bezier(.22,.8,.28,1)"})};
+}
+
+function bindFlashcardSwipe(card){
+  if(!card)return;
+  let startX=0,startY=0,tracking=false;
+  card.addEventListener("touchstart",event=>{
+    if(event.target.closest("button,.image-scroll"))return;
+    const touch=event.changedTouches[0];startX=touch.clientX;startY=touch.clientY;tracking=true;
+  },{passive:true});
+  card.addEventListener("touchend",event=>{
+    if(!tracking)return;tracking=false;
+    const touch=event.changedTouches[0],dx=touch.clientX-startX,dy=touch.clientY-startY;
+    if(Math.abs(dx)>=55&&Math.abs(dx)>Math.abs(dy)*1.25)moveFlashcard(dx<0?1:-1,true);
+  },{passive:true});
 }
 
 function dailyGoalStorageKey(){return `${V6_GOAL_KEY}:${getCloudUser()?.id||"anonymous"}`}
