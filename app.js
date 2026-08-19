@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.9";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.10";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -553,8 +553,8 @@ function setupV6Features(){
   flashcards.innerHTML+=`
     <article class="panel v6-toolbar">
       <div>
-        <p>CRIADOS A PARTIR DOS ERROS</p>
-        <h2>Revisão rápida</h2>
+        <p>TODAS AS QUESTÕES DOS BANCOS</p>
+        <h2>Revisão por flashcards</h2>
       </div>
       <div class="v6-toolbar-actions">
         <div id="flashcardBankPicker" class="flashcard-bank-picker">
@@ -699,6 +699,32 @@ async function collectReviewedQuestions(){
   const availableBanks=friendVisitActive()?[]:await getAll("banks");
   const bankMap=new Map(availableBanks.map(bank=>[String(bank.id),bank]));
   const metaMap=new Map(metadata.map(item=>[`${item.bankId}::${item.questionId}`,item]));
+  const reviewMap=new Map();
+  history.slice().sort((a,b)=>String(b.finishedAt||"").localeCompare(String(a.finishedAt||""))).forEach(record=>{
+    (record.reviewData||[]).forEach(item=>{
+      const key=`${record.bankId}::${item?.q?.id}`;
+      if(item?.q&&!reviewMap.has(key))reviewMap.set(key,item);
+    });
+  });
+
+  if(!friendVisitActive()){
+    const rows=[];
+    for(const bank of availableBanks){
+      const bankId=String(bank.id||"");
+      const bankName=bank.name||"Banco de questões";
+      for(const question of Array.isArray(bank.questions)?bank.questions:[]){
+        if(!question?.id&&!question?.pergunta)continue;
+        const meta=metaMap.get(`${bank.id}::${question.id}`)||metaMap.get(`${bankId}::${question.id}`)||{};
+        const previous=reviewMap.get(`${bank.id}::${question.id}`)||reviewMap.get(`${bankId}::${question.id}`)||{};
+        const correct=question.tipo==="dragdrop"?expectedDragDropAnswer(question):normAnswers(question.correta);
+        rows.push({q:question,u:previous.u||[],r:correct,ok:Boolean(previous.ok),unanswered:Boolean(previous.unanswered),
+          bankId,bankName,bankKey:bankId||`name:${bankName}`,bank,historyId:"",
+          favorite:Boolean(meta.favorite||previous.favorite),marked:Boolean(previous.marked),note:meta.note||previous.note||""});
+      }
+    }
+    return rows;
+  }
+
   const rows=[];
   history.slice().sort((a,b)=>String(b.finishedAt||"").localeCompare(String(a.finishedAt||""))).forEach(record=>{
     (record.reviewData||[]).forEach(item=>{
@@ -714,7 +740,7 @@ async function collectReviewedQuestions(){
 }
 
 async function renderFlashcards(){
-  flashcardRows=(await collectReviewedQuestions()).filter(item=>!item.ok);
+  flashcardRows=await collectReviewedQuestions();
   const options=flashcardBankChoices();
   const scope=friendVisitActive()?`friend:${selectedFriendId}`:`user:${getCloudUser()?.id||"anonymous"}`;
   if(scope!==flashcardBankSelectionScope){
@@ -750,7 +776,7 @@ function renderFlashcardBankOptions(options=flashcardBankChoices()){
     <label class="flashcard-bank-option">
       <input type="checkbox" value="${esc(option.key)}" ${flashcardSelectedBanks.has(option.key)?"checked":""}>
       <span><strong>${esc(option.name)}</strong><small>${option.count} flashcard${option.count===1?"":"s"}</small></span><i>✓</i>
-    </label>`).join(""):'<div class="flashcard-bank-empty">Nenhum banco com erros disponível.</div>';
+    </label>`).join(""):'<div class="flashcard-bank-empty">Nenhum banco com questões disponível.</div>';
   host.querySelectorAll('input[type="checkbox"]').forEach(input=>input.onchange=()=>{
     if(input.checked)flashcardSelectedBanks.add(input.value);else flashcardSelectedBanks.delete(input.value);
     persistFlashcardBankSelection();applyFlashcardBankFilter();renderFlashcardBankOptions(options);
@@ -796,7 +822,7 @@ function renderFlashcardCard(){
   const stage=$("flashcardStage");
   if(!stage)return;
   if(!flashcardItems.length){
-    stage.innerHTML='<div class="empty-state"><strong>Nenhum flashcard disponível.</strong><p>Finalize simulados com erros para gerar cartões automaticamente.</p></div>';
+    stage.innerHTML='<div class="empty-state"><strong>Nenhum flashcard disponível.</strong><p>Selecione pelo menos um banco que contenha questões.</p></div>';
     return;
   }
   const item=flashcardItems[flashcardIndex];
