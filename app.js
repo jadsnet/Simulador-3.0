@@ -1519,25 +1519,33 @@ async function syncAllNow(options={}){
     setCloudStatus("Sincronizando","syncing");
     updateSyncDiagnostics({state:"running",message:"Alterações encontradas. Sincronizando sua conta..."});
     banks=await getAll("banks");
-    for(const bank of banks){
-      await ensureCloudBank(bank);
-      const local=await get("progress",bank.id);
-      const remote=await pullProgress(bank);
-      let winner=local;
-      if(remote && shouldUseRemoteProgress(local,remote)){
-        await put("progress",remote);
-        winner=remote;
+    // IMPORTANTE: em um PC novo/antigo, o IndexedDB local NÃO pode sobrescrever
+    // a biblioteca da conta antes de baixarmos a versão da nuvem. A versão
+    // anterior executava ensureCloudBank() para todo banco local até mesmo no
+    // login com force:true; assim, um snapshot velho deste PC podia substituir
+    // o snapshot correto do Supabase e depois ser baixado novamente.
+    // Só publicamos biblioteca/progresso/histórico local quando houve uma
+    // alteração local explícita, marcada por markCloudDirty().
+    if(previous.dirty){
+      for(const bank of banks){
+        await ensureCloudBank(bank);
+        const local=await get("progress",bank.id);
+        const remote=await pullProgress(bank);
+        let winner=local;
+        if(remote && shouldUseRemoteProgress(local,remote)){
+          await put("progress",remote);
+          winner=remote;
+        }
+        if(winner)await pushProgress(bank,winner);
       }
-      // Regrava o vencedor no formato leve da V6.1.1, removendo snapshots
-      // Base64 pesados deixados pela versão anterior.
-      if(winner)await pushProgress(bank,winner);
-    }
 
-    // Envia também os resultados antigos que ainda existiam apenas neste PC.
-    const localHistory=await getAll("history");
-    for(const item of localHistory){
-      const bank=banks.find(b=>b.id===item.bankId);
-      if(bank)await pushHistory(bank,item);
+      // Envia resultados locais somente junto de uma sincronização realmente
+      // originada por alterações neste dispositivo.
+      const localHistory=await getAll("history");
+      for(const item of localHistory){
+        const bank=banks.find(b=>b.id===item.bankId);
+        if(bank)await pushHistory(bank,item);
+      }
     }
 
     // O login restaura a biblioteca, os simulados em andamento e o histórico,
@@ -1560,7 +1568,12 @@ async function syncAllNow(options={}){
           // A cópia local é a fonte mais recente quando o usuário reimporta
           // imagens corrigidas. Um manifesto remoto antigo não pode
           // sobrescrever silenciosamente essas imagens.
-          const preservedImages=cleanBankImageMap({...(remoteBank.images||{}),...(match.images||{})});
+          // Em uma sincronização limpa a nuvem vence. Se este PC realmente
+          // possui alterações locais pendentes, as imagens locais continuam
+          // tendo precedência até serem publicadas.
+          const preservedImages=cleanBankImageMap(previous.dirty
+            ? {...(remoteBank.images||{}),...(match.images||{})}
+            : {...(match.images||{}),...(remoteBank.images||{})});
           match.images=preservedImages;
           await put("banks",{...remoteBank,id:match.id,createdAt:match.createdAt||remoteBank.createdAt,images:preservedImages});
         }
