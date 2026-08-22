@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.10";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.13";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -2310,25 +2310,31 @@ function renderBanks(){
     el.querySelector("[data-manage]").onclick=()=>openBankManager(bank.id);
     const menuTrigger=el.querySelector("[data-menu]");
     menuTrigger.onclick=event=>{event.stopPropagation();toggleActionMenu(menuTrigger)};
-    el.querySelector("[data-delete]").onclick=async()=>{
+    el.querySelector("[data-delete]").onclick=async event=>{
       if(!confirm(`Excluir definitivamente "${bank.name}"?\n\nSerão removidos o banco, o progresso, os históricos e as imagens associados, neste dispositivo e na nuvem.`))return;
-      const button=el.querySelector("[data-delete]");
-      button.disabled=true;
-      button.textContent="Excluindo...";
+      // Usa o próprio botão que disparou o clique. A versão anterior fazia uma
+      // nova query no card e, em alguns estados do menu, recebia null e falhava
+      // em `button.disabled = true`.
+      const button=event.currentTarget;
+      if(button){button.disabled=true;button.textContent="Excluindo..."}
       try{
-        if(getCloudUser())await deleteCloudBank(bank);
+        let cloudResult=null;
+        // Falhas ao apagar os REGISTROS da nuvem continuam sendo fatais, para
+        // evitar que o banco reapareça no próximo sync. Já a limpeza de arquivos
+        // órfãos no Storage é tratada como aviso por deleteCloudBank().
+        if(getCloudUser())cloudResult=await deleteCloudBank(bank);
         await del("banks",bank.id);
         await del("progress",bank.id);
         const localHistory=await getAll("history");
         for(const item of localHistory.filter(history=>history.bankId===bank.id))await del("history",item.id);
-        markCloudDirty("banco excluído definitivamente");
         await refreshHome();
-        toast("Banco excluído deste dispositivo e da nuvem.");
+        toast(cloudResult?.storageWarning
+          ?"Banco excluído. Algumas imagens órfãs não puderam ser limpas do Storage."
+          :"Banco excluído deste dispositivo e da nuvem.");
       }catch(error){
         console.error("Falha ao excluir banco",error);
         alert("Não foi possível excluir o banco da nuvem. Nenhum dado local foi removido. Tente novamente conectado à internet.\n\n"+(error.message||error));
-        button.disabled=false;
-        button.textContent="Excluir";
+        if(button){button.disabled=false;button.textContent="Excluir banco"}
       }
     };
     list.appendChild(el);

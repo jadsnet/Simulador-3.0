@@ -199,19 +199,29 @@ async function readStorageManifest(userId,stableId){
   const cacheKey=`${userId}/${stableId}`;
   if(storageManifestCache.has(cacheKey))return storageManifestCache.get(cacheKey);
   const objectPath=`${cacheKey}/manifest.json`;
-  const {data,error}=await supabase.storage.from(IMAGE_BUCKET).download(objectPath);
-  if(error){
-    if(/not found|does not exist|404/i.test(`${error.message||""} ${error.statusCode||error.status||""}`)){
-      storageManifestCache.set(cacheKey,{}); return {};
-    }
-    throw error;
+
+  // Supabase Storage responde HTTP 400 para download de objeto inexistente.
+  // Isso poluía o Console com dezenas de "Failed to load resource" mesmo
+  // quando a ausência do manifesto era esperada. Primeiro listamos a pasta e
+  // só fazemos o GET se manifest.json realmente estiver presente.
+  const listed=await supabase.storage.from(IMAGE_BUCKET).list(cacheKey,{limit:1000,sortBy:{column:"name",order:"asc"}});
+  if(listed.error)throw listed.error;
+  if(!(listed.data||[]).some(item=>item.name==="manifest.json")){
+    storageManifestCache.set(cacheKey,{});
+    return {};
   }
+
+  const {data,error}=await supabase.storage.from(IMAGE_BUCKET).download(objectPath);
+  if(error)throw error;
   try{
     const manifest=JSON.parse(await data.text());
     const clean=manifest&&typeof manifest==="object"?manifest:{};
     storageReport.catalog=Math.max(storageReport.catalog,Object.keys(clean).length);
     storageManifestCache.set(cacheKey,clean); return clean;
-  }catch{return {}}
+  }catch{
+    storageManifestCache.set(cacheKey,{});
+    return {};
+  }
 }
 
 async function writeStorageManifest(userId,stableId,manifest){
@@ -533,17 +543,27 @@ export async function deleteCloudBank(bank){
   }
 
   const folder=`${user.id}/${stableId}`;
-  const listed=await supabase.storage.from(IMAGE_BUCKET).list(folder,{limit:1000,sortBy:{column:"name",order:"asc"}});
-  if(listed.error&&!/not found|does not exist|404/i.test(`${listed.error.message||""} ${listed.error.statusCode||listed.error.status||""}`))throw listed.error;
-  const paths=(listed.data||[]).map(item=>`${folder}/${item.name}`);
-  for(let index=0;index<paths.length;index+=100){
-    const removed=await supabase.storage.from(IMAGE_BUCKET).remove(paths.slice(index,index+100));
-    if(removed.error)throw removed.error;
+  let paths=[];
+  let storageWarning="";
+  try{
+    const listed=await supabase.storage.from(IMAGE_BUCKET).list(folder,{limit:1000,sortBy:{column:"name",order:"asc"}});
+    if(listed.error)throw listed.error;
+    paths=(listed.data||[]).map(item=>`${folder}/${item.name}`);
+    for(let index=0;index<paths.length;index+=100){
+      const removed=await supabase.storage.from(IMAGE_BUCKET).remove(paths.slice(index,index+100));
+      if(removed.error)throw removed.error;
+    }
+  }catch(error){
+    // A limpeza do Storage é secundária. O registro do banco/progresso/histórico
+    // já foi removido; não deve ser recriado ou impedir a exclusão por causa de
+    // um arquivo órfão ou de uma política de Storage temporariamente inválida.
+    storageWarning=error.message||String(error);
+    console.warn("Banco excluído; limpeza das imagens ficou pendente",error);
   }
 
   imageManifestCache.delete(stableId);
   storageManifestCache.delete(`${user.id}/${stableId}`);
-  return {banks:bankIds.length,files:paths.length};
+  return {banks:bankIds.length,files:paths.length,storageWarning};
 }
 
 export async function pushHistory(bank,h){
