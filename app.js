@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.13";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.14";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -2424,7 +2424,7 @@ async function renderBankManagerQuestions(){
     trigger.onclick=event=>{event.stopPropagation();toggleActionMenu(trigger)};
     row.querySelector("[data-edit]").onclick=()=>editManagedQuestion(bank.id,String(question.id));
     row.querySelector("[data-preview]").onclick=()=>previewManagedQuestion(bank.id,String(question.id));
-    row.querySelector("[data-delete-question]").onclick=()=>deleteManagedQuestion(String(question.id),row);
+    row.querySelector("[data-delete-question]").onclick=event=>deleteManagedQuestion(String(question.id),event.currentTarget);
     list.appendChild(row);
   });
 }
@@ -2454,15 +2454,14 @@ function imageReferenceMatches(storedName,reference){
   return [...stored].some(value=>wanted.has(value));
 }
 
-async function deleteManagedQuestion(questionId,row){
+async function deleteManagedQuestion(questionId,button){
   const bank=await get("banks",managedBankId);
   if(!bank)return;
   const question=(bank.questions||[]).find(item=>String(item.id)===questionId);
   if(!question)return renderBankManagerQuestions();
   const plainQuestion=richTextPlainText(question.pergunta||""),preview=plainQuestion.slice(0,120);
   if(!confirm(`Excluir somente a questão ${question.id}?\n\n${preview}${plainQuestion.length>120?"…":""}\n\nAs outras questões e o histórico de simulados serão preservados.`))return;
-  const button=row.querySelector("[data-delete-question]");
-  button.disabled=true;button.textContent="Excluindo...";
+  if(button){button.disabled=true;button.textContent="Excluindo...";}
   const removedReferences=questionImageReferences(question);
   bank.questions=(bank.questions||[]).filter(item=>String(item.id)!==questionId);
   const remainingReferences=bank.questions.flatMap(questionImageReferences);
