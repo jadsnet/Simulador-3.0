@@ -122,25 +122,33 @@ async function requireUser(){
   currentUser=user; return user;
 }
 
-// O ID gerado pelo navegador muda entre computadores. Esta assinatura usa o
-// conteúdo do banco e, portanto, permanece igual ao importar o mesmo CSV/ZIP.
+// A identidade do banco NÃO pode depender do conteúdo. Nas versões anteriores
+// o hash incluía todas as questões; ao adicionar uma nova questão o hash mudava
+// e o Supabase interpretava a mesma biblioteca como um banco novo inteiro.
+// O id local é persistente e também viaja dentro do snapshot para os outros PCs.
 function stableBankId(bank){
+  const persisted=String(bank?.syncId||bank?.id||"").trim();
+  if(persisted)return persisted;
+  // Fallback apenas para snapshots legados sem id. Não deve ser usado em bancos
+  // criados pelas versões atuais.
   const questions=Array.isArray(bank?.questions)?bank.questions:[];
-  const source=questions.map(q=>{
-    const fields=[q.id,q.pergunta,q.alt_a,q.alt_b,q.alt_c,q.alt_d,q.alt_e,
-      Array.isArray(q.correta)?q.correta.join(","):q.correta];
-    // Questões tradicionais mantêm a assinatura antiga. O modelo visual só é
-    // acrescentado quando a questão realmente é drag-and-drop.
-    if(q.tipo==="dragdrop"||q.dragdrop)fields.push(JSON.stringify(q.dragdrop||{}));
-    return fields.map(v=>String(v??"").trim()).join("\u001f");
-  }).join("\u001e");
-  let h1=0x811c9dc5,h2=0x9e3779b9;
-  for(let i=0;i<source.length;i++){
-    const c=source.charCodeAt(i);
-    h1=Math.imul(h1^c,0x01000193);
-    h2=Math.imul(h2^c,0x85ebca6b);
-  }
-  return `bank-${questions.length}-${(h1>>>0).toString(16).padStart(8,"0")}${(h2>>>0).toString(16).padStart(8,"0")}`;
+  const source=questions.map(q=>[q.id,q.pergunta].map(v=>String(v??"").trim()).join("\u001f")).join("\u001e");
+  let h=0x811c9dc5;for(let i=0;i<source.length;i++)h=Math.imul(h^source.charCodeAt(i),0x01000193);
+  return `legacy-${questions.length}-${(h>>>0).toString(16).padStart(8,"0")}`;
+}
+
+function questionFingerprint(q){
+  return [q?.id,q?.pergunta,q?.alt_a,q?.alt_b,q?.alt_c,q?.alt_d,q?.alt_e]
+    .map(v=>String(v??"").trim().toLowerCase()).join("\u001f");
+}
+
+function bankOverlapScore(bank,snapshot){
+  const a=Array.isArray(bank?.questions)?bank.questions:[];
+  const b=Array.isArray(snapshot?.questions)?snapshot.questions:[];
+  if(!a.length||!b.length)return 0;
+  const setB=new Set(b.map(questionFingerprint));
+  let common=0;for(const q of a)if(setB.has(questionFingerprint(q)))common++;
+  return common/Math.max(1,Math.min(a.length,b.length));
 }
 
 function hashString(value){
@@ -366,8 +374,9 @@ function cleanSnapshotImages(images){
 
 async function cloudBankSnapshot(bank){
   const cloudImages=await uploadBankImages(bank);
+  const syncId=stableBankId(bank);
   return {
-    id:stableBankId(bank),name:bank.name||"Banco de questões",
+    id:syncId,syncId,name:bank.name||"Banco de questões",
     fileName:bank.fileName||null,createdAt:bank.createdAt||new Date().toISOString(),
     questions:Array.isArray(bank.questions)?bank.questions:[],images:{},cloudImages
   };
@@ -376,79 +385,52 @@ async function cloudBankSnapshot(bank){
 async function resolveCloudBank(bank,{create=true}={}){
   const user=await requireUser();
   const stableId=stableBankId(bank);
-  const columns="id,local_bank_id,name,file_name,question_count,updated_at";
+  const columns="id,local_bank_id,name,file_name,question_count,updated_at,snapshot";
 
-  // Reúne tanto o registro estável quanto os registros legados/duplicados.
-  let {data:stableRow,error}=await supabase.from("question_banks").select(columns)
+  // Caminho principal: o banco já possui uma identidade persistente.
+  let direct=await supabase.from("question_banks").select(columns)
     .eq("user_id",user.id).eq("local_bank_id",stableId).maybeSingle();
-  if(error)throw error;
+  if(direct.error)throw direct.error;
+  let data=direct.data||null;
 
-  const directResult=await supabase.from("question_banks").select(columns)
-    .eq("user_id",user.id).eq("local_bank_id",String(bank.id)).maybeSingle();
-  if(directResult.error)throw directResult.error;
-
-  const count=Array.isArray(bank.questions)?bank.questions.length:0;
-  const legacy=await supabase.from("question_banks").select(columns)
-    .eq("user_id",user.id).eq("question_count",count)
-    .order("updated_at",{ascending:false}).limit(50);
-  if(legacy.error)throw legacy.error;
-
-  const fileName=String(bank.fileName||"").trim().toLowerCase();
-  const name=String(bank.name||"").trim().toLowerCase();
-  const rows=[stableRow,directResult.data,...(legacy.data||[])].filter(Boolean);
-  const unique=[...new Map(rows.map(r=>[r.id,r])).values()];
-  const compatible=unique.filter(r=>r.local_bank_id===stableId
-    ||r.local_bank_id===String(bank.id)
-    ||(fileName&&String(r.file_name||"").trim().toLowerCase()===fileName)
-    ||(name&&String(r.name||"").trim().toLowerCase()===name));
-  const candidates=compatible.length?compatible:(unique.length===1?unique:[]);
-
-  let data=null;
-  if(candidates.length){
-    const ids=candidates.map(r=>r.id);
-    const progressRows=await supabase.from("quiz_progress")
-      .select("bank_id,answers,current_index,client_updated_at,updated_at")
-      .eq("user_id",user.id).in("bank_id",ids);
-    if(progressRows.error)throw progressRows.error;
-    const progressByBank=new Map((progressRows.data||[]).map(p=>[p.bank_id,p]));
-    const score=row=>{
-      const p=progressByBank.get(row.id);
-      return {answered:p&&p.answers&&typeof p.answers==="object"?Object.keys(p.answers).length:0,
-        index:Number(p?.current_index)||0,date:String(p?.client_updated_at||p?.updated_at||"")};
-    };
-    data=[...candidates].sort((a,b)=>{
-      const sa=score(a),sb=score(b);
-      return sb.answered-sa.answered||sb.index-sa.index||sb.date.localeCompare(sa.date)
-        ||Number(b.local_bank_id===stableId)-Number(a.local_bank_id===stableId);
-    })[0];
+  // Migração das versões 7.10.15 e anteriores: nelas local_bank_id era um hash
+  // do CONTEÚDO. Ao adicionar uma questão o hash mudava e um novo registro era
+  // criado. Se o id persistente ainda não foi encontrado, procuramos apenas
+  // bancos com o mesmo nome/arquivo e escolhemos aquele cujo snapshot mais se
+  // sobrepõe ao banco atual. Assim 24 -> 25 questões é tratado como atualização,
+  // não como um novo banco.
+  if(!data){
+    const name=String(bank.name||"").trim();
+    const fileName=String(bank.fileName||"").trim();
+    let query=supabase.from("question_banks").select(columns).eq("user_id",user.id);
+    if(fileName)query=query.eq("file_name",fileName);
+    else if(name)query=query.eq("name",name);
+    const legacy=await query.order("updated_at",{ascending:false}).limit(100);
+    if(legacy.error)throw legacy.error;
+    const rows=legacy.data||[];
+    const ranked=rows.map(row=>({row,score:bankOverlapScore(bank,row.snapshot)}))
+      .filter(item=>item.score>=0.80)
+      .sort((a,b)=>b.score-a.score
+        ||Number(b.row.question_count||0)-Number(a.row.question_count||0)
+        ||String(b.row.updated_at||"").localeCompare(String(a.row.updated_at||"")));
+    if(ranked.length)data=ranked[0].row;
   }
 
+  const count=Array.isArray(bank.questions)?bank.questions.length:0;
   if(data){
-    // Só migra o ID legado quando ainda não existe outro registro estável.
-    // Se houver duplicidade, mantém o vínculo do registro que contém respostas.
-    if(stableRow&&data.id!==stableRow.id)return data;
-    if(data.local_bank_id===stableId){
-      const refreshed=await supabase.from("question_banks")
-        .update({name:bank.name||data.name,file_name:bank.fileName||data.file_name,
-          question_count:count,updated_at:new Date().toISOString()})
-        .eq("id",data.id).eq("user_id",user.id).select(columns).single();
-      if(refreshed.error)throw refreshed.error;
-      return refreshed.data;
-    }
-    const migrated=await supabase.from("question_banks")
+    const refreshed=await supabase.from("question_banks")
       .update({local_bank_id:stableId,name:bank.name||data.name,file_name:bank.fileName||data.file_name,
         question_count:count,updated_at:new Date().toISOString()})
       .eq("id",data.id).eq("user_id",user.id).select(columns).single();
-    if(migrated.error)throw migrated.error;
-    return migrated.data;
+    if(refreshed.error)throw refreshed.error;
+    return refreshed.data;
   }
 
   if(!create)return null;
   const payload={
     user_id:user.id,local_bank_id:stableId,
     name:bank.name||"Banco de questões",file_name:bank.fileName||null,
-    question_count:Array.isArray(bank.questions)?bank.questions.length:0,
-    updated_at:new Date().toISOString()
+    question_count:count,updated_at:new Date().toISOString()
   };
   const inserted=await supabase.from("question_banks")
     .upsert(payload,{onConflict:"user_id,local_bank_id"}).select(columns).single();
@@ -460,7 +442,7 @@ export async function ensureCloudBank(bank){
   const data=await resolveCloudBank(bank);
   const snapshot=await cloudBankSnapshot(bank);
   const saved=await supabase.from("question_banks")
-    .update({snapshot,updated_at:new Date().toISOString()})
+    .update({snapshot,question_count:Array.isArray(bank.questions)?bank.questions.length:0,updated_at:new Date().toISOString()})
     .eq("id",data.id).eq("user_id",(await requireUser()).id);
   if(saved.error)throw saved.error;
   return data.id;
@@ -586,15 +568,28 @@ export async function pushHistory(bank,h){
 export async function pullCloudState(options={}){
   const user=await requireUser();
   storageReport={found:storageReport.found,catalog:storageReport.catalog,uploaded:storageReport.uploaded,downloaded:0,skipped:storageReport.skipped,error:storageReport.error};
-  const [banksResult,progressResult,historyResult]=await Promise.all([
-    supabase.from("question_banks").select("id,snapshot").eq("user_id",user.id).limit(1000),
+  // Não baixa todos os snapshots gigantes em uma única resposta. Depois que as
+  // versões antigas começaram a duplicar o banco inteiro, esse SELECT podia
+  // ultrapassar o limite/timeout do PostgREST e retornar HTTP 500. Primeiro
+  // buscamos somente metadados leves e depois os snapshots em lotes pequenos.
+  const [bankMetaResult,progressResult,historyResult]=await Promise.all([
+    supabase.from("question_banks").select("id,local_bank_id,name,file_name,question_count,updated_at")
+      .eq("user_id",user.id).order("updated_at",{ascending:false}).limit(1000),
     supabase.from("quiz_progress").select("*").eq("user_id",user.id).limit(200),
     supabase.from("quiz_history").select("*").eq("user_id",user.id)
       .order("finished_at",{ascending:false}).limit(1000)
   ]);
-  if(banksResult.error)throw banksResult.error;
+  if(bankMetaResult.error)throw bankMetaResult.error;
   if(progressResult.error)throw progressResult.error;
   if(historyResult.error)throw historyResult.error;
+
+  const bankRows=[];
+  await runPool(bankMetaResult.data||[],4,async meta=>{
+    const rowResult=await supabase.from("question_banks").select("id,snapshot")
+      .eq("user_id",user.id).eq("id",meta.id).single();
+    if(rowResult.error)throw rowResult.error;
+    bankRows.push({...meta,...rowResult.data});
+  });
 
   const banks=new Map();
   const cloudBankIds=new Map();
@@ -625,7 +620,28 @@ export async function pullCloudState(options={}){
     return bank.id;
   };
 
-  for(const row of banksResult.data||[])await addSnapshot(row.snapshot,row.id);
+  // Colapsa revisões duplicadas criadas pelo bug antigo. Duas linhas só são
+  // consideradas a mesma biblioteca quando têm o mesmo nome/arquivo e forte
+  // sobreposição de questões. Mantemos a revisão mais recente e apontamos os
+  // ids legados para o mesmo banco local, preservando progresso/histórico.
+  const canonicalRows=[];
+  const duplicateToCanonical=new Map();
+  for(const row of [...bankRows].sort((a,b)=>String(b.updated_at||"").localeCompare(String(a.updated_at||"")))){
+    if(!row.snapshot||!Array.isArray(row.snapshot.questions))continue;
+    const sameSource=canonicalRows.filter(c=>{
+      const sameFile=row.file_name&&c.file_name&&String(row.file_name)===String(c.file_name);
+      const sameName=String(row.name||"").trim().toLowerCase()===String(c.name||"").trim().toLowerCase();
+      return sameFile||sameName;
+    });
+    const match=sameSource.find(c=>bankOverlapScore(row.snapshot,c.snapshot)>=0.80);
+    if(match)duplicateToCanonical.set(row.id,match.id);
+    else canonicalRows.push(row);
+  }
+  for(const row of canonicalRows)await addSnapshot(row.snapshot,row.id);
+  for(const [duplicateId,canonicalId] of duplicateToCanonical){
+    const localId=cloudBankIds.get(canonicalId);
+    if(localId)cloudBankIds.set(duplicateId,localId);
+  }
   for(const row of progressResult.data||[])await addSnapshot(row.settings?.__cloudBank,row.bank_id);
   for(const row of historyResult.data||[]){
     let localId=await addSnapshot(row.settings?.__cloudBank,row.bank_id);

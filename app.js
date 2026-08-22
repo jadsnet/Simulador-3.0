@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.14";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.15";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -1501,6 +1501,66 @@ function markProgressPushSynced(progress){
   }catch{}
 }
 
+function bankQuestionFingerprint(q){
+  return [q?.id,q?.pergunta,q?.alt_a,q?.alt_b,q?.alt_c,q?.alt_d,q?.alt_e]
+    .map(v=>String(v??"").trim().toLowerCase()).join("\u001f");
+}
+
+function localBankOverlap(a,b){
+  const aq=Array.isArray(a?.questions)?a.questions:[],bq=Array.isArray(b?.questions)?b.questions:[];
+  if(!aq.length||!bq.length)return 0;
+  const setB=new Set(bq.map(bankQuestionFingerprint));
+  let common=0;for(const q of aq)if(setB.has(bankQuestionFingerprint(q)))common++;
+  return common/Math.max(1,Math.min(aq.length,bq.length));
+}
+
+async function dedupeLocalBankRevisionsBeforePush(){
+  const locals=await getAll("banks");
+  const consumed=new Set();
+  for(const bank of locals){
+    if(consumed.has(bank.id))continue;
+    const group=locals.filter(other=>!consumed.has(other.id)
+      &&String(other.name||"").trim().toLowerCase()===String(bank.name||"").trim().toLowerCase()
+      &&localBankOverlap(bank,other)>=0.80);
+    if(group.length<2){consumed.add(bank.id);continue}
+    group.sort((a,b)=>(b.questions?.length||0)-(a.questions?.length||0)
+      ||String(b.updatedAt||b.createdAt||"").localeCompare(String(a.updatedAt||a.createdAt||"")));
+    const canonical=group[0];
+    consumed.add(canonical.id);
+    const history=await getAll("history");
+    for(const duplicate of group.slice(1)){
+      consumed.add(duplicate.id);
+      const oldProgress=await get("progress",duplicate.id),newProgress=await get("progress",canonical.id);
+      if(oldProgress&&(!newProgress||answeredCount(oldProgress)>answeredCount(newProgress)))
+        await put("progress",{...oldProgress,bankId:canonical.id});
+      await del("progress",duplicate.id);
+      for(const item of history.filter(h=>h.bankId===duplicate.id))
+        await put("history",{...item,bankId:canonical.id,bankName:canonical.name||item.bankName});
+      await del("banks",duplicate.id);
+    }
+  }
+}
+
+async function cleanupLocalBankRevisions(canonicalBanks=[]){
+  const locals=await getAll("banks");
+  const history=await getAll("history");
+  for(const local of locals){
+    if(canonicalBanks.some(c=>c.id===local.id))continue;
+    const candidates=canonicalBanks.filter(c=>String(c.name||"").trim().toLowerCase()===String(local.name||"").trim().toLowerCase());
+    const canonical=candidates.find(c=>localBankOverlap(local,c)>=0.80);
+    if(!canonical)continue;
+
+    const oldProgress=await get("progress",local.id);
+    const newProgress=await get("progress",canonical.id);
+    if(oldProgress&&(!newProgress||answeredCount(oldProgress)>answeredCount(newProgress))){
+      await put("progress",{...oldProgress,bankId:canonical.id});
+    }
+    await del("progress",local.id);
+    for(const item of history.filter(h=>h.bankId===local.id))await put("history",{...item,bankId:canonical.id,bankName:canonical.name||item.bankName});
+    await del("banks",local.id);
+  }
+}
+
 async function syncAllNow(options={}){
   if(!getCloudUser())return;
   setCloudStatus("Verificando","syncing");
@@ -1518,6 +1578,9 @@ async function syncAllNow(options={}){
 
     setCloudStatus("Sincronizando","syncing");
     updateSyncDiagnostics({state:"running",message:"Alterações encontradas. Sincronizando sua conta..."});
+    // Corrige, antes de qualquer upload, as revisões locais que versões antigas
+    // transformaram em bancos separados ao adicionar uma questão.
+    await dedupeLocalBankRevisionsBeforePush();
     banks=await getAll("banks");
     // IMPORTANTE: em um PC novo/antigo, o IndexedDB local NÃO pode sobrescrever
     // a biblioteca da conta antes de baixarmos a versão da nuvem. A versão
@@ -1581,6 +1644,11 @@ async function syncAllNow(options={}){
         await put("banks",remoteBank);
       }
     }
+    // Remove do IndexedDB as revisões antigas que o bug de identidade deixou
+    // como bancos separados. O progresso/histórico é migrado para o canônico.
+    await cleanupLocalBankRevisions(cloudState.banks);
+    banks=await getAll("banks");
+
     for(const remote of cloudState.progress){
       const normalized={...remote,bankId:bankIdMap.get(remote.bankId)||remote.bankId};
       const local=await get("progress",normalized.bankId);
@@ -2391,10 +2459,17 @@ async function openBankManager(bankId){
   window.setTimeout(()=>$("bankManagerSearch").focus(),80);
 }
 
+function hideModalSafely(modal){
+  if(!modal)return;
+  const active=document.activeElement;
+  if(active&&modal.contains(active)&&typeof active.blur==="function")active.blur();
+  modal.classList.add("hidden");
+  modal.setAttribute("aria-hidden","true");
+}
+
 function closeBankManager(){
   managedBankId="";
-  $("bankManagerModal").classList.add("hidden");
-  $("bankManagerModal").setAttribute("aria-hidden","true");
+  hideModalSafely($("bankManagerModal"));
 }
 
 function questionKindLabel(question){
@@ -3069,8 +3144,7 @@ function updateDragDropBankMode(){
 }
 
 function closeDragDropBuilder(){
-  $("dragDropBuilderModal").classList.add("hidden");
-  $("dragDropBuilderModal").setAttribute("aria-hidden","true");
+  hideModalSafely($("dragDropBuilderModal"));
   if(editingQuestion?.type==="dragdrop"){
     const bankId=editingQuestion.bankId;editingQuestion=null;
     $("dragDropBankSelect").disabled=false;
@@ -3248,8 +3322,7 @@ async function saveDragDropQuestion(){
   await refreshHome();
   if(editing){
     const returnBankId=bank.id;editingQuestion=null;
-    $("dragDropBuilderModal").classList.add("hidden");
-    $("dragDropBuilderModal").setAttribute("aria-hidden","true");
+    hideModalSafely($("dragDropBuilderModal"));
     $("dragDropBankSelect").disabled=false;
     await openBankManager(returnBankId);
     toast(`Questão ${id} atualizada com sucesso.`);
