@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.15";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.16";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -2369,7 +2369,9 @@ function renderBanks(){
   list.innerHTML="";
   $("emptyBanks").classList.toggle("hidden",banks.length>0);
 
-  for(const bank of banks){
+  const orderedBanks=[...banks].sort((a,b)=>String(a?.name||"").localeCompare(String(b?.name||""),"pt-BR",{sensitivity:"base",numeric:true}));
+
+  for(const bank of orderedBanks){
     const el=document.createElement("div");
     el.className="bank-card";
     el.innerHTML=`<div><h3>${esc(bank.name)}</h3><p>${bank.questions.length} questões · importado em ${new Date(bank.createdAt).toLocaleDateString("pt-BR")}</p></div><div class="bank-actions"><button class="btn primary compact-play-btn" data-open aria-label="Abrir banco" title="Abrir banco"><span aria-hidden="true">▶</span></button><div class="action-menu"><button class="action-menu-trigger" data-menu type="button" aria-label="Mais opções" title="Mais opções" aria-expanded="false"><span></span><span></span><span></span></button><div class="action-menu-popover hidden"><button type="button" data-menu-open><span>▶</span>Abrir</button><button type="button" data-manage><span>✎</span>Gerenciar</button><button type="button" class="danger-item" data-delete><span>⌫</span>Excluir banco</button></div></div></div>`;
@@ -2482,7 +2484,10 @@ async function renderBankManagerQuestions(){
   const bank=await get("banks",managedBankId);
   if(!bank){closeBankManager();return}
   const query=$("bankManagerSearch").value.trim().toLocaleLowerCase("pt-BR");
-  const all=Array.isArray(bank.questions)?bank.questions:[];
+  const raw=Array.isArray(bank.questions)?bank.questions:[];
+  // O gerenciador sempre exibe as questões em ordem crescente de ID.
+  // numeric:true mantém a ordem natural (1, 2, 10, 19...) mesmo quando o ID veio do CSV como texto.
+  const all=[...raw].sort((a,b)=>String(a?.id??"").localeCompare(String(b?.id??""),"pt-BR",{numeric:true,sensitivity:"base"}));
   const visible=all.filter(question=>!query||[question.id,question.categoria,richTextPlainText(question.pergunta),questionKindLabel(question)]
     .some(value=>String(value||"").toLocaleLowerCase("pt-BR").includes(query)));
   $("bankManagerCount").textContent=query?`${visible.length} de ${all.length} questões`:`${all.length} ${all.length===1?"questão":"questões"}`;
