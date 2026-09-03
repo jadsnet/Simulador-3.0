@@ -12,7 +12,7 @@ const onboardingSteps=[
   {selector:'.side-link[data-page="review"]',icon:"☆",title:"Estudo inteligente",text:"Consulte favoritas, marcações, anotações e erros.",placement:"right"},
   {selector:'.side-link[data-page="history"]',icon:"◷",title:"Histórico",text:"Abra resultados anteriores e revise suas respostas.",placement:"right"}
 ];
-let banks=[],selectedBank=null,questions=[],answers={},currentIndex=0,timerSeconds=0,timerHandle=null,settings={},favorites=new Set(),marked=new Set(),notes={},reviewData=[],answerAudit=[];
+let banks=[],selectedBank=null,questions=[],answers={},currentIndex=0,timerSeconds=0,timerHandle=null,settings={},favorites=new Set(),marked=new Set(),notes={},reviewData=[],answerAudit=[],trainingMode=false;
 let dragDropBuilder={imageData:"",imageName:"",promptImageData:"",promptImageName:"",zones:[]},activeDragDropTokenId="";
 let commonQuestionBuilder={questionImageData:"",questionImageName:"",alternatives:{}};
 let managedBankId="";
@@ -1809,7 +1809,8 @@ function bind(){
   $("exportBackupBtn").onclick=exportBackup;
   $("importBackupBtn").onclick=importBackup;
   $("backHomeBtn").onclick=showHome;
-  $("startQuizBtn").onclick=startNew;
+  $("startQuizBtn").onclick=()=>startNew("exam");
+  $("startTrainingBtn").onclick=()=>startNew("training");
   $("resumeBtn").onclick=resume;
   $("deleteProgressBtn").onclick=deleteProgress;
   $("prevBtn").onclick=()=>goTo(currentIndex-1);
@@ -3523,8 +3524,10 @@ async function showSetup(id){
   if(p)$("resumeText").textContent=`Questão ${p.currentIndex+1} de ${p.order.length} · ${Object.keys(p.answers).length} respondidas`;
 }
 
-async function startNew(){
+async function startNew(mode="exam"){
+  trainingMode=mode==="training";
   settings={
+    mode:trainingMode?"training":"exam",
     limit:Math.min(parseInt($("questionLimit").value)||selectedBank.questions.length,selectedBank.questions.length),
     timeLimit:Math.max(0,parseInt($("timeLimit").value)||0),
     shuffle:$("shuffleQuestions").checked,
@@ -3551,6 +3554,7 @@ async function startNew(){
 }
 
 async function resume(){
+  trainingMode=false;
   const p=await get("progress",selectedBank.id);
   if(!p)return;
 
@@ -3589,6 +3593,8 @@ function openQuiz(){
   $("quizScreen").classList.remove("hidden");
   const examTitle=document.getElementById("examBankTitle");
   if(examTitle)examTitle.textContent=selectedBank?.name||"Simulado";
+  const modeLabel=document.getElementById("quizModeLabel");
+  if(modeLabel)modeLabel.textContent=trainingMode?"MODO TREINAMENTO":"SIMULADO EM ANDAMENTO";
   renderQuestion();
   startTimer();
   window.scrollTo(0,0);
@@ -3634,42 +3640,43 @@ function renderQuestion(){
 function renderOptions(q){
   const c=$("optionsContainer");
   c.innerHTML="";
+  if(q.tipo==="dragdrop"){ renderDragDropQuestion(q,c); return; }
 
-  if(q.tipo==="dragdrop"){
-    renderDragDropQuestion(q,c);
-    return;
-  }
+  const selected=normAnswers(answers[q.id]||[]);
+  const correct=normAnswers(q.correta);
+  const trainingEvaluated=trainingMode && (q.tipo==="multiple" ? selected.length>=correct.length : selected.length>0);
 
   for(const l of LETTERS){
     const t=q[`alt_${l}`],img=q[`img_${l}`];
     if(!t&&!img)continue;
-
     const U=l.toUpperCase();
     const label=document.createElement("label");
     label.className="option";
-    label.classList.toggle("selected",(answers[q.id]||[]).includes(U));
-
+    const isSelected=selected.includes(U);
+    label.classList.toggle("selected",isSelected && !trainingEvaluated);
+    if(trainingEvaluated){
+      if(correct.includes(U))label.classList.add("training-correct");
+      if(isSelected&&!correct.includes(U))label.classList.add("training-wrong");
+      label.classList.toggle("selected",isSelected);
+    }
     const input=document.createElement("input");
     input.type=q.tipo==="multiple"?"checkbox":"radio";
-    input.name="answer";
-    input.checked=(answers[q.id]||[]).includes(U);
+    input.name="answer"; input.checked=isSelected;
     input.onchange=()=>selectAnswer(q,U);
-
-    const selector=document.createElement("span");
-    selector.className="option-selector";
-    const badge=document.createElement("span");badge.className="option-letter";badge.textContent=U;
+    const selector=document.createElement("span"); selector.className="option-selector";
+    const badge=document.createElement("span"); badge.className="option-letter"; badge.textContent=U;
     selector.append(badge,input);
-
-    const content=document.createElement("div");
-    content.className="option-content";
+    const content=document.createElement("div"); content.className="option-content";
     const line=document.createElement("div");
-    const text=document.createElement("span");setRichContent(text,t||"",q.rich_text);line.appendChild(text);content.appendChild(line);
-
-    const url=resolveImage(img);
-    if(url)content.appendChild(makeImageBlock(url,`Imagem da alternativa ${U}`));
-
-    label.append(selector,content);
-    c.appendChild(label);
+    const text=document.createElement("span"); setRichContent(text,t||"",q.rich_text); line.appendChild(text); content.appendChild(line);
+    const url=resolveImage(img); if(url)content.appendChild(makeImageBlock(url,`Imagem da alternativa ${U}`));
+    label.append(selector,content); c.appendChild(label);
+  }
+  if(trainingEvaluated){
+    const ok=eq(selected,correct);
+    const feedback=document.createElement("div"); feedback.className=`training-feedback ${ok?"correct":"wrong"}`;
+    feedback.innerHTML=`<strong>${ok?"✓ Resposta correta":"✕ Resposta incorreta"}</strong><div>${esc(q.feedback||"Nenhum feedback foi informado.")}</div>`;
+    c.appendChild(feedback);
   }
 }
 
@@ -4033,6 +4040,7 @@ function stopTimer(){
 }
 
 async function saveProgress(){
+  if(trainingMode)return;
   if(!selectedBank||!questions.length)return;
 
   settings.__bankSignature=questionsSignature(questions);
@@ -4055,6 +4063,10 @@ async function saveProgress(){
 }
 
 async function saveExit(){
+  if(trainingMode){
+    exitQuizMode(); stopTimer(); $("quizScreen").classList.add("hidden");
+    await showSetup(selectedBank.id); toast("Treinamento encerrado."); return;
+  }
   exitQuizMode();
   await saveProgress();
   stopTimer();
