@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.10.16";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.11.1";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -4141,15 +4141,23 @@ async function finish(){
     bankSignature:questionsSignature(questions)
   };
 
-  await put("history",historyRecord);
-  markCloudDirty("simulado finalizado");
-  try{await pushHistory(selectedBank,historyRecord)}catch(e){console.error("Histórico pendente:",e)}
-  await del("progress",selectedBank.id);
-  try{await deleteCloudProgress(selectedBank)}catch(e){console.error(e)}
+  // Modo treinamento é deliberadamente efêmero: não grava histórico local,
+  // não envia resultado para a nuvem e não altera o histórico/estatísticas.
+  // O usuário pode consultar o feedback durante a sessão, mas o treinamento
+  // não deve contaminar os resultados dos simulados.
+  if(!trainingMode){
+    await put("history",historyRecord);
+    markCloudDirty("simulado finalizado");
+    try{await pushHistory(selectedBank,historyRecord)}catch(e){console.error("Histórico pendente:",e)}
+    await del("progress",selectedBank.id);
+    try{await deleteCloudProgress(selectedBank)}catch(e){console.error(e)}
+  }
 
   $("quizScreen").classList.add("hidden");
   $("resultScreen").classList.remove("hidden");
-  $("resultTime").textContent="Tempo: "+formatTime(timerSeconds);
+  $("resultTime").textContent=trainingMode
+    ? "Modo treinamento · este resultado não foi salvo no histórico"
+    : "Tempo: "+formatTime(timerSeconds);
 
   animateNumber("correctCount",correct,"");
   animateNumber("wrongCount",questions.length-correct,"");
