@@ -13,6 +13,7 @@ const onboardingSteps=[
   {selector:'.side-link[data-page="history"]',icon:"◷",title:"Histórico",text:"Abra resultados anteriores e revise suas respostas.",placement:"right"}
 ];
 let banks=[],selectedBank=null,questions=[],answers={},currentIndex=0,timerSeconds=0,timerHandle=null,settings={},favorites=new Set(),marked=new Set(),notes={},reviewData=[],answerAudit=[],trainingMode=false;
+let trainingSaveSequence=0;
 let dragDropBuilder={imageData:"",imageName:"",promptImageData:"",promptImageName:"",zones:[]},activeDragDropTokenId="";
 let commonQuestionBuilder={questionImageData:"",questionImageName:"",alternatives:{}};
 let managedBankId="";
@@ -3523,6 +3524,19 @@ async function showSetup(id){
   const p=await get("progress",id);
   $("resumeBox").classList.toggle("hidden",!p);
   $("deleteProgressBtn").classList.toggle("hidden",!p);
+  const training=await get("trainingProgress",id);
+  let trainingBox=$("trainingResumeBox");
+  if(!trainingBox){
+    trainingBox=document.createElement("div");trainingBox.id="trainingResumeBox";
+    trainingBox.className="resume-box";
+    trainingBox.innerHTML='<div><span>Treinamento salvo</span><strong>Continuar treinamento</strong><p id="trainingResumeText"></p></div><button id="resumeTrainingBtn" type="button" class="btn primary">Continuar</button>';
+    $("resumeBox").after(trainingBox);
+  }
+  trainingBox.classList.toggle("hidden",!training);
+  if(training){
+    $("trainingResumeText").textContent=`Questão ${(training.currentIndex||0)+1} de ${(training.order||[]).length} · ${Object.keys(training.answers||{}).length} respondidas`;
+    $("resumeTrainingBtn").onclick=resumeTraining;
+  }
 
   if(p)$("resumeText").textContent=`Questão ${p.currentIndex+1} de ${p.order.length} · ${Object.keys(p.answers).length} respondidas`;
 }
@@ -3570,6 +3584,7 @@ async function startNew(mode="exam"){
   currentIndex=0;
   timerSeconds=0;
 
+  if(trainingMode)await del("trainingProgress",selectedBank.id);
   await saveProgress();
   openQuiz();
 }
@@ -3603,6 +3618,30 @@ async function resume(){
   answerAudit=Array.isArray(settings.__answerAudit)?settings.__answerAudit:[];
   settings.__answerAudit=answerAudit;
 
+  openQuiz();
+}
+
+async function resumeTraining(){
+  const bankId=selectedBank?.id || $("setupScreen")?.dataset?.bankId;
+  if(!bankId)return;
+  selectedBank=await get("banks",bankId) || selectedBank;
+  const p=await get("trainingProgress",bankId);
+  if(!p || !selectedBank)return;
+  const byId=new Map((selectedBank.questions||[]).map(q=>[q.id,q]));
+  questions=(p.order||[]).map(id=>byId.get(id)).filter(Boolean);
+  if(!questions.length || (p.settings?.__bankSignature && p.settings.__bankSignature!==questionsSignature(questions))){
+    alert("O banco de questões mudou. Não é possível retomar este treinamento.");return;
+  }
+  const validation=validateSavedAnswers(questions,p.answers||{});
+  if(validation.conflicts.length){alert("O treinamento salvo contém respostas incompatíveis.");return;}
+  trainingMode=true;
+  answers=validation.answers;
+  currentIndex=Math.min(Math.max(0,Number(p.currentIndex)||0),questions.length-1);
+  timerSeconds=Number(p.timerSeconds)||0;
+  settings={...(p.settings||{}),mode:"training"};
+  answerAudit=Array.isArray(settings.__answerAudit)?settings.__answerAudit:[];
+  favorites=new Set(p.favorites||[]);marked=new Set(p.marked||[]);notes=p.notes||{};
+  await loadQuestionMetadata();
   openQuiz();
 }
 
@@ -3655,7 +3694,7 @@ function renderQuestion(){
   $("prevBtn").disabled=currentIndex===0;
   $("nextBtn").textContent=currentIndex===questions.length-1?"Finalizar":"Próxima →";
 
-  saveProgress();
+  saveProgress().catch(error=>console.error("Erro ao salvar progresso:",error));
 }
 
 function renderOptions(q){
@@ -4061,32 +4100,33 @@ function stopTimer(){
 }
 
 async function saveProgress(){
-  if(trainingMode)return;
   if(!selectedBank||!questions.length)return;
-
-  settings.__bankSignature=questionsSignature(questions);
-  settings.__answerAudit=answerAudit;
-  const progressRecord={
-    bankId:selectedBank.id,
-    currentIndex,
-    order:questions.map(q=>q.id),
-    answers,
-    timerSeconds,
-    settings,
-    favorites:[...favorites],
-    marked:[...marked],
-    notes,
+  const bankId=selectedBank.id;
+  const isTraining=trainingMode;
+  const snapshot={
+    bankId,currentIndex,order:questions.map(q=>q.id),
+    answers:structuredClone(answers),timerSeconds,
+    settings:{...settings,__bankSignature:questionsSignature(questions),__answerAudit:structuredClone(answerAudit)},
+    favorites:[...favorites],marked:[...marked],notes:{...notes},
     savedAt:new Date().toISOString()
   };
-  await put("progress",progressRecord);
+  if(isTraining){
+    // Armazenamento exclusivo: não entra no histórico nem na sincronização de simulados.
+    await put("trainingProgress",snapshot);
+    return;
+  }
+  await put("progress",snapshot);
   markCloudDirty("progresso alterado");
-  queueCloudProgress(progressRecord);
+  queueCloudProgress(snapshot);
 }
 
 async function saveExit(){
   if(trainingMode){
-    exitQuizMode(); stopTimer(); $("quizScreen").classList.add("hidden");
-    await showSetup(selectedBank.id); toast("Treinamento encerrado."); return;
+    stopTimer();
+    try{await saveProgress();toast("Treinamento salvo neste dispositivo.");}
+    catch(error){console.error("Erro ao salvar treinamento:",error);toast("Não foi possível salvar o treinamento.");return;}
+    exitQuizMode();$("quizScreen").classList.add("hidden");
+    await showSetup(selectedBank.id);return;
   }
   exitQuizMode();
   await saveProgress();
@@ -4166,7 +4206,9 @@ async function finish(){
   // não envia resultado para a nuvem e não altera o histórico/estatísticas.
   // O usuário pode consultar o feedback durante a sessão, mas o treinamento
   // não deve contaminar os resultados dos simulados.
-  if(!trainingMode){
+  if(trainingMode){
+    await del("trainingProgress",selectedBank.id);
+  }else{
     await put("history",historyRecord);
     markCloudDirty("simulado finalizado");
     try{await pushHistory(selectedBank,historyRecord)}catch(e){console.error("Histórico pendente:",e)}
