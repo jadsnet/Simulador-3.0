@@ -3491,6 +3491,9 @@ async function showSetup(id){
   exitQuizMode();
   selectedBank=await get("banks",id);
   if(!selectedBank)return;
+  // Mantém o ID do banco na tela de configuração para recuperar a seleção caso
+  // alguma atualização assíncrona limpe selectedBank antes do clique em Iniciar.
+  $("setupScreen").dataset.bankId=String(selectedBank.id);
 
   // Em um computador novo, busca o progresso remoto antes de montar a tela.
   if(getCloudUser()){
@@ -3525,13 +3528,31 @@ async function showSetup(id){
 }
 
 async function startNew(mode="exam"){
+  // Não confia apenas na variável em memória: ela pode estar nula após uma
+  // atualização/sincronização assíncrona. Recupera o banco selecionado do IndexedDB.
+  const setupScreen=$("setupScreen");
+  const bankId=selectedBank?.id || setupScreen?.dataset?.bankId;
+  if(bankId){
+    const storedBank=await get("banks",bankId);
+    if(storedBank)selectedBank=storedBank;
+  }
+  if(!selectedBank){
+    alert("Não foi possível identificar o banco de questões selecionado. Volte à biblioteca, abra o banco novamente e tente iniciar o treinamento.");
+    return;
+  }
+  if(!Array.isArray(selectedBank.questions)||selectedBank.questions.length===0){
+    alert("Este banco não possui questões disponíveis. Verifique o banco importado e tente novamente.");
+    return;
+  }
+
   trainingMode=mode==="training";
+  const totalQuestions=selectedBank.questions.length;
   settings={
     mode:trainingMode?"training":"exam",
-    limit:Math.min(parseInt($("questionLimit").value)||selectedBank.questions.length,selectedBank.questions.length),
-    timeLimit:Math.max(0,parseInt($("timeLimit").value)||0),
-    shuffle:$("shuffleQuestions").checked,
-    warn:$("warnUnanswered").checked
+    limit:Math.min(parseInt($("questionLimit")?.value,10)||totalQuestions,totalQuestions),
+    timeLimit:Math.max(0,parseInt($("timeLimit")?.value,10)||0),
+    shuffle:!!$("shuffleQuestions")?.checked,
+    warn:!!$("warnUnanswered")?.checked
   };
 
   questions=[...selectedBank.questions];
