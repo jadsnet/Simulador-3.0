@@ -1,4 +1,4 @@
-const DB_BASE_NAME="simulador-v43";const DB_VERSION=2;let DB_NAME=`${DB_BASE_NAME}-anonymous`;let dbPromise;let trainingDbPromise;
+const DB_BASE_NAME="simulador-v43";const DB_VERSION=3;let DB_NAME=`${DB_BASE_NAME}-anonymous`;let dbPromise;let trainingDbPromise;
 export function setDBUserScope(userId){
   const scope=String(userId||"anonymous").replace(/[^a-zA-Z0-9_-]/g,"_");
   const nextName=`${DB_BASE_NAME}-${scope}`;
@@ -7,7 +7,7 @@ export function setDBUserScope(userId){
   dbPromise=undefined; if(trainingDbPromise)trainingDbPromise.then(db=>db.close()).catch(()=>{});trainingDbPromise=undefined;DB_NAME=nextName;
   return true;
 }
-export function openDB(){if(dbPromise)return dbPromise;dbPromise=new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,DB_VERSION);req.onupgradeneeded=()=>{const d=req.result;if(!d.objectStoreNames.contains("banks"))d.createObjectStore("banks",{keyPath:"id"});if(!d.objectStoreNames.contains("progress"))d.createObjectStore("progress",{keyPath:"bankId"});if(!d.objectStoreNames.contains("history"))d.createObjectStore("history",{keyPath:"id"});if(!d.objectStoreNames.contains("questionData"))d.createObjectStore("questionData",{keyPath:"key"})};req.onsuccess=()=>{req.result.onversionchange=()=>req.result.close();resolve(req.result)};req.onerror=()=>reject(req.error);req.onblocked=()=>reject(new Error("Banco local bloqueado. Feche outras abas do simulador e recarregue a página."))});return dbPromise}
+export function openDB(){if(dbPromise)return dbPromise;dbPromise=new Promise((resolve,reject)=>{const req=indexedDB.open(DB_NAME,DB_VERSION);req.onupgradeneeded=()=>{const d=req.result;if(!d.objectStoreNames.contains("banks"))d.createObjectStore("banks",{keyPath:"id"});if(!d.objectStoreNames.contains("progress"))d.createObjectStore("progress",{keyPath:"bankId"});if(!d.objectStoreNames.contains("trainingProgress"))d.createObjectStore("trainingProgress",{keyPath:"bankId"});if(!d.objectStoreNames.contains("history"))d.createObjectStore("history",{keyPath:"id"});if(!d.objectStoreNames.contains("questionData"))d.createObjectStore("questionData",{keyPath:"key"})};req.onsuccess=()=>{req.result.onversionchange=()=>req.result.close();resolve(req.result)};req.onerror=()=>reject(req.error);req.onblocked=()=>reject(new Error("Banco local bloqueado. Feche outras abas do simulador e recarregue a página."))});return dbPromise}
 function openTrainingDB(){
   if(trainingDbPromise)return trainingDbPromise;
   const name=`${DB_NAME}-training`;
