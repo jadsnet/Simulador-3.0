@@ -1,5 +1,5 @@
 import {put,get,getAll,del,setDBUserScope} from "./db.js";
-import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.11.1";
+import {initializeAuth,signIn,signUp,signOut,getCloudUser,ensurePublicProfile,listFriendProfiles,getFriendProgressSummary,updatePublicGoal,updatePublicProfile,pushProgress,pullProgress,deleteCloudProgress,deleteCloudBank,pushHistory,ensureCloudBank,pullCloudState,getCloudRevision} from "./cloud.js?v=7.11.5";
 const $=id=>document.getElementById(id);const LETTERS=["a","b","c","d","e"];
 const ONBOARDING_KEY="simulador-academy-onboarding-v2";
 const THEME_KEY="simulador-academy-theme-v1";
@@ -20,6 +20,7 @@ let managedBankId="";
 let editingQuestion=null;
 let profileCrop={file:null,image:null,zoom:1,x:0,y:0,dragging:false,startX:0,startY:0,originX:0,originY:0};
 let authMode="signin",cloudSaveTimer=null,pendingCloudProgress=null,cloudSaveInFlight=false;
+let activeAuthUserId=null,cloudRetryAt=0,cloudRetryDelay=1500,cloudSaveBank=null;
 document.addEventListener("DOMContentLoaded",init);
 
 async function init(){
@@ -1409,6 +1410,11 @@ async function submitAuth(){
 }
 
 async function handleAuthChange(user){
+  const nextUserId=user?.id||null;
+  if(activeAuthUserId===nextUserId && (nextUserId!==null || document.body.dataset.authInitialized==="true"))return;
+  activeAuthUserId=nextUserId;
+  document.body.dataset.authInitialized="true";
+  stopTimer();
   setDBUserScope(user?.id||null);
   banks=[];selectedBank=null;questions=[];answers={};reviewData=[];answerAudit=[];
   favorites=new Set();marked=new Set();notes={};selectedFriendId="";friendVisitData=null;
@@ -1564,6 +1570,11 @@ async function cleanupLocalBankRevisions(canonicalBanks=[]){
 
 async function syncAllNow(options={}){
   if(!getCloudUser())return;
+  // Não substituir bancos/progressos locais durante uma prova ativa.
+  if(!$('quizScreen').classList.contains('hidden')){
+    updateSyncDiagnostics({state:"warning",message:"Sincronização completa adiada até sair do simulado."});
+    return;
+  }
   setCloudStatus("Verificando","syncing");
   updateSyncDiagnostics({state:"running",message:"Verificando se existem alterações..."});
   try{
@@ -1696,29 +1707,35 @@ function shouldUseRemoteProgress(local,remote){
 
 function queueCloudProgress(progress){
   pendingCloudProgress=progress;
+  cloudSaveBank=selectedBank;
   clearTimeout(cloudSaveTimer);
-  cloudSaveTimer=setTimeout(()=>flushCloudProgress(),250);
+  cloudSaveTimer=setTimeout(()=>flushCloudProgress(),2000);
 }
 
 async function flushCloudProgress(){
-  if(cloudSaveInFlight||!pendingCloudProgress||!selectedBank||!getCloudUser())return;
+  if(cloudSaveInFlight||!pendingCloudProgress||!getCloudUser()||Date.now()<cloudRetryAt)return;
   const progress=pendingCloudProgress;
+  const bank=cloudSaveBank;
+  if(!bank||bank.id!==progress.bankId)return;
   pendingCloudProgress=null;
   cloudSaveInFlight=true;
-  setCloudStatus("Salvando","syncing");
+  // O salvamento remoto é silencioso: responder questões nunca depende da rede.
   try{
-    await pushProgress(selectedBank,progress);
+    await pushProgress(bank,progress);
     markProgressPushSynced(progress);
-    setCloudStatus("Salvo na nuvem","online");
+    cloudRetryDelay=1500;cloudRetryAt=0;
+    if(!pendingCloudProgress)setCloudStatus("Salvo na nuvem","online");
   }catch(e){
     console.error("Falha ao salvar progresso na nuvem",e);
-    pendingCloudProgress=progress;
+    if(!pendingCloudProgress || String(pendingCloudProgress.savedAt)<String(progress.savedAt))pendingCloudProgress=progress;
+    cloudRetryAt=Date.now()+cloudRetryDelay;
+    cloudRetryDelay=Math.min(cloudRetryDelay*2,60000);
     setCloudStatus("Pendente","offline");
   }finally{
     cloudSaveInFlight=false;
     if(pendingCloudProgress){
       clearTimeout(cloudSaveTimer);
-      cloudSaveTimer=setTimeout(()=>flushCloudProgress(),1500);
+      cloudSaveTimer=setTimeout(()=>flushCloudProgress(),Math.max(2000,cloudRetryAt-Date.now()));
     }
   }
 }
@@ -3488,7 +3505,7 @@ function normalizeQuestions(rows){
   return questions;
 }
 
-async function showSetup(id){
+async function showSetup(id,options={}){
   exitQuizMode();
   selectedBank=await get("banks",id);
   if(!selectedBank)return;
@@ -3497,7 +3514,7 @@ async function showSetup(id){
   $("setupScreen").dataset.bankId=String(selectedBank.id);
 
   // Em um computador novo, busca o progresso remoto antes de montar a tela.
-  if(getCloudUser()){
+  if(getCloudUser()&&!options.skipRemote){
     try{
       setCloudStatus("Buscando progresso","syncing");
       const local=await get("progress",id);
@@ -3966,6 +3983,7 @@ function goTo(i){
 }
 
 function next(){
+  if(!selectedBank||!questions.length)return;
   if(currentIndex<questions.length-1)goTo(currentIndex+1);
   else finish();
 }
@@ -4086,7 +4104,7 @@ function startTimer(){
       finish();
     }
 
-    if(timerSeconds%5===0)saveProgress();
+    if(timerSeconds%5===0)saveProgress().catch(error=>console.error("Falha no salvamento automático:",error));
   },1000);
 
   $("timer").textContent=formatTime(timerSeconds);
@@ -4121,26 +4139,22 @@ async function saveProgress(){
 }
 
 async function saveExit(){
+  if(!selectedBank||!questions.length){toast("Nenhum simulado ativo para salvar.");return;}
+  const bankId=selectedBank.id;
   if(trainingMode){
     stopTimer();
     try{await saveProgress();toast("Treinamento salvo neste dispositivo.");}
     catch(error){console.error("Erro ao salvar treinamento:",error);toast("Não foi possível salvar o treinamento.");return;}
     exitQuizMode();$("quizScreen").classList.add("hidden");
-    await showSetup(selectedBank.id);return;
+    await showSetup(bankId,{skipRemote:true});return;
   }
   exitQuizMode();
   await saveProgress();
   stopTimer();
-  try{
-    await flushCloudProgress();
-    if(pendingCloudProgress)throw new Error("A sincronização ainda está pendente.");
-    toast("Progresso salvo neste dispositivo e na nuvem.");
-  }catch(error){
-    console.error(error);
-    toast("Salvo neste dispositivo. A sincronização com a nuvem está pendente.");
-  }
+  toast("Progresso salvo neste dispositivo. A nuvem sincroniza em segundo plano.");
+  flushCloudProgress().catch(error=>console.error("Sincronização em segundo plano:",error));
   $("quizScreen").classList.add("hidden");
-  await showSetup(selectedBank.id);
+  await showSetup(bankId,{skipRemote:true});
 }
 
 async function deleteProgress(){
@@ -4151,6 +4165,7 @@ async function deleteProgress(){
 }
 
 async function finish(){
+  if(!selectedBank||!questions.length){toast("Nenhum simulado ativo para finalizar.");return;}
   const validation=validateSavedAnswers(questions,answers);
   if(validation.conflicts.length){
     const first=validation.conflicts[0];
@@ -4164,6 +4179,8 @@ async function finish(){
   if(settings.warn&&unanswered&&!confirm(`Há ${unanswered} não respondidas. Finalizar?`))return;
 
   stopTimer();
+  clearTimeout(cloudSaveTimer);
+  pendingCloudProgress=null;
   exitQuizMode();
   let correct=0;
   reviewData=[];
@@ -4211,9 +4228,9 @@ async function finish(){
   }else{
     await put("history",historyRecord);
     markCloudDirty("simulado finalizado");
-    try{await pushHistory(selectedBank,historyRecord)}catch(e){console.error("Histórico pendente:",e)}
+    pushHistory(selectedBank,historyRecord).catch(e=>console.error("Histórico pendente:",e));
     await del("progress",selectedBank.id);
-    try{await deleteCloudProgress(selectedBank)}catch(e){console.error(e)}
+    deleteCloudProgress(selectedBank).catch(e=>console.error("Exclusão remota pendente:",e));
   }
 
   $("quizScreen").classList.add("hidden");

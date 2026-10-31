@@ -15,6 +15,8 @@ grant select, insert, update, delete on public.question_banks to authenticated;
 grant select, insert, update, delete on public.quiz_progress to authenticated;
 grant select, insert, update, delete on public.quiz_history to authenticated;
 
+-- Remove políticas antigas dessas três tabelas exclusivas do aplicativo.
+-- Assim uma política antiga/restritiva não bloqueia contas recém-criadas.
 do $$
 declare policy_row record;
 begin
@@ -64,6 +66,7 @@ create index if not exists quiz_history_user_id_idx on public.quiz_history(user_
 
 commit;
 
+-- Diagnóstico: as três linhas devem mostrar rowsecurity = true.
 select relname, relrowsecurity
 from pg_class
 where oid in (

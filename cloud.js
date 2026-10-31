@@ -22,10 +22,15 @@ export function getCloudUser(){ return currentUser; }
 export async function initializeAuth(onChange){
   const { data:{ session } } = await supabase.auth.getSession();
   currentUser = session?.user || null;
-  onChange(currentUser);
+  await onChange(currentUser);
   supabase.auth.onAuthStateChange((_event, nextSession)=>{
+    const previousId=currentUser?.id||null;
     currentUser = nextSession?.user || null;
-    onChange(currentUser);
+    // TOKEN_REFRESHED, INITIAL_SESSION e USER_UPDATED não são novos logins.
+    // Reinicializar o aplicativo nesses eventos apagava o simulado em andamento.
+    if(previousId!==(currentUser?.id||null)){
+      Promise.resolve().then(()=>onChange(currentUser)).catch(error=>console.error("Falha ao atualizar sessão:",error));
+    }
   });
 }
 
